@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+openai
+python-dotenv
+pydantic
+motor
+httpx
+python-jose[cryptography]
+bcrypt
+python-multipart
+pytest
+
+# Optional: ML classifier (uncomment to enable)
+# transformers
+# torch
