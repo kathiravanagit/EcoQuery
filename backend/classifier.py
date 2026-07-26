@@ -49,8 +49,26 @@ class QueryClassifier:
         has_code = any(c in message for c in ("def ", "class ", "import ", "```", "function"))
         has_math = any(c in message for c in ("∑", "∫", "∂", "√", "±"))
         word_count = len(words)
+        lower = message.lower()
 
-        if word_count > 100 or has_code or has_math:
+        complex_keywords = (
+            "quantum", "superposition", "wavefunction", "entanglement", "hamiltonian",
+            "eigenvalue", "relativity", "thermodynamic", "entropy", "derivative",
+            "integral", "differential", "fourier", "laplace", "fourier transform",
+            "algorithm", "complexity", "proof", "theorem", "axiom",
+            "architecture", "microservice", "kubernetes", "docker",
+            "explain how", "explain the", "step by step", "in detail",
+            "compare and contrast", "analyze", "evaluate", "critique",
+            "write an essay", "write a report", "research paper",
+            "compiler", "parser", "neural network", "backpropagation",
+            "consciousness", "philosophy", "epistemology", "ontology",
+            "genome", "protein folding", "crispr", "biochemistry",
+            "black hole", "dark matter", "general relativity", "quantum mechanics",
+            "differential equation", "partial differential", "linear algebra",
+        ]
+        has_complex_topic = any(kw in lower for kw in complex_keywords)
+
+        if word_count > 100 or has_code or has_math or has_complex_topic:
             tier = "complex"
             confidence = 0.75 if word_count > 100 else 0.85
         elif word_count > 30 or length > 150:
