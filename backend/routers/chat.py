@@ -20,10 +20,10 @@ logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
 
 MODEL_COST_MAP = {
-    "gpt-4o-mini": 0.00015, "gemini-2.0-flash-lite": 0.000075, "claude-3-haiku": 0.00025,
-    "llama-3.1-8b": 0.00005, "gpt-4o": 0.0025, "gemini-2.0-flash": 0.0001,
+    "gpt-4o-mini": 0.00015, "gemini-2.5-flash-lite": 0.000075, "claude-3-haiku": 0.00025,
+    "llama-3.1-8b": 0.00005, "gpt-4o": 0.0025, "gemini-2.5-flash": 0.0001,
     "claude-3.5-sonnet": 0.003, "llama-3.1-70b": 0.00035,
-    "gpt-4.5": 0.075, "gemini-2.0-pro": 0.002, "claude-3.5-opus": 0.015, "llama-3.1-405b": 0.002,
+    "gpt-4.5": 0.075, "gemini-2.5-pro": 0.002, "claude-3.5-opus": 0.015, "llama-3.1-405b": 0.002,
     "ollama-llama3-8b": 0.0, "groq-llama-3.1-70b": 0.00035, "groq-mixtral-8x7b": 0.0002
 }
 
