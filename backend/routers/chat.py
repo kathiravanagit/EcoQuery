@@ -31,7 +31,7 @@ MODEL_COST_MAP = {
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest, request: Request):
     start_time = time.time()
-    classification = classifier.classify(req.message)
+    classification = await classifier.classify(req.message)
     prompt_len = len(req.message)
     routing = await route_query(classification["tier"], prompt_length=prompt_len)
     region_info = routing["region"]
