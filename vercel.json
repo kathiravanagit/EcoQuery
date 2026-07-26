@@ -11,8 +11,5 @@
   "installCommand": "cd frontend && npm ci",
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
-  ],
-  "env": {
-    "VITE_API_URL": "@vite_api_url"
-  }
+  ]
 }
