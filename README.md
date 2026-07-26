@@ -160,10 +160,6 @@ cd backend && python -m pytest --maxfail=1 -v
 | `MONGODB_URL` | No | MongoDB URI (default: `mongodb://localhost:27017/ecoquery`) |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | No | Google OAuth secret |
-| `SMTP_HOST` | No | SMTP for password reset emails |
-| `SMTP_PORT` | No | Default: 587 |
-| `SMTP_USER` | No | SMTP username |
-| `SMTP_PASS` | No | SMTP password |
 | `FRONTEND_URL` | No | For reset links (default: `http://localhost:5173`) |
 
 ## Deployment
