@@ -71,7 +71,8 @@ const Dashboard = () => {
   useEffect(() => {
     const t = token;
     if (!t) return;
-    const ws = new WebSocket(`wss://localhost:8000/ws?token=${t}`);
+    const wsUrl = API.replace(/^http/, 'ws') + '/ws?token=' + t;
+    const ws = new WebSocket(wsUrl);
     ws.onopen = () => { setWsStatus('connected'); };
     ws.onclose = () => { setWsStatus('disconnected'); };
     ws.onmessage = (e) => {
