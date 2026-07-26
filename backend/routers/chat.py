@@ -84,9 +84,11 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             rate = MODEL_COST_MAP.get(model_sel["model"], 0.001)
             api_cost = round((prompt_tokens * rate / 1000) + (output_tokens * rate / 1000), 6)
     except Exception as e:
-        logger.warning(f"LLM API call failed: {e}")
+        err_msg = str(e)
+        logger.warning(f"LLM API call failed: {err_msg}")
         reply_content = (
-            f"This is a simulated EcoQuery response.\n\n"
+            f"Error: {err_msg}\n\n"
+            f"Routing info:\n"
             f"Classification: {classification['tier']} "
             f"(confidence: {classification['confidence']:.1%}, method: {classification['method']})\n"
             f"Routed to: {routed_model_display}\n"
