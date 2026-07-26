@@ -1,27 +1,35 @@
-import React, { useCallback, useState, useEffect, FormEvent } from 'react';
+import React, { useState, FormEvent } from 'react';
 import { motion } from 'framer-motion';
-import { useForm, ValidationError } from '@formspree/react';
 import { Send, Mail, MapPin, Clock } from 'lucide-react';
+import { API_URL } from '../config';
 import './Pages.css';
 
 const Contact = () => {
-  const [state, formspreeSubmit] = useForm("xkodkwol");
-  const formRef = React.useRef<HTMLFormElement>(null);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
-  useEffect(() => {
-    if (state.succeeded) {
-      setShowSuccess(true);
-      const timer = setTimeout(() => setShowSuccess(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [state.succeeded]);
-
-  const handleSubmit = useCallback((e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    formRef.current?.reset();
-    formspreeSubmit(e);
-  }, [formspreeSubmit]);
+    setStatus('sending');
+    try {
+      const res = await fetch(`${API_URL}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, message }),
+      });
+      if (res.ok) {
+        setStatus('sent');
+        setName(''); setEmail(''); setMessage('');
+        setTimeout(() => setStatus('idle'), 5000);
+      } else {
+        setStatus('error');
+      }
+    } catch {
+      setStatus('error');
+    }
+  };
 
   return (
     <div className="page">
@@ -43,19 +51,18 @@ const Contact = () => {
               <div className="contact-item"><Clock size={20} className="text-accent" /><div><h4>Response Time</h4><p>Within 24 hours</p></div></div>
             </motion.div>
 
-            <motion.form ref={formRef} className="contact-form card" onSubmit={handleSubmit} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
+            <motion.form className="contact-form card" onSubmit={handleSubmit} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
               <label htmlFor="contact-name" style={{ display: 'none' }}>Your Name</label>
-              <input id="contact-name" type="text" name="name" placeholder="Your Name" required />
+              <input id="contact-name" type="text" placeholder="Your Name" value={name} onChange={e => setName(e.target.value)} required />
               <label htmlFor="contact-email" style={{ display: 'none' }}>Your Email</label>
-              <input id="contact-email" type="email" name="email" placeholder="Your Email" required />
-              <ValidationError prefix="Email" field="email" errors={state.errors} />
+              <input id="contact-email" type="email" placeholder="Your Email" value={email} onChange={e => setEmail(e.target.value)} required />
               <label htmlFor="contact-message" style={{ display: 'none' }}>Your Message</label>
-              <textarea id="contact-message" name="message" rows={5} placeholder="Your Message" required></textarea>
-              <ValidationError prefix="Message" field="message" errors={state.errors} />
-              <button type="submit" className="btn btn-primary" disabled={state.submitting}>
-                {showSuccess ? 'Message Sent!' : state.submitting ? 'Sending...' : 'Send Message'}
+              <textarea id="contact-message" rows={5} placeholder="Your Message" value={message} onChange={e => setMessage(e.target.value)} required></textarea>
+              <button type="submit" className="btn btn-primary" disabled={status === 'sending'}>
+                {status === 'sent' ? 'Message Sent!' : status === 'sending' ? 'Sending...' : 'Send Message'}
                 <Send size={16} />
               </button>
+              {status === 'error' && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.5rem' }}>Failed to send. Please try again.</p>}
             </motion.form>
           </div>
         </div>

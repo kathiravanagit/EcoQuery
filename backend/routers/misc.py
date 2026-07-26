@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
 from datetime import datetime, timezone
 import secrets
 import os
@@ -10,6 +11,26 @@ from ledger import ledger
 from models import CARBON_MODELS
 from websocket_manager import ws_manager
 router = APIRouter(tags=["misc"])
+
+
+class ContactRequest(BaseModel):
+    name: str
+    email: str
+    message: str
+
+
+@router.post("/api/contact")
+async def contact(req: ContactRequest):
+    from ledger import ledger
+    if ledger.available and ledger.db is not None:
+        await ledger.db.contacts.insert_one({
+            "name": req.name,
+            "email": req.email,
+            "message": req.message,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "read": False,
+        })
+    return {"success": True, "message": "Message received! We'll get back to you within 24 hours."}
 
 
 async def _get_api_key(email: str) -> str:
