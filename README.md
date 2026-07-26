@@ -1,6 +1,6 @@
 # EcoQuery
 
-**Carbon-aware AI query routing** — intelligently route LLM queries to the most eco-friendly model and data center region without sacrificing quality. Built for the Smart India Hackathon.
+**Carbon-aware AI query routing** — intelligently route LLM queries to the most eco-friendly model and data center region without sacrificing quality.
 
 ## Features
 
