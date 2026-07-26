@@ -3,9 +3,8 @@ import { motion } from 'framer-motion';
 import { Key, Award, Leaf, Server, BarChart3, Copy, Check, TrendingUp, DollarSign, Download, Zap, Search } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { useAuth } from '../context/AuthContext';
+import { API_URL as API } from '../config';
 import './Pages.css';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 interface Stats {
   total_queries?: number; total_co2_saved_g?: number; total_api_cost?: number;

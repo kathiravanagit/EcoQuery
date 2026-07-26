@@ -17,9 +17,9 @@ interface AuthContextType {
   isLoading: boolean
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+import { API_URL as API } from '../config';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const AuthContext = createContext<AuthContextType | null>(null);
 
 const getToken = (): string | null => {
   try {

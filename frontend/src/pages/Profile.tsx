@@ -4,9 +4,8 @@ import { User, Key, Trash2, LogOut, ChevronDown, ChevronUp } from 'lucide-react'
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { API_URL as API } from '../config';
 import './Pages.css';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 interface ProfileUser { email?: string; display_name?: string; auth_provider?: string; }
 interface ApiCallFn { (method: string, path: string, body: object): Promise<any> }

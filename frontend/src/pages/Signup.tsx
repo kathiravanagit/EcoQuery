@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { UserPlus, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { API_URL as API } from '../config';
 import './Pages.css';
 
 const Signup = () => {

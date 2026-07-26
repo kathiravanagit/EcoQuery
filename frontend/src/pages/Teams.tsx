@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { Building2, Users, Key, Plus, Copy, Check, AlertCircle, LogOut, UserPlus } from 'lucide-react';
+import { API_URL as API } from '../config';
 import './Pages.css';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const Teams = () => {
   const { user, token } = useAuth();

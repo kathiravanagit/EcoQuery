@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Mail, AlertCircle, ArrowLeft } from 'lucide-react';
+import { API_URL as API } from '../config';
 import './Pages.css';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');

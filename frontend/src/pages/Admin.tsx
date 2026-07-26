@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { Shield, Users, BarChart3, Leaf, Search, Building2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { API_URL as API } from '../config';
 import './Pages.css';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const PAGE_SIZE = 10;
 
 const Admin = () => {
