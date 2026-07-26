@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Lock, AlertCircle, Check } from 'lucide-react';
+import { API_URL as API } from '../config';
 import './Pages.css';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const ResetPassword = () => {
   const [params] = useSearchParams();

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Leaf, Server, Zap } from 'lucide-react';
+import { API_URL as API } from '../config';
 import './LiveDemo.css';
 
 interface Metadata {
@@ -38,8 +39,6 @@ const fadeUp = {
   viewport: { once: true },
   transition: { duration: 0.6, ease: easeFn },
 };
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const modelTierColors: Record<string, string> = {
   green: '#00d46a',
