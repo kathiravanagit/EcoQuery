@@ -75,7 +75,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         client = openai.OpenAI(**client_kwargs)
         response = client.chat.completions.create(
             model=target_model,
-            messages=[{"role": "user", "content": req.message}]
+            messages=[{"role": "user", "content": req.message}],
+            max_tokens=1024
         )
         reply_content = response.choices[0].message.content
         if response.usage:
