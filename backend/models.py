@@ -32,12 +32,12 @@ CARBON_MODELS = [
         "description": "Highly efficient cloud model, excellent for most queries"
     },
     {
-        "id": "gemini-2.0-flash-lite",
+        "id": "gemini-2.5-flash-lite",
         "provider": "Google",
         "tier": "green",
         "carbon_score": 1,
         "capability": "medium",
-        "openrouter_id": "google/gemini-2.0-flash-lite",
+        "openrouter_id": "google/gemini-2.5-flash-lite",
         "description": "Ultra-efficient, ideal for simple queries"
     },
     {
@@ -77,12 +77,12 @@ CARBON_MODELS = [
         "description": "Strong all-rounder with good efficiency"
     },
     {
-        "id": "gemini-2.0-flash",
+        "id": "gemini-2.5-flash",
         "provider": "Google",
         "tier": "balanced",
         "carbon_score": 4,
         "capability": "very-high",
-        "openrouter_id": "google/gemini-2.0-flash",
+        "openrouter_id": "google/gemini-2.5-flash",
         "description": "Fast, capable, moderate carbon cost"
     },
     {
@@ -113,12 +113,12 @@ CARBON_MODELS = [
         "description": "Maximum capability, higher carbon cost"
     },
     {
-        "id": "gemini-2.0-pro",
+        "id": "gemini-2.5-pro",
         "provider": "Google",
         "tier": "performance",
         "carbon_score": 8,
         "capability": "highest",
-        "openrouter_id": "google/gemini-2.0-pro",
+        "openrouter_id": "google/gemini-2.5-pro",
         "description": "Google's most capable, moderate-high carbon"
     },
     {
@@ -145,11 +145,11 @@ REGION_MODEL_AFFINITY = {
     "local-machine": ["ollama-llama3-8b"],
     "eu-west-1": ["gpt-4o-mini", "claude-3-haiku", "gpt-4o", "claude-3.5-sonnet", "groq-llama-3.1-70b"],
     "eu-west-2": ["gpt-4o-mini", "llama-3.1-8b", "gpt-4o", "llama-3.1-70b"],
-    "eu-west-3": ["gemini-2.0-flash-lite", "gemini-2.0-flash", "claude-3-haiku", "claude-3.5-sonnet"],
+    "eu-west-3": ["gemini-2.5-flash-lite", "gemini-2.5-flash", "claude-3-haiku", "claude-3.5-sonnet"],
     "eu-central-1": ["gpt-4o-mini", "gpt-4o", "llama-3.1-8b", "llama-3.1-70b", "groq-mixtral-8x7b"],
-    "eu-north-1": ["ollama-llama3-8b", "gemini-2.0-flash-lite", "gemini-2.0-flash", "gpt-4o-mini"],
+    "eu-north-1": ["ollama-llama3-8b", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gpt-4o-mini"],
     "us-east-1": ["gpt-4o-mini", "gpt-4o", "gpt-4.5", "claude-3-haiku", "claude-3.5-sonnet", "claude-3.5-opus"],
-    "us-west-1": ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-2.0-pro", "llama-3.1-8b", "llama-3.1-70b", "llama-3.1-405b"],
+    "us-west-1": ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "llama-3.1-8b", "llama-3.1-70b", "llama-3.1-405b"],
     "us-west-2": ["gpt-4o-mini", "gpt-4o", "gpt-4.5", "llama-3.1-8b", "llama-3.1-70b", "groq-llama-3.1-70b"],
 }
 
