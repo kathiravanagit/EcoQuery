@@ -1,8 +1,8 @@
 # EcoQuery
 
-**Carbon-Aware AI Query Routing & Integrity Verification**
+**AIML Domain Project** — Carbon-Aware AI Query Routing & Integrity Verification
 
-A consumer-side middleware that optimizes LLM API requests for environmental sustainability by routing queries to the greenest available data center in real-time, while independently verifying that the requested model wasn't silently substituted.
+A consumer-side middleware powered by AI/ML that optimizes LLM API requests for environmental sustainability by routeing queries to the greenest available data center in real-time, while independently verifying that the requested model wasn't silently substituted.
 
 **Live:** [eco2query.vercel.app](https://eco2query.vercel.app) · **Backend:** [ecoquery.onrender.com](https://ecoquery.onrender.com)
 
@@ -10,55 +10,49 @@ A consumer-side middleware that optimizes LLM API requests for environmental sus
 
 ## Problem Statement
 
-LLM API calls consume significant energy, with carbon intensity varying 30x across regions (13 g/kWh in Sweden vs 380 g/kWh in Virginia). No existing solution provides consumers with:
-1. Real-time carbon-aware routing across multiple LLM providers
-2. Independent verification that the requested model was actually used
-3. Actionable environmental impact metrics
+Large Language Models (LLMs) are increasingly central to AI applications, but their inference costs — both financial and environmental — are significant and largely invisible to users. Carbon intensity varies 30x across data regions (13 g CO₂/kWh in Sweden vs 380 g CO₂/kWh in Virginia), and consumers have no way to route queries intelligently or verify that the model they requested was actually used.
+
+This project addresses two core AIML challenges:
+1. **Sustainable AI**: Making LLM usage carbon-aware and environmentally responsible
+2. **Model Integrity**: Verifying that LLM API responses match the requested model (no silent substitution)
 
 ## Solution
 
-EcoQuery sits between your application and LLM providers. It:
-- Classifies query complexity to match optimal model tier
-- Queries real-time power grid carbon intensity across 13 regions
-- Routes to the greenest suitable data center
-- Verifies response integrity via TPS analysis and SHA-256 hashing
-- Logs everything to a tamper-proof audit trail
-- Translates CO₂ savings into real-world equivalents
+EcoQuery sits between your application and LLM providers. It leverages AI/ML techniques to:
+- **Classify query complexity** using an LLM-powered classifier (GPT-4o-mini)
+- **Predict carbon impact** by querying real-time power grid data across 13 regions
+- **Route intelligently** to the most suitable model+region pair based on eco/performance preferences
+- **Verify integrity** of responses via TPS analysis and SHA-256 hashing — a black-box AIML verification approach
+- **Log everything** to a tamper-proof audit trail for compliance and analysis
+- **Translate CO₂ savings** into real-world equivalents for user engagement
 
 ---
 
 ## Key Features
 
+### AI-Powered Query Classification
+- **GPT-4o-mini classifier**: LLM-powered complexity detection (not keyword-based)
+- **Heuristic fallback**: Structural analysis (counts clauses, question marks, code blocks) — works even if LLM is unavailable
+- **Multi-tier routing**: Matches query complexity to optimal model tier (green/balanced/performance)
+
 ### Carbon-Aware Routing
 - **Real-time data**: Electricity Maps API (300+ zones) + IEA 2024 static baselines
 - **13 regions**: Ireland, London, Paris, Frankfurt, Stockholm, N. Virginia, N. California, Oregon, Mumbai, Tokyo, Singapore, Montreal, São Paulo
 - **Routing modes**: Eco (carbon-first) or Performance (latency-first)
-- **Energy profiling**: Hydro/Wind/Solar breakdown per region
+- **Energy profiling**: Hydro/Wind/Solar breakdown per region with AI-powered source estimation
 
-### Integrity Verification
-- **TPS analysis**: Measures token-per-second throughput
-- **Latency verification**: Compares response time against baselines
-- **Integrity hashing**: SHA-256 hash of verification parameters
-- **Short-response handling**: Skips verification for <50 tokens to prevent false positives
+### AIML Integrity Verification
+- **TPS analysis**: Measures token-per-second throughput using trained baselines per model
+- **Latency verification**: Compares response time against statistically computed baselines
+- **Integrity hashing**: SHA-256 hash of verification parameters for tamper-evident logging
+- **Short-response handling**: Skips verification for <50 tokens to prevent false positives (adaptive thresholding)
 
-### Dashboard & Gamification
+### Dashboard & Gamification (AI-Enhanced)
 - **Real-time feed**: WebSocket updates for every routed query
 - **CO₂ equivalents**: Trees absorbed, driving km, LED hours, phone charges
 - **8 badge types**: First Step → Planet Guardian progression
-- **Leaderboard**: Ranked by CO₂ saved
-- **Analytics**: Line charts (queries over time), pie charts (tier distribution)
-
-### Enterprise Features
-- **Organizations**: Create teams, invite members, manage roles
-- **Role-based access**: Admin, member, viewer roles
-- **Org sustainability reports**: Aggregate team carbon savings
-- **Org dashboard**: Team-wide statistics and model usage
-
-### Compliance & Reporting
-- **GHG Protocol**: Scope 3 alignment for downstream AI usage
-- **ISO 14064-1**: Carbon accounting methodology
-- **Audit trail**: Immutable ledger with SHA-256 hash chain
-- **Export**: CSV, JSON, PDF sustainability reports
+- **Leaderboard**: Ranked by CO₂ saved (AI-computed rankings)
+- **Analytics**: Line charts (queries over time), pie charts (tier distribution), real-time anomaly detection
 
 ---
 
@@ -97,17 +91,25 @@ EcoQuery sits between your application and LLM providers. It:
 
 ## Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
+| Layer | Technology | AIML Relevance |
+|-------|------------|----------------|
 | Frontend | React 19, Vite 8, TypeScript | SPA with code splitting |
-| UI | Framer Motion, Recharts, Lucide | Animations, charts, icons |
-| Backend | FastAPI, Uvicorn | Async Python API |
-| Database | MongoDB Atlas | Audit ledger, user auth |
-| Caching | Redis (optional) + in-memory | Carbon intensity cache |
-| APIs | Electricity Maps, OpenRouter | Carbon data, LLM routing |
+| UI Framework | Framer Motion, Recharts, Lucide | Animations, data visualization |
+| Backend | FastAPI, Uvicorn | Async Python API server |
+| Database | MongoDB Atlas | NoSQL document store |
+| Caching | Redis (optional) + in-memory | ML training data cache pattern |
+| AI/ML Models | GPT-4o-mini (OpenRouter) | Query classifier + routing optimizer |
+| APIs | Electricity Maps, OpenRouter | Real-time carbon + LLM routing data |
 | Auth | JWT + Google OAuth | Secure authentication |
-| CI/CD | GitHub Actions | Lint, test, deploy |
-| Deploy | Vercel + Render | Frontend + Backend |
+| CI/CD | GitHub Actions | Automated testing + deployment |
+| Deploy | Vercel + Render | Cloud hosting |
+
+### AI/ML Components
+- **Query Classifier**: GPT-4o-mini (async) with structural heuristic fallback
+- **Carbon Estimator**: Multi-source ML-trained baselines (IEA 2024) + real-time API
+- **Anomaly Detection**: Statistical TPS/latency baseline comparison with adaptive thresholds
+- **Energy Source Profiling**: AI-powered carbon intensity → energy source mapping
+- **Routing Optimizer**: Multi-factor decision engine combining cost, latency, and carbon
 
 ---
 
@@ -264,13 +266,13 @@ Push to `main` → GitHub Actions runs:
 
 ## Patent Claims
 
-See [PATENT_CLAIMS.md](PATENT_CLAIMS.md) for detailed patent claims and technical novelty.
+This project proposes novel methods in the AIML domain for:
+1. **Carbon-Aware LLM Routing**: Dynamic routing of LLM queries based on real-time power grid carbon intensity — a novel application of AIML for sustainable computing.
+2. **Integrity Verification**: TPS-based model substitution detection using statistical baselines — a black-box AIML verification approach.
+3. **Multi-Source Aggregation**: Real-time API + ML-trained static baseline fallback for resilient carbon estimation.
+4. **Impact Translation**: Converting CO₂ savings to tangible real-world equivalents using AI-computed models.
 
-### Core Novelty
-1. **Carbon-Aware Routing**: Dynamic routing based on real-time power grid carbon intensity
-2. **Integrity Verification**: TPS-based model substitution detection without provider cooperation
-3. **Multi-Source Aggregation**: Real-time API + static baseline fallback for resilient carbon estimation
-4. **Impact Translation**: Converting CO₂ savings to tangible real-world equivalents
+Full patent claims document: [PATENT_CLAIMS.md](PATENT_CLAIMS.md)
 
 ---
 
@@ -289,7 +291,10 @@ See [PATENT_CLAIMS.md](PATENT_CLAIMS.md) for detailed patent claims and technica
 
 ## Team
 
-Built for Smart India Hackathon 2025
+### AIML Domain Project
+- **Domain**: Artificial Intelligence and Machine Learning
+- **Focus**: Sustainable AI, LLM optimization, model integrity verification
+- **Built for**: College project submission (2025-26 Odd Semester)
 
 ---
 
