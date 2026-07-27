@@ -24,6 +24,8 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r requirements.txt
+      - run: pip install ruff
+      - run: ruff check . --select E,F --ignore E501
       - run: python -m pytest --maxfail=1 --disable-warnings -q || echo "No tests found"
 
   lint-test-frontend:
