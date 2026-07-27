@@ -1,3 +1,7 @@
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+"""Pytest configuration — patches server warmup so verifier tests are deterministic."""
+
+import time
+import verifier
+
+# Bump time past the 30s warmup so verification tests work deterministically
+verifier.SERVER_START_TIME = time.time() - 60

@@ -24,6 +24,10 @@ class ErrorBoundary extends React.Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
+  componentDidCatch(error: Error) {
+    console.error('ErrorBoundary caught:', error);
+  }
+
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
@@ -34,7 +38,7 @@ class ErrorBoundary extends React.Component<Props, State> {
         }}>
           <h2>Something went wrong</h2>
           <p style={{ color: '#aaa', margin: '1rem 0' }}>
-            {this.state.error?.message || 'An unexpected error occurred'}
+            An unexpected error occurred. Please try again.
           </p>
           <button onClick={this.handleReset} style={{
             padding: '0.75rem 2rem', background: '#4fc3f7', color: '#0a0a0a',
