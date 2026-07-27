@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Play, Shield, Leaf, Zap } from 'lucide-react';
+import { ArrowRight, Play, Shield, Leaf, Zap, TreePine, Car, Lightbulb } from 'lucide-react';
 import './Hero.css';
 
 const stagger = {
@@ -19,10 +19,16 @@ const fadeScale = {
   animate: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: easeFn } },
 };
 
+const co2Equivalents = [
+  { icon: <TreePine size={16} />, value: "12.5 trees", label: "Equivalent CO₂ absorbed", color: "#00d46a" },
+  { icon: <Car size={16} />, value: "50 km", label: "Driving distance saved", color: "#3b82f6" },
+  { icon: <Lightbulb size={16} />, value: "1,250 hours", label: "LED bulb runtime", color: "#f59e0b" },
+];
+
 const featureCards = [
-  { icon: <Leaf size={20} />, title: "Carbon-Aware Routing", desc: "Routes through the greenest data center in real-time", color: "#00d46a" },
-  { icon: <Shield size={20} />, title: "Integrity Verification", desc: "Detects model substitution with TPS-based analysis", color: "#3b82f6" },
-  { icon: <Zap size={20} />, title: "Eco & Performance Modes", desc: "Choose between carbon-first or latency-first routing", color: "#f59e0b" },
+  { icon: <Leaf size={20} />, title: "Carbon-Aware Routing", desc: "Routes through greenest data center in real-time across 13 regions", color: "#00d46a" },
+  { icon: <Shield size={20} />, title: "Integrity Verification", desc: "Detects model substitution with TPS-based analysis + SHA-256 hashing", color: "#3b82f6" },
+  { icon: <Zap size={20} />, title: "Eco & Performance Modes", desc: "Choose carbon-first or latency-first routing", color: "#f59e0b" },
 ];
 
 const Hero = () => {
@@ -58,6 +64,23 @@ const Hero = () => {
           <motion.p className="hero-subtitle" variants={fadeUp}>
             Intelligent routing + independent verification for lower carbon footprint without sacrificing quality.
           </motion.p>
+
+          <motion.div variants={fadeUp} style={{ 
+            display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center',
+            marginBottom: '1.5rem', padding: '12px 16px', borderRadius: '12px',
+            background: 'rgba(0, 212, 106, 0.05)', border: '1px solid rgba(0, 212, 106, 0.15)',
+          }}>
+            {co2Equivalents.map((eq, i) => (
+              <motion.div key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} 
+                transition={{ delay: 0.6 + i * 0.1 }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem' }}
+              >
+                <span style={{ color: eq.color }}>{eq.icon}</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{eq.value}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{eq.label}</span>
+              </motion.div>
+            ))}
+          </motion.div>
           
           <motion.div className="hero-actions" variants={fadeUp}>
             <a href="#demo" className="btn btn-primary">

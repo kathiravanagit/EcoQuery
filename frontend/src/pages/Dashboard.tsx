@@ -19,6 +19,13 @@ interface QueryRecord { query?: string; model_used?: string; region?: string; co
 
 const PIE_COLORS = ['#00d46a', '#f59e0b', '#ef4444'];
 
+const CO2_EQUIVALENTS = {
+  trees: (g: number) => (g / 21.77).toFixed(1),
+  driving: (g: number) => (g / 0.21).toFixed(0),
+  ledHours: (g: number) => (g / 0.01).toFixed(0),
+  phones: (g: number) => (g / 8.0).toFixed(1),
+};
+
 const Dashboard = () => {
   const { token } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
@@ -250,6 +257,34 @@ const Dashboard = () => {
                 </div>
               </div>
             )}
+
+            {stats?.total_co2_saved_g ? (
+              <div className="dashboard-section">
+                <h2><Leaf size={20} /> Your Impact in Real Terms</h2>
+                <div style={{ 
+                  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px',
+                }}>
+                  {[
+                    { icon: <span style={{ fontSize: '1.5rem' }}>🌳</span>, value: CO2_EQUIVALENTS.trees(stats.total_co2_saved_g), unit: 'trees absorbed CO₂', color: '#00d46a' },
+                    { icon: <span style={{ fontSize: '1.5rem' }}>🚗</span>, value: CO2_EQUIVALENTS.driving(stats.total_co2_saved_g), unit: 'km driving saved', color: '#3b82f6' },
+                    { icon: <span style={{ fontSize: '1.5rem' }}>💡</span>, value: CO2_EQUIVALENTS.ledHours(stats.total_co2_saved_g), unit: 'hours LED bulb', color: '#f59e0b' },
+                    { icon: <span style={{ fontSize: '1.5rem' }}>📱</span>, value: CO2_EQUIVALENTS.phones(stats.total_co2_saved_g), unit: 'phone charges', color: '#8b5cf6' },
+                  ].map((eq, i) => (
+                    <motion.div key={i} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.1 }}
+                      style={{
+                        background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px',
+                        padding: '16px', textAlign: 'center',
+                      }}
+                    >
+                      <div>{eq.icon}</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: eq.color, marginTop: '4px' }}>{eq.value}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{eq.unit}</div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="dashboard-section">
               <h2><Zap size={20} /> Real-time Query Events</h2>
