@@ -7,7 +7,7 @@ import openai
 from jose import JWTError, jwt
 
 from schemas import ChatRequest, ChatResponse
-from auth import SECRET_KEY, ALGORITHM
+from auth import SECRET_KEY, ALGORITHM, auth_db
 from models import CARBON_MODELS
 from classifier import classifier
 from carbon import get_carbon_optimal_region
@@ -114,11 +114,20 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     user_email = ""
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
-        try:
-            payload = jwt.decode(auth_header[7:], SECRET_KEY, algorithms=[ALGORITHM])
-            user_email = payload.get("sub", "")
-        except JWTError:
-            pass
+        token = auth_header[7:]
+        if token.startswith("eq_"):
+            try:
+                user = await auth_db.collection.find_one({"api_key": token})
+                if user:
+                    user_email = user.get("email", "")
+            except Exception:
+                pass
+        else:
+            try:
+                payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+                user_email = payload.get("sub", "")
+            except JWTError:
+                pass
 
     await ledger.record_query({
         "query": req.message,
