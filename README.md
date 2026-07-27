@@ -299,7 +299,3 @@ This exports all user data, query ledger, and contacts from Atlas.
 - **Built for**: College project submission (2025-26 Odd Semester)
 
 ---
-
-## License
-
-MIT
