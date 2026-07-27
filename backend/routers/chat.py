@@ -33,7 +33,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     start_time = time.time()
     classification = await classifier.classify(req.message)
     prompt_len = len(req.message)
-    routing = await route_query(classification["tier"], prompt_length=prompt_len)
+    mode = req.mode or "eco"
+    routing = await route_query(classification["tier"], prompt_length=prompt_len, mode=mode)
     region_info = routing["region"]
     model_sel = routing["model"]
     savings = routing["savings"]
@@ -48,6 +49,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                     "openrouter_id": m["openrouter_id"],
                     "tier": m["tier"],
                     "carbon_score": m["carbon_score"],
+                    "estimated_latency_s": model_sel.get("estimated_latency_s", 2.0),
                     "reason": m["description"]
                 }
                 intensity = region_info.get("carbon_intensity_g_kwh", 200.0)
@@ -138,6 +140,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         "verification_status": v_result["status"],
         "verification_confidence": v_result["confidence"],
         "observed_tps": v_result["observed_tps"],
+        "integrity_hash": v_result.get("integrity_hash", ""),
+        "routing_mode": mode,
         "is_local_inference": (model_sel["provider"] == "Ollama (Local)")
     }, user_email=user_email)
 
@@ -150,6 +154,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "co2_g": savings["estimated_co2_g"],
             "co2_saved_g": savings["saved_vs_baseline_g"],
             "api_cost": api_cost,
+            "mode": mode,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         await ws_manager.broadcast_to_user(user_email, "query.routed", event_data)
@@ -177,9 +182,12 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "is_mocked": is_mocked,
             "api_cost": api_cost,
             "latency_seconds": latency_seconds,
+            "estimated_latency_s": model_sel.get("estimated_latency_s", 0),
             "verification_status": v_result["status"],
             "verification_reason": v_result["reason"],
             "observed_tps": v_result["observed_tps"],
+            "integrity_hash": v_result.get("integrity_hash", ""),
+            "routing_mode": mode,
             "is_local_inference": (model_sel["provider"] == "Ollama (Local)")
         }
     )
