@@ -59,7 +59,7 @@ class VerificationEngine:
         issues = []
         confidence = 0.98
 
-        if completion_tokens < 20 and latency_seconds < 5:
+        if completion_tokens < 50 and latency_seconds < 10:
             return {
                 "status": "verified",
                 "confidence": 0.92,
@@ -74,7 +74,7 @@ class VerificationEngine:
             issues.append(f"TPS ({observed_tps}) far exceeds {model_id} max ({baseline['max_tps']})")
             confidence -= 0.35
 
-        if observed_tps < baseline["min_tps"] * 0.3 and observed_tps > 0:
+        if observed_tps < baseline["min_tps"] * 0.15 and observed_tps > 0:
             issues.append(f"TPS ({observed_tps}) suspiciously low for {model_id}")
             confidence -= 0.2
 
