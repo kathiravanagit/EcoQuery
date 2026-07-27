@@ -257,10 +257,24 @@ python -m pytest --maxfail=1 -v
 4. Add all environment variables from `.env.example`
 
 ### CI/CD Pipeline
-Push to `main` → GitHub Actions runs:
+Push or PR to `main` → GitHub Actions runs:
 1. **Backend:** `ruff` lint + `pytest`
-2. **Frontend:** `typecheck` + `vitest` tests
+2. **Frontend:** `typecheck` + `vitest` tests + `npm run build`
 3. **Deploy:** Vercel (frontend) + Render (backend)
+
+### Monitoring & Uptime
+
+Render free tier sleeps after ~15 min of inactivity. To keep the backend warm before a demo:
+- Set up **UptimeRobot** (free) to ping `https://ecoquery.onrender.com/docs` every 5 minutes
+- This also catches silent crashes overnight
+
+### MongoDB Backup
+
+Before any major demo or defense, run:
+```bash
+bash scripts/backup-mongo.sh
+```
+This exports all user data, query ledger, and contacts from Atlas.
 
 ---
 
