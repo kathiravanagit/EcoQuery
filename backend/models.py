@@ -5,15 +5,6 @@ Includes support for Cloud (OpenAI, Anthropic, Groq) and Local (Ollama) inferenc
 
 CARBON_MODELS = [
     {
-        "id": "ollama-llama3-8b",
-        "provider": "Ollama (Local)",
-        "tier": "green",
-        "carbon_score": 0,  # 0 cloud carbon!
-        "capability": "medium",
-        "openrouter_id": "ollama/llama3",
-        "description": "Zero-cloud-carbon local model running on developer machine"
-    },
-    {
         "id": "groq-llama-3.1-70b",
         "provider": "Groq",
         "tier": "green",
@@ -21,15 +12,6 @@ CARBON_MODELS = [
         "capability": "high",
         "openrouter_id": "groq/llama-3.1-70b",
         "description": "Ultra-fast LPU inference with high energy efficiency"
-    },
-    {
-        "id": "gpt-4o-mini",
-        "provider": "OpenAI",
-        "tier": "green",
-        "carbon_score": 2,
-        "capability": "high",
-        "openrouter_id": "openai/gpt-4o-mini",
-        "description": "Highly efficient cloud model, excellent for most queries"
     },
     {
         "id": "gemini-2.5-flash-lite",
@@ -41,15 +23,6 @@ CARBON_MODELS = [
         "description": "Ultra-efficient, ideal for simple queries"
     },
     {
-        "id": "claude-3-haiku",
-        "provider": "Anthropic",
-        "tier": "green",
-        "carbon_score": 3,
-        "capability": "high",
-        "openrouter_id": "anthropic/claude-3-haiku",
-        "description": "Fast and efficient with strong reasoning"
-    },
-    {
         "id": "llama-3.1-8b",
         "provider": "Meta",
         "tier": "green",
@@ -57,6 +30,24 @@ CARBON_MODELS = [
         "capability": "medium",
         "openrouter_id": "meta-llama/llama-3.1-8b-instruct",
         "description": "Lightweight open-source model"
+    },
+    {
+        "id": "gpt-4o-mini",
+        "provider": "OpenAI",
+        "tier": "green",
+        "carbon_score": 2,
+        "capability": "high",
+        "openrouter_id": "openai/gpt-4o-mini",
+        "description": "Highly efficient cloud model, excellent for most queries"
+    },
+    {
+        "id": "claude-3-haiku",
+        "provider": "Anthropic",
+        "tier": "green",
+        "carbon_score": 3,
+        "capability": "high",
+        "openrouter_id": "anthropic/claude-3-haiku",
+        "description": "Fast and efficient with strong reasoning"
     },
     {
         "id": "groq-mixtral-8x7b",
@@ -142,12 +133,11 @@ CARBON_MODELS = [
 ]
 
 REGION_MODEL_AFFINITY = {
-    "local-machine": ["ollama-llama3-8b"],
     "eu-west-1": ["gpt-4o-mini", "claude-3-haiku", "gpt-4o", "claude-3.5-sonnet", "groq-llama-3.1-70b"],
     "eu-west-2": ["gpt-4o-mini", "llama-3.1-8b", "gpt-4o", "llama-3.1-70b"],
     "eu-west-3": ["gemini-2.5-flash-lite", "gemini-2.5-flash", "claude-3-haiku", "claude-3.5-sonnet"],
     "eu-central-1": ["gpt-4o-mini", "gpt-4o", "llama-3.1-8b", "llama-3.1-70b", "groq-mixtral-8x7b"],
-    "eu-north-1": ["ollama-llama3-8b", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gpt-4o-mini"],
+    "eu-north-1": ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gpt-4o-mini"],
     "us-east-1": ["gpt-4o-mini", "gpt-4o", "gpt-4.5", "claude-3-haiku", "claude-3.5-sonnet", "claude-3.5-opus"],
     "us-west-1": ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "llama-3.1-8b", "llama-3.1-70b", "llama-3.1-405b"],
     "us-west-2": ["gpt-4o-mini", "gpt-4o", "gpt-4.5", "llama-3.1-8b", "llama-3.1-70b", "groq-llama-3.1-70b"],

@@ -24,7 +24,6 @@ ESTIMATED_THRESHOLDS: Dict[str, Dict[str, float]] = {
     "gemini-2.5-pro": {"min_tps": 15.0, "max_tps": 60.0, "expected_tps": 35.0, "avg_latency_s": 3.5},
     "groq-llama-3.1-70b": {"min_tps": 200.0, "max_tps": 450.0, "expected_tps": 300.0, "avg_latency_s": 0.5},
     "groq-mixtral-8x7b": {"min_tps": 220.0, "max_tps": 500.0, "expected_tps": 350.0, "avg_latency_s": 0.6},
-    "ollama-llama3-8b": {"min_tps": 10.0, "max_tps": 80.0, "expected_tps": 35.0, "avg_latency_s": 2.0},
     "llama-3.1-8b": {"min_tps": 50.0, "max_tps": 150.0, "expected_tps": 90.0, "avg_latency_s": 1.5},
     "llama-3.1-70b": {"min_tps": 15.0, "max_tps": 60.0, "expected_tps": 30.0, "avg_latency_s": 3.0},
     "llama-3.1-405b": {"min_tps": 5.0, "max_tps": 25.0, "expected_tps": 12.0, "avg_latency_s": 8.0},
