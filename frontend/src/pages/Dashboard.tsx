@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Key, Award, Leaf, Server, BarChart3, Copy, Check, TrendingUp, DollarSign, Download, Zap, Search } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { Key, Award, Leaf, Server, BarChart3, Copy, Check, TrendingUp, DollarSign, Download, Zap, Search, Shield, Trophy, FileText, Clock } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
 import './Pages.css';
@@ -9,11 +9,15 @@ import './Pages.css';
 interface Stats {
   total_queries?: number; total_co2_saved_g?: number; total_api_cost?: number;
   latest_queries?: any[]; green_query_percent?: number;
+  avg_latency_s?: number; flagged_queries?: number;
+  queries_by_tier?: Record<string, number>; queries_by_model?: Record<string, any>;
 }
 interface Model { id: string; provider: string; tier: string; carbon_score: number; description: string; }
 interface Cert { display_name?: string; user?: string; total_queries?: number; total_co2_saved_g?: number; green_query_percent?: number; }
-interface AnalyticsData { data?: any[]; period?: string; }
-interface QueryRecord { query?: string; model_used?: string; region?: string; co2_saved_vs_baseline?: number; tier?: string; api_cost?: number; }
+interface Badge { id: string; name: string; description: string; icon: string; earned_at: string; }
+interface QueryRecord { query?: string; model_used?: string; region?: string; co2_saved_vs_baseline?: number; tier?: string; api_cost?: number; latency_seconds?: number; verification_status?: string; }
+
+const PIE_COLORS = ['#00d46a', '#f59e0b', '#ef4444'];
 
 const Dashboard = () => {
   const { token } = useAuth();
@@ -30,36 +34,40 @@ const Dashboard = () => {
   const [querySearch, setQuerySearch] = useState('');
   const [loadedQueries, setLoadedQueries] = useState<QueryRecord[]>([]);
   const [querySkip, setQuerySkip] = useState(0);
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [report, setReport] = useState<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   const headers = { Authorization: `Bearer ${token}` };
 
   const fetchAll = useCallback(async () => {
     try {
-      const [s, m, k, c, a] = await Promise.all([
+      const [s, m, k, c, a, b] = await Promise.all([
         fetch(`${API}/api/user/stats`, { headers }).then(r => r.json()),
         fetch(`${API}/api/models`, { headers }).then(r => r.json()),
         fetch(`${API}/api/user/api-key`, { headers }).then(r => r.json()),
         fetch(`${API}/api/user/certificate`, { headers }).then(r => r.json()),
-        fetch(`${API}/api/user/analytics?period=${analyticsPeriod}`, { headers }).then(r => r.json()),
+        fetch(`${API}/api/analytics?days=${analyticsPeriod === 'day' ? 7 : analyticsPeriod === 'week' ? 30 : 90}`, { headers }).then(r => r.json()),
+        fetch(`${API}/api/user/badges`, { headers }).then(r => r.json()),
       ]);
       setStats(s); setModels(m.models || []); setApiKey(k.api_key || '');
-      setCert(c); setAnalytics(a.data || []);
+      setCert(c); setAnalytics(a.queries_by_day || []); setBadges(b.badges || []);
     } catch (e) { console.error('Failed to fetch dashboard data', e); }
   }, [analyticsPeriod]);
 
   useEffect(() => {
     (async () => {
       try {
-        const [s, m, k, c, a] = await Promise.all([
+        const [s, m, k, c, a, b] = await Promise.all([
           fetch(`${API}/api/user/stats`, { headers }).then(r => r.json()),
           fetch(`${API}/api/models`, { headers }).then(r => r.json()),
           fetch(`${API}/api/user/api-key`, { headers }).then(r => r.json()),
           fetch(`${API}/api/user/certificate`, { headers }).then(r => r.json()),
-          fetch(`${API}/api/user/analytics?period=day`, { headers }).then(r => r.json()),
+          fetch(`${API}/api/analytics?days=7`, { headers }).then(r => r.json()),
+          fetch(`${API}/api/user/badges`, { headers }).then(r => r.json()),
         ]);
         setStats(s); setModels(m.models || []); setApiKey(k.api_key || '');
-        setCert(c); setAnalytics(a.data || []);
+        setCert(c); setAnalytics(a.queries_by_day || []); setBadges(b.badges || []);
       } catch (e) { console.error('Failed initial fetch', e); }
       finally { setLoading(false); }
     })();
@@ -91,6 +99,18 @@ const Dashboard = () => {
       const r = await fetch(`${API}/api/user/api-key`, { method: 'POST', headers });
       const d = await r.json(); setApiKey(d.api_key);
     } catch (e) { console.error('Failed to generate key', e); }
+  };
+
+  const downloadReport = async () => {
+    try {
+      const r = await fetch(`${API}/api/user/sustainability-report`, { headers });
+      const d = await r.json();
+      setReport(d);
+      const blob = new Blob([d.text_report || JSON.stringify(d, null, 2)], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'ecoquery-sustainability-report.txt'; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { console.error('Report download failed', e); }
   };
 
   const downloadBadge = (data: any) => {
@@ -164,6 +184,8 @@ const Dashboard = () => {
 
   if (loading) return <div className="page"><section className="section"><div className="container" style={{ textAlign: 'center', padding: '4rem 0' }}>Loading dashboard...</div></section></div>;
 
+  const tierData = stats?.queries_by_tier ? Object.entries(stats.queries_by_tier).map(([name, value]) => ({ name, value })) : [];
+
   return (
     <div className="page">
       <section className="section">
@@ -199,7 +221,35 @@ const Dashboard = () => {
                 <div className="dashboard-card-value">{cert?.green_query_percent || 0}%</div>
                 <div className="dashboard-card-label">Green Queries</div>
               </div>
+              <div className="dashboard-card" aria-label={`Avg latency: ${stats?.avg_latency_s || 0}s`}>
+                <Clock size={24} style={{ color: '#f59e0b' }} />
+                <div className="dashboard-card-value">{stats?.avg_latency_s || 0}s</div>
+                <div className="dashboard-card-label">Avg Latency</div>
+              </div>
+              <div className="dashboard-card" aria-label={`Flagged: ${stats?.flagged_queries || 0}`}>
+                <Shield size={24} style={{ color: stats?.flagged_queries ? '#ef4444' : '#00d46a' }} />
+                <div className="dashboard-card-value">{stats?.flagged_queries || 0}</div>
+                <div className="dashboard-card-label">Flagged Queries</div>
+              </div>
             </div>
+
+            {badges.length > 0 && (
+              <div className="dashboard-section">
+                <h2><Trophy size={20} /> Your Badges ({badges.length})</h2>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                  {badges.map((b) => (
+                    <motion.div key={b.id} initial={{ scale: 0 }} animate={{ scale: 1 }} style={{
+                      background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px',
+                      padding: '12px 16px', minWidth: 140, textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: '2rem' }}>{b.icon}</div>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{b.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{b.description}</div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="dashboard-section">
               <h2><Zap size={20} /> Real-time Query Events</h2>
@@ -213,6 +263,7 @@ const Dashboard = () => {
                       <span className="meta-tag savings">+{e.co2_saved_g}g CO₂</span>
                       <span className="meta-tag">{e.model}</span>
                       <span className="meta-tag">{e.tier}</span>
+                      {e.mode && <span className="meta-tag" style={{ borderColor: e.mode === 'eco' ? '#00d46a' : '#f59e0b', color: e.mode === 'eco' ? '#00d46a' : '#f59e0b' }}>{e.mode}</span>}
                     </div>
                   ))}
                 </div>
@@ -228,18 +279,32 @@ const Dashboard = () => {
                   </button>
                 ))}
               </div>
-              <div style={{ height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={analytics}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                    <XAxis dataKey="period" stroke="var(--text-secondary)" fontSize={12} />
-                    <YAxis stroke="var(--text-secondary)" fontSize={12} />
-                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} />
-                    <Line type="monotone" dataKey="queries" stroke="#00d46a" strokeWidth={2} dot={false} name="Queries" />
-                    <Line type="monotone" dataKey="co2_saved_g" stroke="#f59e0b" strokeWidth={2} dot={false} name="CO₂ Saved (g)" />
-                    <Line type="monotone" dataKey="green" stroke="#3b82f6" strokeWidth={2} dot={false} name="Green Queries" />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 280, height: 250 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={analytics}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                      <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} />
+                      <YAxis stroke="var(--text-secondary)" fontSize={12} />
+                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} />
+                      <Line type="monotone" dataKey="count" stroke="#00d46a" strokeWidth={2} dot={false} name="Queries" />
+                      <Line type="monotone" dataKey="co2_saved" stroke="#f59e0b" strokeWidth={2} dot={false} name="CO₂ Saved (g)" />
+                      <Line type="monotone" dataKey="avg_latency" stroke="#3b82f6" strokeWidth={2} dot={false} name="Avg Latency (s)" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                {tierData.length > 0 && (
+                  <div style={{ width: 200, height: 250 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={tierData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                          {tierData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -256,9 +321,10 @@ const Dashboard = () => {
                 <button className="btn btn-primary" onClick={generateKey}>Generate API Key</button>
               )}
               <p className="dashboard-hint">Use this key to call EcoQuery API from your own apps: <code>Authorization: Bearer {apiKey || '&lt;key&gt;'}</code></p>
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
                 <button className="btn btn-secondary" onClick={() => exportQueries('csv')}><Download size={16} /> Export CSV</button>
                 <button className="btn btn-secondary" onClick={() => exportQueries('json')}><Download size={16} /> Export JSON</button>
+                <button className="btn btn-primary" onClick={downloadReport}><FileText size={16} /> Sustainability Report</button>
               </div>
             </div>
 
@@ -329,6 +395,12 @@ const Dashboard = () => {
                           <span className="meta-tag">{q.region}</span>
                           <span className="meta-tag savings">+{q.co2_saved_vs_baseline}g CO₂</span>
                           <span className="meta-tag">{q.tier}</span>
+                          {q.latency_seconds ? <span className="meta-tag">{q.latency_seconds}s</span> : null}
+                          {q.verification_status && (
+                            <span className="meta-tag" style={{ borderColor: q.verification_status === 'flagged_substitution' ? '#ef4444' : '#00d46a', color: q.verification_status === 'flagged_substitution' ? '#ef4444' : '#00d46a' }}>
+                              {q.verification_status === 'flagged_substitution' ? '⚠️' : '🛡️'}
+                            </span>
+                          )}
                           {q.api_cost ? <span className="meta-tag">${q.api_cost.toFixed(6)}</span> : null}
                         </div>
                       </div>

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Leaf, Server, Zap } from 'lucide-react';
+import { Send, Leaf, Server, Zap, Shield, TreePine, Timer } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
 
@@ -18,6 +18,9 @@ interface Metadata {
   verification_reason?: string
   observed_tps?: number
   is_local_inference?: boolean
+  routing_mode?: string
+  integrity_hash?: string
+  estimated_latency_s?: number
 }
 
 interface Message {
@@ -53,6 +56,7 @@ const LiveDemo = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [overrideModel, setOverrideModel] = useState('');
+  const [routingMode, setRoutingMode] = useState<'eco' | 'performance'>('eco');
   const [models, setModels] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
@@ -78,7 +82,11 @@ const LiveDemo = () => {
     try {
       const response = await fetch(`${API}/api/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, ...(overrideModel ? { model_id: overrideModel } : {}) })
+        body: JSON.stringify({
+          message: userMsg,
+          mode: routingMode,
+          ...(overrideModel ? { model_id: overrideModel } : {})
+        })
       });
       const data = await response.json();
       const meta = data.metadata as Metadata;
@@ -101,8 +109,34 @@ const LiveDemo = () => {
             <div className="chat-header">
               <motion.div className="status-dot" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}></motion.div>
               <span>EcoQuery Router Active</span>
-              <div style={{ marginLeft: 'auto' }}>
-                <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div className="routing-mode-toggle" style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRoutingMode('eco')}
+                    style={{
+                      padding: '4px 10px', fontSize: '0.75rem', border: 'none', cursor: 'pointer',
+                      background: routingMode === 'eco' ? 'rgba(0,212,106,0.2)' : 'transparent',
+                      color: routingMode === 'eco' ? '#00d46a' : 'var(--text-secondary)',
+                      fontWeight: routingMode === 'eco' ? 600 : 400,
+                    }}
+                  >
+                    <TreePine size={12} style={{ marginRight: 3, verticalAlign: 'middle' }} />Eco
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRoutingMode('performance')}
+                    style={{
+                      padding: '4px 10px', fontSize: '0.75rem', border: 'none', cursor: 'pointer',
+                      background: routingMode === 'performance' ? 'rgba(245,158,11,0.2)' : 'transparent',
+                      color: routingMode === 'performance' ? '#f59e0b' : 'var(--text-secondary)',
+                      fontWeight: routingMode === 'performance' ? 600 : 400,
+                    }}
+                  >
+                    <Timer size={12} style={{ marginRight: 3, verticalAlign: 'middle' }} />Fast
+                  </button>
+                </div>
+                <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
                   <option value="">Auto Route</option>
                   {models.map(m => (
                     <option key={m.id} value={m.id}>{m.provider} {m.id} ({m.tier})</option>
@@ -126,6 +160,11 @@ const LiveDemo = () => {
                           </span>
                           <span className="meta-tag"><Server size={12}/> {msg.metadata.model_id}</span>
                           <span className="meta-tag"><Leaf size={12} style={{ color: 'var(--accent)' }}/> {msg.metadata.energy_source}</span>
+                          {msg.metadata.routing_mode && (
+                            <span className="meta-tag" style={{ borderColor: msg.metadata.routing_mode === 'eco' ? '#00d46a' : '#f59e0b', color: msg.metadata.routing_mode === 'eco' ? '#00d46a' : '#f59e0b' }}>
+                              {msg.metadata.routing_mode === 'eco' ? '🌿 Eco Mode' : '⚡ Performance Mode'}
+                            </span>
+                          )}
                           {msg.metadata.is_local_inference && (
                             <span className="meta-tag" style={{ borderColor: '#00C853', color: '#00C853', background: 'rgba(0,200,83,0.1)' }}>
                               💻 Local Ollama (0 Cloud CO₂)
@@ -139,13 +178,18 @@ const LiveDemo = () => {
                           {msg.metadata.observed_tps ? (
                             <span className="meta-tag">⚡ {msg.metadata.observed_tps} TPS</span>
                           ) : null}
+                          {msg.metadata.integrity_hash && (
+                            <span className="meta-tag" style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                              <Shield size={11} /> {msg.metadata.integrity_hash.slice(0, 8)}
+                            </span>
+                          )}
                           {msg.metadata.verification_status && (
                             <span className="meta-tag" style={{
                               borderColor: msg.metadata.verification_status === 'flagged_substitution' ? '#ef4444' : '#00C853',
                               color: msg.metadata.verification_status === 'flagged_substitution' ? '#ef4444' : '#00C853',
                               background: msg.metadata.verification_status === 'flagged_substitution' ? 'rgba(239,68,68,0.1)' : 'rgba(0,200,83,0.1)'
                             }}>
-                              {msg.metadata.verification_status === 'flagged_substitution' ? '⚠️ Flagged Substitution' : '🛡️ Verified Integrity'}
+                              {msg.metadata.verification_status === 'flagged_substitution' ? '⚠️ Flagged' : '🛡️ Verified'}
                             </span>
                           )}
                         </div>
