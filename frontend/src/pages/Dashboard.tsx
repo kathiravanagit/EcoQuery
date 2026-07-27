@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Key, Award, Leaf, Server, BarChart3, Copy, Check, TrendingUp, DollarSign, Download, Zap, Search, Shield, Trophy, FileText, Clock } from 'lucide-react';
+import { Key, Award, Leaf, Server, BarChart3, Copy, Check, TrendingUp, DollarSign, Download, Zap, Search, Shield, Trophy, FileText, Clock, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
@@ -189,7 +189,16 @@ const Dashboard = () => {
     } catch { console.error('Clipboard write failed'); }
   };
 
-  if (loading) return <div className="page"><section className="section"><div className="container" style={{ textAlign: 'center', padding: '4rem 0' }}>Loading dashboard...</div></section></div>;
+  if (loading) return (
+    <div className="page">
+      <section className="section">
+        <div className="container" style={{ textAlign: 'center', padding: '4rem 0' }}>
+          <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 1rem', display: 'block', color: 'var(--accent)' }} />
+          <p style={{ color: 'var(--text-secondary)' }}>Waking up the server... Give it a moment.</p>
+        </div>
+      </section>
+    </div>
+  );
 
   const tierData = stats?.queries_by_tier ? Object.entries(stats.queries_by_tier).map(([name, value]) => ({ name, value })) : [];
 

@@ -20,9 +20,15 @@ const fadeScale = {
 };
 
 const co2Equivalents = [
-  { icon: <TreePine size={16} />, value: "12.5 trees", label: "Equivalent CO₂ absorbed", color: "#00d46a" },
-  { icon: <Car size={16} />, value: "50 km", label: "Driving distance saved", color: "#3b82f6" },
-  { icon: <Lightbulb size={16} />, value: "1,250 hours", label: "LED bulb runtime", color: "#f59e0b" },
+  { icon: <TreePine size={16} />, value: "12.5", unit: "trees", label: "CO₂ absorption target", color: "#00d46a" },
+  { icon: <Car size={16} />, value: "50", unit: "km", label: "Driving distance target", color: "#3b82f6" },
+  { icon: <Lightbulb size={16} />, value: "1,250", unit: "hours", label: "LED runtime target", color: "#f59e0b" },
+];
+
+const heroStats = [
+  { value: "13", label: "Regions tracked" },
+  { value: "15", label: "Models available" },
+  { value: "8", label: "Gamification badges" },
 ];
 
 const featureCards = [
@@ -65,6 +71,10 @@ const Hero = () => {
             Intelligent routing + independent verification for lower carbon footprint without sacrificing quality.
           </motion.p>
 
+          <motion.p variants={fadeUp} style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: '-0.5rem', marginBottom: '0.75rem', textAlign: 'center', fontStyle: 'italic' }}>
+            Carbon targets based on IEA 2024 averages. Numbers are estimates, not measured real-time data.
+          </motion.p>
+
           <motion.div variants={fadeUp} style={{ 
             display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center',
             marginBottom: '1.5rem', padding: '12px 16px', borderRadius: '12px',
@@ -73,11 +83,27 @@ const Hero = () => {
             {co2Equivalents.map((eq, i) => (
               <motion.div key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} 
                 transition={{ delay: 0.6 + i * 0.1 }}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem' }}
               >
                 <span style={{ color: eq.color }}>{eq.icon}</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{eq.value}</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{eq.label}</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{eq.value} {eq.unit}</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.65rem' }}>{eq.label}</span>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <motion.div variants={fadeUp} style={{ 
+            display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center',
+            marginBottom: '1.5rem', padding: '12px 16px', borderRadius: '12px',
+            background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.15)',
+          }}>
+            {heroStats.map((s, i) => (
+              <motion.div key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} 
+                transition={{ delay: 0.75 + i * 0.1 }}
+                style={{ textAlign: 'center' }}
+              >
+                <span style={{ fontWeight: 700, fontSize: '1.25rem', color: '#3b82f6' }}>{s.value}</span>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{s.label}</div>
               </motion.div>
             ))}
           </motion.div>

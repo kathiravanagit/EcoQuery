@@ -130,6 +130,7 @@ async def get_carbon_optimal_region() -> dict:
             "estimated_savings_g_co2": _estimate_savings(best_intensity),
             "method": "electricity-maps-api" if api_key else "iea-static-baselines",
             "data_source": "Electricity Maps" if api_key else "IEA 2024",
+            "estimated_data": True,
             "all_regions": {
                 code: {
                     "intensity": intens,
@@ -175,6 +176,7 @@ def _mock_region() -> dict:
         "estimated_savings_g_co2": 1.2,
         "method": "mock-fallback",
         "data_source": "Mock",
+        "estimated_data": True,
         "all_regions": {},
         "total_regions_covered": 0,
     }
