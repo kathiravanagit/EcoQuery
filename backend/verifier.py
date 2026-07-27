@@ -59,6 +59,17 @@ class VerificationEngine:
         issues = []
         confidence = 0.98
 
+        if completion_tokens < 20 and latency_seconds < 5:
+            return {
+                "status": "verified",
+                "confidence": 0.92,
+                "reason": f"Short response ({completion_tokens} tokens), TPS check skipped.",
+                "adjusted_co2_g": reported_co2_g,
+                "observed_tps": observed_tps,
+                "flagged": False,
+                "integrity_hash": self._compute_hash(model_id, prompt_tokens, completion_tokens, latency_seconds),
+            }
+
         if observed_tps > baseline["max_tps"] * 1.6 and "mini" not in model_id and "haiku" not in model_id:
             issues.append(f"TPS ({observed_tps}) far exceeds {model_id} max ({baseline['max_tps']})")
             confidence -= 0.35
