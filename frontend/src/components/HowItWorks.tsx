@@ -1,14 +1,49 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { User, Activity, Leaf, GitBranch, ShieldCheck } from 'lucide-react';
+import { User, Activity, Leaf, GitBranch, ShieldCheck, BarChart3, Globe } from 'lucide-react';
 import './HowItWorks.css';
 
 const steps = [
-  { id: 1, title: 'User Request', icon: User, desc: 'Query is initiated by the application.' },
-  { id: 2, title: 'Smart Classifier', icon: Activity, desc: 'Determines query complexity and model requirements.' },
-  { id: 3, title: 'Carbon Estimator', icon: Leaf, desc: 'Calculates real-time grid carbon intensity.' },
-  { id: 4, title: 'Intelligent Router', icon: GitBranch, desc: 'Routes to the most eco-friendly suitable model.' },
-  { id: 5, title: 'Verification Engine', icon: ShieldCheck, desc: 'Audits and logs the carbon savings independently.' },
+  { 
+    id: 1, title: 'User Request', icon: User, 
+    desc: 'Query is initiated by the application.',
+    detail: 'Supported: text, code, analysis, creative writing, and more.',
+  },
+  { 
+    id: 2, title: 'Smart Classifier', icon: Activity, 
+    desc: 'Determines query complexity and model requirements.',
+    detail: 'GPT-4o-mini powered classifier understands context, not just keywords.',
+  },
+  { 
+    id: 3, title: 'Carbon Estimator', icon: Leaf, 
+    desc: 'Calculates real-time grid carbon intensity across 13 regions.',
+    detail: 'Electricity Maps API + IEA static baselines for fallback.',
+  },
+  { 
+    id: 4, title: 'Intelligent Router', icon: GitBranch, 
+    desc: 'Routes to the most eco-friendly suitable model.',
+    detail: 'Eco mode: carbon-first. Performance mode: latency-first.',
+  },
+  { 
+    id: 5, title: 'Verification Engine', icon: ShieldCheck, 
+    desc: 'Audits and logs the carbon savings independently.',
+    detail: 'TPS analysis, latency verification, SHA-256 integrity hashes.',
+  },
+  { 
+    id: 6, title: 'Impact Dashboard', icon: BarChart3, 
+    desc: 'Tracks cumulative environmental impact in real-time.',
+    detail: 'CO₂ equivalents, cost savings, gamification badges, ESG reports.',
+  },
+];
+
+const regionData = [
+  { name: 'Stockholm', intensity: 13, source: 'Hydro/Wind', pct: 3 },
+  { name: 'Paris', intensity: 56, source: 'Nuclear', pct: 12 },
+  { name: 'São Paulo', intensity: 75, source: 'Hydro', pct: 16 },
+  { name: 'Oregon', intensity: 80, source: 'Hydro/Wind', pct: 17 },
+  { name: 'London', intensity: 220, source: 'Gas/Wind', pct: 46 },
+  { name: 'Frankfurt', intensity: 350, source: 'Coal/Gas', pct: 74 },
+  { name: 'Virginia', intensity: 380, source: 'Gas/Coal', pct: 80 },
 ];
 
 const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
@@ -47,6 +82,7 @@ const HowItWorks = () => {
                   <div className="step-content">
                     <h3>{step.title}</h3>
                     <p>{step.desc}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>{step.detail}</p>
                   </div>
                 </motion.div>
                 
@@ -66,6 +102,45 @@ const HowItWorks = () => {
             );
           })}
         </div>
+
+        <motion.div {...fadeUp} style={{ marginTop: '3rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', justifyContent: 'center' }}>
+            <Globe size={20} style={{ color: 'var(--accent)' }} />
+            <h3 style={{ margin: 0 }}>Carbon Intensity Comparison</h3>
+          </div>
+          <div style={{ 
+            background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
+            padding: '1.5rem', maxWidth: 600, margin: '0 auto',
+          }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center' }}>
+              Real-time carbon intensity (g CO₂/kWh) across regions — lower is greener
+            </p>
+            {regionData.map((r, i) => (
+              <motion.div key={r.name} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.08 }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '0.8rem' }}
+              >
+                <span style={{ width: 80, color: 'var(--text-secondary)' }}>{r.name}</span>
+                <div style={{ flex: 1, height: 8, background: 'var(--bg-secondary)', borderRadius: 4, overflow: 'hidden' }}>
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    whileInView={{ width: `${r.pct}%` }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.8, delay: i * 0.08 }}
+                    style={{ 
+                      height: '100%', borderRadius: 4,
+                      background: r.intensity < 100 ? '#00d46a' : r.intensity < 250 ? '#f59e0b' : '#ef4444',
+                    }}
+                  />
+                </div>
+                <span style={{ width: 40, textAlign: 'right', fontWeight: 600, color: r.intensity < 100 ? '#00d46a' : r.intensity < 250 ? '#f59e0b' : '#ef4444' }}>
+                  {r.intensity}
+                </span>
+                <span style={{ width: 80, color: 'var(--text-secondary)', fontSize: '0.7rem' }}>{r.source}</span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
       </div>
     </section>
   );

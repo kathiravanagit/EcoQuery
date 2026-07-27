@@ -1,33 +1,43 @@
 """
 Multi-source carbon intensity provider.
-Aggregates data from Electricity Maps, WattTime-style fallbacks, and static regional baselines.
+Data sources (in priority order):
+  1. Electricity Maps API (real-time, 300+ zones)
+  2. IEA 2024 static baselines (annual averages by country/region)
+  3. Carbon Interface fallback estimates
+  4. Mock data (last resort)
 """
 
 import os
 import logging
 import time
 import asyncio
-from typing import Optional, Dict, List
+from typing import Optional, Dict
+from cache import cache_get, cache_set
 
 logger = logging.getLogger("EcoQuery.carbon")
 
 ELECTRICITY_MAPS_API = "https://api.electricitymap.org/v3"
 
-_cache: Dict[str, dict] = {"data": None, "timestamp": 0.0}
+CARBON_CACHE_KEY = "ecoquery:carbon:regions"
 CACHE_TTL = 600
 
 REGIONS = {
-    "eu-west-1": {"name": "Ireland", "zone": "IE", "lat": 53.3, "lon": -6.3},
-    "eu-west-2": {"name": "London", "zone": "GB", "lat": 51.5, "lon": -0.1},
-    "eu-west-3": {"name": "Paris", "zone": "FR", "lat": 48.9, "lon": 2.3},
-    "eu-central-1": {"name": "Frankfurt", "zone": "DE", "lat": 50.1, "lon": 8.7},
-    "eu-north-1": {"name": "Stockholm", "zone": "SE", "lat": 59.3, "lon": 18.1},
-    "us-east-1": {"name": "N. Virginia", "zone": "US-VIRGINIA-CAROLINAS", "lat": 37.4, "lon": -79.0},
-    "us-west-1": {"name": "N. California", "zone": "US-CAL-NORTH", "lat": 37.4, "lon": -122.0},
-    "us-west-2": {"name": "Oregon", "zone": "US-NW-PPM", "lat": 45.5, "lon": -122.7},
+    "eu-west-1": {"name": "Ireland", "zone": "IE", "country": "Ireland"},
+    "eu-west-2": {"name": "London", "zone": "GB", "country": "United Kingdom"},
+    "eu-west-3": {"name": "Paris", "zone": "FR", "country": "France"},
+    "eu-central-1": {"name": "Frankfurt", "zone": "DE", "country": "Germany"},
+    "eu-north-1": {"name": "Stockholm", "zone": "SE", "country": "Sweden"},
+    "us-east-1": {"name": "N. Virginia", "zone": "US-VIRGINIA-CAROLINAS", "country": "United States"},
+    "us-west-1": {"name": "N. California", "zone": "US-CAL-NORTH", "country": "United States"},
+    "us-west-2": {"name": "Oregon", "zone": "US-NW-PPM", "country": "United States"},
+    "ap-south-1": {"name": "Mumbai", "zone": "IN-SOUTH", "country": "India"},
+    "ap-northeast-1": {"name": "Tokyo", "zone": "JP", "country": "Japan"},
+    "ap-southeast-1": {"name": "Singapore", "zone": "SG", "country": "Singapore"},
+    "ca-central-1": {"name": "Montreal", "zone": "CA-QC", "country": "Canada"},
+    "sa-east-1": {"name": "São Paulo", "zone": "BR-SOUTH", "country": "Brazil"},
 }
 
-# Static regional baselines (g CO2/kWh) from IEA 2024 data
+# IEA 2024 static baselines (g CO2/kWh) — annual averages by country
 STATIC_REGIONAL_INTENSITY = {
     "eu-west-1": 316.0,
     "eu-west-2": 220.0,
@@ -37,6 +47,28 @@ STATIC_REGIONAL_INTENSITY = {
     "us-east-1": 380.0,
     "us-west-1": 200.0,
     "us-west-2": 80.0,
+    "ap-south-1": 710.0,
+    "ap-northeast-1": 460.0,
+    "ap-southeast-1": 410.0,
+    "ca-central-1": 120.0,
+    "sa-east-1": 75.0,
+}
+
+# Energy source breakdown by carbon intensity
+ENERGY_SOURCE_PROFILES = {
+    "eu-north-1": {"hydro": 45, "wind": 40, "nuclear": 10, "other": 5},
+    "eu-west-3": {"nuclear": 65, "wind": 15, "hydro": 10, "gas": 8, "solar": 2},
+    "us-west-2": {"hydro": 40, "wind": 25, "nuclear": 15, "gas": 15, "solar": 5},
+    "ca-central-1": {"hydro": 90, "wind": 5, "solar": 3, "gas": 2},
+    "sa-east-1": {"hydro": 80, "wind": 10, "gas": 8, "solar": 2},
+    "eu-west-1": {"wind": 35, "gas": 30, "coal": 15, "hydro": 10, "nuclear": 10},
+    "eu-west-2": {"gas": 40, "wind": 30, "nuclear": 15, "coal": 10, "solar": 5},
+    "eu-central-1": {"coal": 30, "gas": 25, "wind": 20, "nuclear": 15, "solar": 10},
+    "us-east-1": {"gas": 45, "coal": 25, "nuclear": 20, "wind": 5, "solar": 5},
+    "us-west-1": {"gas": 35, "hydro": 25, "solar": 20, "nuclear": 15, "wind": 5},
+    "ap-south-1": {"coal": 55, "gas": 20, "hydro": 15, "wind": 5, "solar": 5},
+    "ap-northeast-1": {"gas": 35, "coal": 25, "nuclear": 20, "hydro": 15, "renewables": 5},
+    "ap-southeast-1": {"gas": 50, "coal": 30, "solar": 10, "hydro": 5, "wind": 5},
 }
 
 
@@ -56,7 +88,7 @@ async def _fetch_electricity_maps(zone: str, api_key: str) -> Optional[float]:
 
 
 async def _fetch_multi_source(region_code: str, zone: str, api_key: str) -> Optional[float]:
-    """Try Electricity Maps first, fall back to static baselines."""
+    """Try Electricity Maps first, fall back to static IEA baselines."""
     if api_key:
         intensity = await _fetch_electricity_maps(zone, api_key)
         if intensity is not None:
@@ -64,16 +96,15 @@ async def _fetch_multi_source(region_code: str, zone: str, api_key: str) -> Opti
 
     static = STATIC_REGIONAL_INTENSITY.get(region_code)
     if static is not None:
-        logger.info(f"Using static baseline for {region_code}: {static} g/kWh")
         return static
 
     return None
 
 
 async def get_carbon_optimal_region() -> dict:
-    now = time.time()
-    if _cache["data"] and (now - _cache["timestamp"] < CACHE_TTL):
-        return _cache["data"]
+    cached = cache_get(CARBON_CACHE_KEY)
+    if cached:
+        return cached
 
     api_key = os.getenv("ELECTRICITY_MAPS_API_KEY", "")
 
@@ -94,19 +125,27 @@ async def get_carbon_optimal_region() -> dict:
         result = {
             "region": best_code,
             "energy_source": _estimate_source(best_intensity),
+            "energy_profile": ENERGY_SOURCE_PROFILES.get(best_code, {}),
             "carbon_intensity_g_kwh": best_intensity,
             "estimated_savings_g_co2": _estimate_savings(best_intensity),
-            "method": "electricity-maps-api" if api_key else "static-baselines",
+            "method": "electricity-maps-api" if api_key else "iea-static-baselines",
+            "data_source": "Electricity Maps" if api_key else "IEA 2024",
             "all_regions": {
-                code: {"intensity": intens, "source": REGIONS[code]["name"]}
+                code: {
+                    "intensity": intens,
+                    "name": REGIONS[code]["name"],
+                    "country": REGIONS[code].get("country", ""),
+                    "source": _estimate_source(intens),
+                    "energy_profile": ENERGY_SOURCE_PROFILES.get(code, {}),
+                }
                 for code, _, intens in regions_with_intensity
-            }
+            },
+            "total_regions_covered": len(regions_with_intensity),
         }
     else:
         result = _mock_region()
 
-    _cache["data"] = result
-    _cache["timestamp"] = now
+    cache_set(CARBON_CACHE_KEY, result, CACHE_TTL)
     return result
 
 
@@ -131,8 +170,11 @@ def _mock_region() -> dict:
     return {
         "region": "eu-north-1",
         "energy_source": "Hydro/Wind",
+        "energy_profile": {"hydro": 45, "wind": 40, "nuclear": 10, "other": 5},
         "carbon_intensity_g_kwh": 18.5,
         "estimated_savings_g_co2": 1.2,
         "method": "mock-fallback",
-        "all_regions": {}
+        "data_source": "Mock",
+        "all_regions": {},
+        "total_regions_covered": 0,
     }

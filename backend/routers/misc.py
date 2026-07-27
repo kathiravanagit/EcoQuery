@@ -206,8 +206,10 @@ async def get_sustainability_report(current_user: dict = Depends(get_current_use
         "environmental_impact": {
             "co2_equivalent": f"{round(total_co2 * 1000, 1)} mg CO₂ saved",
             "trees_equivalent_days": round(total_co2 / 21.0, 6),
-            "car_km_equivalent": round(total_co2 / 120.0, 6),
+            "car_km_equivalent": round(total_co2 / 0.21, 2),
             "smartphone_charges": round(total_co2 / 0.008, 1),
+            "led_bulb_hours": round(total_co2 / 0.01, 0),
+            "flight_minutes": round(total_co2 / 255.0, 4),
         },
         "ghg_protocol_alignment": {
             "scope": "Scope 3 (Downstream value chain)",
@@ -231,8 +233,10 @@ async def get_sustainability_report(current_user: dict = Depends(get_current_use
             f"    Green: {green} | Balanced: {balanced} | Performance: {performance}\n\n"
             f"  ENVIRONMENTAL EQUIVALENTS:\n"
             f"    Trees absorbed (days): {round(total_co2 / 21.0, 6)}\n"
-            f"    Car travel saved: {round(total_co2 / 120.0, 6)} km\n"
-            f"    Smartphone charges: {round(total_co2 / 0.008, 1)}\n\n"
+            f"    Car travel saved: {round(total_co2 / 0.21, 2)} km\n"
+            f"    Smartphone charges: {round(total_co2 / 0.008, 1)}\n"
+            f"    LED bulb hours: {round(total_co2 / 0.01, 0)}\n"
+            f"    Flight minutes avoided: {round(total_co2 / 255.0, 4)}\n\n"
             f"  GHG PROTOCOL: Scope 3, ISO 14064-1 aligned\n"
             f"  VERIFICATION: TPS-based integrity check with SHA-256 hashing\n"
             f"{'='*50}\n"
