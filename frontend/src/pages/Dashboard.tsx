@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Key, Award, Leaf, Server, BarChart3, Copy, Check, TrendingUp, DollarSign, Download, Zap, Search, Shield, Trophy, FileText, Clock, Loader2 } from 'lucide-react';
+import { Key, Award, Leaf, Server, BarChart3, Copy, Check, TrendingUp, DollarSign, Download, Zap, Search, Shield, Trophy, FileText, Clock, Loader2, ArrowRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
@@ -195,6 +195,32 @@ const Dashboard = () => {
         <div className="container" style={{ textAlign: 'center', padding: '4rem 0' }}>
           <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 1rem', display: 'block', color: 'var(--accent)' }} />
           <p style={{ color: 'var(--text-secondary)' }}>Waking up the server... Give it a moment.</p>
+        </div>
+      </section>
+    </div>
+  );
+
+  if (stats && stats.total_queries === 0) return (
+    <div className="page">
+      <section className="section">
+        <div className="container" style={{ maxWidth: 700, textAlign: 'center', padding: '4rem 1rem' }}>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <Leaf size={48} style={{ color: 'var(--accent)', margin: '0 auto 1rem', display: 'block' }} />
+            <h1 className="section-title">Welcome to EcoQuery</h1>
+            <p className="section-subtitle" style={{ marginBottom: '1.5rem' }}>
+              Your dashboard will light up once you route your first query.
+            </p>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem', textAlign: 'left' }}>
+              <h3 style={{ marginTop: 0 }}>Quick start:</h3>
+              <ol style={{ lineHeight: 2, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                <li>Go to the <a href="#demo" style={{ color: 'var(--accent)' }}>Live Demo</a> section</li>
+                <li>Type a query (e.g., "Explain quantum computing")</li>
+                <li>Choose <strong>Eco</strong> or <strong>Performance</strong> mode</li>
+                <li>Click Send — your first badge will auto-earn!</li>
+              </ol>
+            </div>
+            <a href="#demo" className="btn btn-primary">Try the Live Demo <ArrowRight size={18} /></a>
+          </motion.div>
         </div>
       </section>
     </div>

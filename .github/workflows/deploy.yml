@@ -3,6 +3,8 @@ name: Deploy EcoQuery
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -44,6 +46,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - run: npm run build
 
   deploy-frontend:
     name: Deploy Frontend → Vercel
