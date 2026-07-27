@@ -53,9 +53,9 @@ class VerificationEngine:
                 "integrity_hash": self._compute_hash(model_id, prompt_tokens, completion_tokens, latency_seconds),
             }
 
-    observed_tps = round(completion_tokens / latency_seconds, 2)
-    threshold = ESTIMATED_THRESHOLDS.get(model_id, DEFAULT_THRESHOLD)
-    latency_ratio = latency_seconds / threshold["avg_latency_s"] if threshold["avg_latency_s"] > 0 else 1.0
+        observed_tps = round(completion_tokens / latency_seconds, 2)
+        threshold = ESTIMATED_THRESHOLDS.get(model_id, DEFAULT_THRESHOLD)
+        latency_ratio = latency_seconds / threshold["avg_latency_s"] if threshold["avg_latency_s"] > 0 else 1.0
 
         issues = []
         confidence = 0.98
