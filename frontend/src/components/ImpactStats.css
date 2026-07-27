@@ -63,6 +63,20 @@
   letter-spacing: 0.05em;
 }
 
+.stat-detail {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.stats-live-note {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: center;
+  opacity: 0.85;
+}
+
 @media (max-width: 768px) {
   .stats-container {
     padding: 2rem;

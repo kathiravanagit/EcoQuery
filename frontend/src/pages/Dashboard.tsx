@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Key, Award, Leaf, Server, BarChart3, Copy, Check, TrendingUp, DollarSign, Download, Zap, Search, Shield, Trophy, FileText, Clock, Loader2, ArrowRight } from 'lucide-react';
+import { PageSkeleton } from '../components/Skeleton';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
@@ -192,9 +193,11 @@ const Dashboard = () => {
   if (loading) return (
     <div className="page">
       <section className="section">
-        <div className="container" style={{ textAlign: 'center', padding: '4rem 0' }}>
-          <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 1rem', display: 'block', color: 'var(--accent)' }} />
-          <p style={{ color: 'var(--text-secondary)' }}>Waking up the server... Give it a moment.</p>
+        <div className="container" style={{ maxWidth: 600, margin: '0 auto', padding: '4rem 1rem' }}>
+          <PageSkeleton />
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '1rem' }}>
+            Waking up the server... Give it a moment.
+          </p>
         </div>
       </section>
     </div>
