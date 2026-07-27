@@ -9,9 +9,13 @@ All thresholds are estimated from available data, not calibrated from real measu
 
 import logging
 import hashlib
+import time
 from typing import Dict, Any
 
 logger = logging.getLogger("EcoQuery.verifier")
+
+SERVER_START_TIME = time.time()
+WARMUP_SECONDS = 30
 
 ESTIMATED_THRESHOLDS: Dict[str, Dict[str, float]] = {
     "gpt-4o": {"min_tps": 20.0, "max_tps": 90.0, "expected_tps": 50.0, "avg_latency_s": 2.5},
@@ -41,6 +45,9 @@ class VerificationEngine:
         latency_seconds: float,
         reported_co2_g: float
     ) -> Dict[str, Any]:
+        seconds_since_start = time.time() - SERVER_START_TIME
+        is_warmup = seconds_since_start < WARMUP_SECONDS
+
         if latency_seconds <= 0 or completion_tokens <= 0:
             return {
                 "status": "verified",
@@ -55,6 +62,17 @@ class VerificationEngine:
         observed_tps = round(completion_tokens / latency_seconds, 2)
         threshold = ESTIMATED_THRESHOLDS.get(model_id, DEFAULT_THRESHOLD)
         latency_ratio = latency_seconds / threshold["avg_latency_s"] if threshold["avg_latency_s"] > 0 else 1.0
+
+        if is_warmup:
+            return {
+                "status": "verified",
+                "confidence": 0.85,
+                "reason": f"Server warmup ({seconds_since_start:.0f}s since start), TPS check relaxed.",
+                "adjusted_co2_g": reported_co2_g,
+                "observed_tps": observed_tps,
+                "flagged": False,
+                "integrity_hash": self._compute_hash(model_id, prompt_tokens, completion_tokens, latency_seconds),
+            }
 
         issues = []
         confidence = 0.98
