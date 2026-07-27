@@ -264,18 +264,6 @@ Push to `main` → GitHub Actions runs:
 
 ---
 
-## Patent Claims
-
-This project proposes novel methods in the AIML domain for:
-1. **Carbon-Aware LLM Routing**: Dynamic routing of LLM queries based on real-time power grid carbon intensity — a novel application of AIML for sustainable computing.
-2. **Integrity Verification**: TPS-based model substitution detection using statistical baselines — a black-box AIML verification approach.
-3. **Multi-Source Aggregation**: Real-time API + ML-trained static baseline fallback for resilient carbon estimation.
-4. **Impact Translation**: Converting CO₂ savings to tangible real-world equivalents using AI-computed models.
-
-Full patent claims document: [PATENT_CLAIMS.md](PATENT_CLAIMS.md)
-
----
-
 ## Impact Metrics
 
 | Metric | Value |
