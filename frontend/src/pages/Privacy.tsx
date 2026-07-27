@@ -29,9 +29,6 @@ const Privacy = () => {
             <h2>Third-Party Services</h2>
             <p>Queries are processed through OpenAI or OpenRouter APIs. Data handling by these providers is subject to their respective privacy policies.</p>
 
-            <h2>Contact</h2>
-            <p>For privacy-related inquiries, contact <a href="mailto:privacy@eco-query.dev" className="text-accent">privacy@eco-query.dev</a>.</p>
-
             <p className="legal-date">Last updated: July 2026</p>
           </div>
         </div>
