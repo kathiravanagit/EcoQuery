@@ -213,13 +213,13 @@ const Dashboard = () => {
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem', textAlign: 'left' }}>
               <h3 style={{ marginTop: 0 }}>Quick start:</h3>
               <ol style={{ lineHeight: 2, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                <li>Go to the <a href="#demo" style={{ color: 'var(--accent)' }}>Live Demo</a> section</li>
+                <li>Go to the <a href="/#demo" style={{ color: 'var(--accent)' }}>Live Demo</a> section</li>
                 <li>Type a query (e.g., "Explain quantum computing")</li>
                 <li>Choose <strong>Eco</strong> or <strong>Performance</strong> mode</li>
                 <li>Click Send — your first badge will auto-earn!</li>
               </ol>
             </div>
-            <a href="#demo" className="btn btn-primary">Try the Live Demo <ArrowRight size={18} /></a>
+            <a href="/#demo" className="btn btn-primary">Try the Live Demo <ArrowRight size={18} /></a>
           </motion.div>
         </div>
       </section>
