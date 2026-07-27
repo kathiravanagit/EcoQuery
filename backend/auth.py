@@ -134,6 +134,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    # Try API key first (starts with eq_)
+    if token.startswith("eq_"):
+        user = await auth_db.collection.find_one({"api_key": token})
+        if user is None:
+            raise credentials_exception
+        user["_id"] = str(user["_id"])
+        return user
+    # Then try JWT
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
