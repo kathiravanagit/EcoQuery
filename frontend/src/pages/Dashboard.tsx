@@ -200,31 +200,7 @@ const Dashboard = () => {
     </div>
   );
 
-  if (stats && stats.total_queries === 0) return (
-    <div className="page">
-      <section className="section">
-        <div className="container" style={{ maxWidth: 700, textAlign: 'center', padding: '4rem 1rem' }}>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <Leaf size={48} style={{ color: 'var(--accent)', margin: '0 auto 1rem', display: 'block' }} />
-            <h1 className="section-title">Welcome to EcoQuery</h1>
-            <p className="section-subtitle" style={{ marginBottom: '1.5rem' }}>
-              Your dashboard will light up once you route your first query.
-            </p>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem', textAlign: 'left' }}>
-              <h3 style={{ marginTop: 0 }}>Quick start:</h3>
-              <ol style={{ lineHeight: 2, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                <li>Go to the <a href="/#demo" style={{ color: 'var(--accent)' }}>Live Demo</a> section</li>
-                <li>Type a query (e.g., "Explain quantum computing")</li>
-                <li>Choose <strong>Eco</strong> or <strong>Performance</strong> mode</li>
-                <li>Click Send — your first badge will auto-earn!</li>
-              </ol>
-            </div>
-            <a href="/#demo" className="btn btn-primary">Try the Live Demo <ArrowRight size={18} /></a>
-          </motion.div>
-        </div>
-      </section>
-    </div>
-  );
+  const isFirstRun = stats && stats.total_queries === 0;
 
   const tierData = stats?.queries_by_tier ? Object.entries(stats.queries_by_tier).map(([name, value]) => ({ name, value })) : [];
 
@@ -241,6 +217,17 @@ const Dashboard = () => {
                 {wsStatus === 'connected' ? 'Live' : 'Offline'}
               </span>
             </p>
+
+            {isFirstRun && (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'center' }}
+              >
+                <p style={{ margin: '0 0 0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  No queries yet. Send your first one from the <a href="/#demo" style={{ color: 'var(--accent)' }}>Live Demo</a> below.
+                </p>
+                <a href="/#demo" className="btn btn-primary" style={{ fontSize: '0.85rem' }}>Try Live Demo <ArrowRight size={16} /></a>
+              </motion.div>
+            )}
 
             <div className="dashboard-cards">
               <div className="dashboard-card" aria-label={`Total queries: ${stats?.total_queries || 0}`}>
