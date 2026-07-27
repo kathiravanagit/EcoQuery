@@ -67,8 +67,8 @@ const Profile = () => {
               <DeleteAccountForm user={user} apiCall={apiCall} onDeleted={logout} toast={toast} />
             </AccordionSection>
 
-            <div className="profile-accordion profile-accordion-danger">
-              <button className="btn btn-danger" onClick={logout} style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}>
+            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+              <button className="btn btn-secondary" onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <LogOut size={16} /> Logout
               </button>
             </div>
