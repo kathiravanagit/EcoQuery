@@ -1,69 +1,18 @@
 import os
 import logging
 import asyncio
-import openai
 
 logger = logging.getLogger("EcoQuery.classifier")
 
-CLASSIFY_PROMPT = """Classify this user query into exactly one tier based on the REASONING DEPTH required to answer it well. Do not classify by length or topic familiarity.
-
-- simple: A factual lookup, quick definition, or casual request. The answer can be given from a single fact or a short sentence. Examples: "What is the capital of France?", "Set a timer for 5 minutes", "Translate hello to Spanish"
-- medium: Requires connecting a few facts, explaining a concept clearly, or solving a straightforward problem. One clear line of reasoning. Examples: "How does photosynthesis work?", "Write a Python function to sort a list", "Summarize this article"
-- complex: Requires deep reasoning, multi-step analysis, multiple perspectives, or synthesizing information across domains. The answer benefits from a larger, more capable model. Examples: "Explain quantum entanglement and its implications for cryptography", "Compare REST vs GraphQL for a real-time collaborative app", "Derive the time complexity of quicksort and prove its average case"
-
-Reply with ONLY one word: simple, medium, or complex.
-
-Query: """
 
 class QueryClassifier:
     def __init__(self):
-        self._client = None
-
-    def _get_client(self):
-        if self._client is None:
-            api_key = os.getenv("OPENAI_API_KEY", "")
-            if not api_key:
-                return None
-            kwargs = {"api_key": api_key}
-            if api_key.startswith("sk-or-"):
-                kwargs["base_url"] = "https://openrouter.ai/api/v1"
-            self._client = openai.OpenAI(**kwargs)
-        return self._client
+        pass
 
     async def classify(self, message: str) -> dict:
-        result = await asyncio.to_thread(self._classify_with_llm, message)
-        if result:
-            return result
-        return self._classify_heuristic(message)
+        return self._classify_simple(message)
 
-    def _classify_with_llm(self, message: str) -> dict | None:
-        client = self._get_client()
-        if client is None:
-            return None
-        try:
-            model = "openai/gpt-4o-mini"
-            if not os.getenv("OPENAI_API_KEY", "").startswith("sk-or-"):
-                model = "gpt-4o-mini"
-            response = client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": CLASSIFY_PROMPT + message}],
-                max_tokens=10,
-                temperature=0.0,
-            )
-            tier = response.choices[0].message.content.strip().lower()
-            if tier in ("simple", "medium", "complex"):
-                logger.info(f"LLM classifier: '{tier}' for query: {message[:60]}...")
-                return {
-                    "tier": tier,
-                    "confidence": 0.95,
-                    "method": "llm-classifier"
-                }
-            return None
-        except Exception as e:
-            logger.warning(f"LLM classifier failed: {e}. Using heuristic fallback.")
-            return None
-
-    def _classify_heuristic(self, message: str) -> dict:
+    def _classify_simple(self, message: str) -> dict:
         words = message.split()
         word_count = len(words)
         lower = message.lower()
@@ -92,7 +41,8 @@ class QueryClassifier:
         return {
             "tier": tier,
             "confidence": confidence,
-            "method": "heuristic"
+            "method": "simple-rules",
         }
+
 
 classifier = QueryClassifier()
