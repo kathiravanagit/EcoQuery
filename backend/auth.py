@@ -15,8 +15,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 SECRET_KEY = os.getenv("JWT_SECRET")
 if not SECRET_KEY:
-    logger.warning("JWT_SECRET not set — using dev-only default. Set it in .env for production.")
-    SECRET_KEY = "ecoquery-dev-jwt-secret-do-not-use-in-production"
+    logger.warning("! " + "=" * 60)
+    logger.warning("! JWT_SECRET not set in environment! Generating a random key.")
+    logger.warning("! All existing sessions will be invalidated on next restart.")
+    logger.warning("! Set JWT_SECRET in .env or Render env vars for persistence.")
+    logger.warning("!" + "=" * 62)
+    SECRET_KEY = secrets.token_hex(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 7
 

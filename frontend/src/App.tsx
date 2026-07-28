@@ -82,10 +82,10 @@ function AppContent() {
       <Navbar theme={theme} toggleTheme={toggleTheme} />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<ProtectedRoute><AnimatedPage><HomePage /></AnimatedPage></ProtectedRoute>} />
-          <Route path="/about" element={<ProtectedRoute><AnimatedPage><About /></AnimatedPage></ProtectedRoute>} />
-          <Route path="/pricing" element={<ProtectedRoute><AnimatedPage><Pricing /></AnimatedPage></ProtectedRoute>} />
-          <Route path="/contact" element={<ProtectedRoute><AnimatedPage><Contact /></AnimatedPage></ProtectedRoute>} />
+          <Route path="/" element={<AnimatedPage><HomePage /></AnimatedPage>} />
+          <Route path="/about" element={<AnimatedPage><About /></AnimatedPage>} />
+          <Route path="/pricing" element={<AnimatedPage><Pricing /></AnimatedPage>} />
+          <Route path="/contact" element={<AnimatedPage><Contact /></AnimatedPage>} />
           <Route path="/profile" element={<ProtectedRoute><AnimatedPage><Profile /></AnimatedPage></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><AnimatedPage><Dashboard /></AnimatedPage></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AnimatedPage><Admin /></AnimatedPage></ProtectedRoute>} />

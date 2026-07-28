@@ -129,7 +129,7 @@ class VerificationLedger:
         }
 
     async def get_leaderboard(self, limit: int = 20) -> list:
-        if not available(self):
+        if not self.available:
             return []
         pipeline = [
             {"$group": {
@@ -205,10 +205,6 @@ class VerificationLedger:
     def _compute_ledger_hash(self, entry: dict, user_email: str) -> str:
         payload = f"{user_email}:{entry.get('model_used', '')}:{entry.get('co2_estimated', 0)}:{entry.get('timestamp', '')}"
         return hashlib.sha256(payload.encode()).hexdigest()[:24]
-
-
-def available(ledger):
-    return ledger.available and ledger.collection is not None
 
 
 ledger = VerificationLedger()

@@ -51,3 +51,38 @@ def test_chat_long_message(client):
     msg = "a" * 5000
     resp = client.post("/api/chat", json={"message": msg})
     assert resp.status_code == 422
+
+
+def test_stats_endpoint(client):
+    resp = client.get("/api/stats")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "total_queries" in data
+
+
+def test_models_endpoint(client):
+    resp = client.get("/api/models")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "models" in data
+    assert len(data["models"]) > 0
+
+
+def test_carbon_regions_endpoint(client):
+    resp = client.get("/api/carbon/regions")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "region" in data
+    assert "carbon_intensity_g_kwh" in data
+
+
+def test_chat_stream_endpoint(client):
+    resp = client.post("/api/chat/stream", json={"message": "Hello"})
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers["content-type"]
+
+
+def test_chat_stream_with_model_override(client):
+    resp = client.post("/api/chat/stream", json={"message": "Hello", "model_id": "gpt-4o-mini"})
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers["content-type"]
