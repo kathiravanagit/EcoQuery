@@ -113,13 +113,13 @@ CARBON_MODELS = [
         "description": "Google's most capable, moderate-high carbon"
     },
     {
-        "id": "claude-3.5-opus",
+        "id": "claude-3.5-sonnet",
         "provider": "Anthropic",
         "tier": "performance",
-        "carbon_score": 10,
+        "carbon_score": 9,
         "capability": "highest",
-        "openrouter_id": "anthropic/claude-3.5-opus",
-        "description": "Anthropic's most powerful, higher carbon cost"
+        "openrouter_id": "anthropic/claude-3.5-sonnet",
+        "description": "Anthropic's most capable production model"
     },
     {
         "id": "llama-3.1-405b",
@@ -138,7 +138,7 @@ REGION_MODEL_AFFINITY = {
     "eu-west-3": ["gemini-2.5-flash-lite", "gemini-2.5-flash", "claude-3-haiku", "claude-3.5-sonnet"],
     "eu-central-1": ["gpt-4o-mini", "gpt-4o", "llama-3.1-8b", "llama-3.1-70b", "groq-mixtral-8x7b"],
     "eu-north-1": ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gpt-4o-mini"],
-    "us-east-1": ["gpt-4o-mini", "gpt-4o", "gpt-4.5", "claude-3-haiku", "claude-3.5-sonnet", "claude-3.5-opus"],
+    "us-east-1": ["gpt-4o-mini", "gpt-4o", "gpt-4.5", "claude-3-haiku", "claude-3.5-sonnet", "claude-3.5-sonnet"],
     "us-west-1": ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "llama-3.1-8b", "llama-3.1-70b", "llama-3.1-405b"],
     "us-west-2": ["gpt-4o-mini", "gpt-4o", "gpt-4.5", "llama-3.1-8b", "llama-3.1-70b", "groq-llama-3.1-70b"],
 }
