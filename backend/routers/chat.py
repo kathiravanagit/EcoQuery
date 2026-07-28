@@ -22,11 +22,9 @@ logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
 
 MODEL_COST_MAP = {
-    "gpt-4o-mini": 0.00015, "gemini-2.5-flash-lite": 0.000075, "claude-3-haiku": 0.00025,
-    "llama-3.1-8b": 0.00005, "gpt-4o": 0.0025, "gemini-2.5-flash": 0.0001,
-    "claude-3.5-sonnet": 0.003, "llama-3.1-70b": 0.00035,
-    "gpt-4.5": 0.075, "gemini-2.5-pro": 0.002, "claude-3.5-opus": 0.015, "llama-3.1-405b": 0.002,
-    "ollama-llama3-8b": 0.0, "groq-llama-3.1-70b": 0.00035, "groq-mixtral-8x7b": 0.0002
+    "deepseek-v4-flash-free": 0.0, "ling-3.0-flash-free": 0.0,
+    "laguna-s-2.1-free": 0.0, "mimo-v2.5-free": 0.0,
+    "north-mini-code-free": 0.0, "nemotron-3-ultra-free": 0.0,
 }
 
 
@@ -176,7 +174,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "co2_estimated_g": savings["estimated_co2_g"],
         })
 
-    worst_model = {"model": "gpt-4.5", "carbon_score": 9, "provider": "OpenAI"}
+    worst_model = {"model": "nemotron-3-ultra-free", "carbon_score": 6, "provider": "OpenCode Zen"}
     worst_region_intensity = 710.0
     worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 
@@ -211,7 +209,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                 "actual_region": region_info["region"],
                 "actual_co2_g": savings["estimated_co2_g"],
                 "co2_saved_g": round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
-                "baseline_cost": 0.075,
+                "baseline_cost": 0.0,
                 "actual_cost": api_cost,
             },
         }
@@ -346,7 +344,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
-        worst_model = {"model": "gpt-4.5", "carbon_score": 9, "provider": "OpenAI"}
+        worst_model = {"model": "nemotron-3-ultra-free", "carbon_score": 6, "provider": "OpenCode Zen"}
         worst_region_intensity = 710.0
         worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 
@@ -374,7 +372,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                 "actual_region": region_info["region"],
                 "actual_co2_g": savings["estimated_co2_g"],
                 "co2_saved_g": round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
-                "baseline_cost": 0.075,
+                "baseline_cost": 0.0,
                 "actual_cost": api_cost,
             },
         }
