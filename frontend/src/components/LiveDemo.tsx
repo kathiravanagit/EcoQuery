@@ -157,7 +157,7 @@ const LiveDemo = () => {
                       <optgroup key={tier} label={`${tier.charAt(0).toUpperCase() + tier.slice(1)} Tier`} className="model-picker-group">
                         {tierModels.map(m => (
                           <option key={m.id} value={m.id} className="model-picker-option" title={m.description}>
-                            {m.provider} {m.id} <span className="model-picker-carbon">🌱 Score {m.carbon_score}/10</span>
+                            {m.provider} {m.id} <span className="model-picker-carbon">Score {m.carbon_score}/10</span>
                           </option>
                         ))}
                       </optgroup>
