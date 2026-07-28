@@ -9,7 +9,6 @@ python-jose[cryptography]
 bcrypt
 python-multipart
 pytest
-
-# Optional: ML classifier (uncomment to enable)
-# transformers
-# torch
+scikit-learn
+pandas
+joblib
