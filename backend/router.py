@@ -13,21 +13,12 @@ logger = logging.getLogger("EcoQuery.router")
 
 # Performance baselines (estimated latency in seconds)
 MODEL_LATENCY = {
-    "ollama-llama3-8b": 2.0,
-    "groq-llama-3.1-70b": 0.5,
-    "groq-mixtral-8x7b": 0.6,
-    "gpt-4o-mini": 1.0,
-    "gemini-2.5-flash-lite": 0.8,
-    "claude-3-haiku": 0.9,
-    "llama-3.1-8b": 1.5,
-    "gpt-4o": 2.5,
-    "gemini-2.5-flash": 1.8,
-    "claude-3.5-sonnet": 2.0,
-    "llama-3.1-70b": 3.0,
-    "gpt-4.5": 5.0,
-    "gemini-2.5-pro": 3.5,
-    "claude-3.5-opus": 6.0,
-    "llama-3.1-405b": 8.0,
+    "deepseek-v4-flash-free": 1.0,
+    "ling-3.0-flash-free": 0.8,
+    "laguna-s-2.1-free": 1.5,
+    "mimo-v2.5-free": 1.2,
+    "north-mini-code-free": 1.3,
+    "nemotron-3-ultra-free": 2.0,
 }
 
 
