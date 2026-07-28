@@ -296,7 +296,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                 f"Routed to: {model_sel['provider']} {model_sel['model']} via {region_info['region']} ({region_info['energy_source']})\n"
                 f"Model tier: {model_sel['tier']} (carbon score: {model_sel['carbon_score']}/10)\n"
                 f"Region carbon intensity: {region_info.get('carbon_intensity_g_kwh', 'N/A')} g/kWh\n"
-                f"CO₂ estimate: {savings['estimated_co2_g']}g (saved {savings['saved_vs_baseline_g']}g vs baseline)"
+                f"CO\u2082 estimate: {savings['estimated_co2_g']}g (saved {savings['saved_vs_baseline_g']}g vs baseline)"
             )
             yield f"data: {json.dumps({'token': full_reply})}\n\n"
 
@@ -333,7 +333,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                     "region": region_info["region"],
                     "carbon_intensity": region_info["carbon_intensity_g_kwh"],
                     "energy_source": region_info["energy_source"],
-                    "message": f"⚠️ {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']}). Switch to eco mode!"
+                    "message": f"\u26a0\ufe0f {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']}). Switch to eco mode!"
                 })
             await ws_manager.broadcast_to_user(user_email, "query.routed", {
                 "query": req.message[:100], "tier": classification["tier"],
@@ -344,7 +344,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
-    worst_model = {"model": "nemotron-3-ultra", "carbon_score": 6, "provider": "NVIDIA"}
+        worst_model = {"model": "nemotron-3-ultra", "carbon_score": 6, "provider": "NVIDIA"}
         worst_region_intensity = 710.0
         worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 
