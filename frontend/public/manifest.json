@@ -1,0 +1,27 @@
+{
+  "name": "EcoQuery",
+  "short_name": "EcoQuery",
+  "description": "Carbon-aware LLM query routing. Reduce AI inference emissions.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0a0a1a",
+  "theme_color": "#00d46a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

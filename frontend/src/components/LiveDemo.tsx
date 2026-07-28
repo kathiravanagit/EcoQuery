@@ -21,6 +21,17 @@ interface Metadata {
   routing_mode?: string
   integrity_hash?: string
   estimated_latency_s?: number
+  what_if?: {
+    baseline_model: string
+    baseline_region: string
+    baseline_co2_g: number
+    actual_model: string
+    actual_region: string
+    actual_co2_g: number
+    co2_saved_g: number
+    baseline_cost: number
+    actual_cost: number
+  }
 }
 
 interface Message {
@@ -136,11 +147,22 @@ const LiveDemo = () => {
                     <Timer size={12} style={{ marginRight: 3, verticalAlign: 'middle' }} />Fast
                   </button>
                 </div>
-                <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
-                  <option value="">Auto Route</option>
-                  {models.map(m => (
-                    <option key={m.id} value={m.id}>{m.provider} {m.id} ({m.tier})</option>
-                  ))}
+                <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} className="model-picker" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
+                  <option value="">🌿 Auto (Eco)</option>
+                  <option value="">⚡ Auto (Performance)</option>
+                  <option disabled>──────────</option>
+                  {['green', 'balanced', 'performance'].map(tier => {
+                    const tierModels = models.filter(m => m.tier === tier);
+                    return tierModels.length > 0 ? (
+                      <optgroup key={tier} label={`${tier.charAt(0).toUpperCase() + tier.slice(1)} Tier`} className="model-picker-group">
+                        {tierModels.map(m => (
+                          <option key={m.id} value={m.id} className="model-picker-option" title={m.description}>
+                            {m.provider} {m.id} <span className="model-picker-carbon">🌱 Score {m.carbon_score}/10</span>
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null;
+                  })}
                 </select>
               </div>
             </div>
@@ -193,6 +215,24 @@ const LiveDemo = () => {
                             </span>
                           )}
                         </div>
+                        {msg.metadata.what_if && (
+                          <details style={{ marginTop: '0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>
+                            <summary style={{ color: 'var(--accent)' }}>📊 What-If Comparison</summary>
+                            <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                <div style={{ fontWeight: 600 }}>✅ Eco Mode (used)</div>
+                                <div style={{ fontWeight: 600, color: '#ef4444' }}>❌ Baseline (GPT-4.5)</div>
+                                <div>CO₂: {msg.metadata.what_if.actual_co2_g}g</div>
+                                <div style={{ color: '#ef4444' }}>CO₂: {msg.metadata.what_if.baseline_co2_g}g</div>
+                                <div>Cost: ${msg.metadata.what_if.actual_cost}</div>
+                                <div style={{ color: '#ef4444' }}>Cost: ${msg.metadata.what_if.baseline_cost}</div>
+                                <div style={{ gridColumn: '1 / -1', color: 'var(--accent)', fontWeight: 600 }}>
+                                  Saved: {msg.metadata.what_if.co2_saved_g}g CO₂
+                                </div>
+                              </div>
+                            </div>
+                          </details>
+                        )}
                       </motion.div>
                     )}
                   </div>

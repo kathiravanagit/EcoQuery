@@ -260,6 +260,25 @@ async def get_api_key(current_user: dict = Depends(get_current_user)):
     return {"api_key": key}
 
 
+@router.post("/api/user/api-key/revoke")
+async def revoke_api_key(current_user: dict = Depends(get_current_user)):
+    await _set_api_key(current_user["email"], "")
+    return {"message": "API key revoked."}
+
+
+@router.get("/api/user/api-key/stats")
+async def get_api_key_stats(current_user: dict = Depends(get_current_user)):
+    records = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
+    total = len(records)
+    co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
+    cost = sum(r.get("api_cost", 0) for r in records)
+    return {
+        "total_queries": total,
+        "total_co2_saved_g": round(co2, 3),
+        "total_api_cost": round(cost, 6),
+    }
+
+
 @router.get("/api/user/certificate")
 async def get_certificate(current_user: dict = Depends(get_current_user)):
     records = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])

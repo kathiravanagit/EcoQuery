@@ -220,6 +220,25 @@
   background: var(--text-secondary);
 }
 
+.model-picker {
+  cursor: pointer;
+}
+
+.model-picker-group {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.model-picker-option {
+  padding: 4px 8px;
+}
+
+.model-picker-carbon {
+  font-size: 0.7rem;
+  opacity: 0.8;
+  margin-left: 4px;
+}
+
 @media (max-width: 768px) {
   .chat-input-form { flex-direction: column; gap: 0.5rem; }
   .chat-input-form input { width: 100%; }

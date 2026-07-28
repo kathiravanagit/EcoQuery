@@ -5,8 +5,6 @@ import os
 import time
 import logging
 import json
-import openai
-from openai import AsyncOpenAI
 from jose import JWTError, jwt
 
 from schemas import ChatRequest, ChatResponse
@@ -18,6 +16,7 @@ from router import route_query, compute_savings
 from ledger import ledger
 from verifier import verifier
 from websocket_manager import ws_manager
+from providers import provider_router
 
 logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -59,15 +58,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                 savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
                 break
 
-    target_model = model_sel["model"]
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    is_openrouter = api_key.startswith("sk-or-")
-    openrouter_id = model_sel["openrouter_id"]
-
-    client_kwargs = {"api_key": api_key}
-    if is_openrouter:
-        client_kwargs["base_url"] = "https://openrouter.ai/api/v1"
-        target_model = openrouter_id
+    target_model = model_sel["openrouter_id"] or model_sel["model"]
 
     routed_model_display = f"{model_sel['provider']} {model_sel['model']} via {region_info['region']} ({region_info['energy_source']})"
 
@@ -77,16 +68,16 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     is_mocked = False
 
     try:
-        client = openai.OpenAI(**client_kwargs)
-        response = client.chat.completions.create(
-            model=target_model,
+        result = await provider_router.chat_completion(
+            model_id=target_model,
             messages=[{"role": "user", "content": req.message}],
-            max_tokens=1024
+            max_tokens=1024,
         )
-        reply_content = response.choices[0].message.content
-        if response.usage:
-            prompt_tokens = response.usage.prompt_tokens or prompt_tokens
-            output_tokens = response.usage.completion_tokens or output_tokens
+        reply_content = result["content"]
+        usage = result.get("usage", {})
+        prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
+        output_tokens = usage.get("completion_tokens", output_tokens)
+        if prompt_tokens and output_tokens:
             rate = MODEL_COST_MAP.get(model_sel["model"], 0.001)
             api_cost = round((prompt_tokens * rate / 1000) + (output_tokens * rate / 1000), 6)
     except Exception as e:
@@ -158,6 +149,13 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     }, user_email=user_email)
 
     if user_email:
+        if region_info.get("carbon_intensity_g_kwh", 0) > 400:
+            await ws_manager.broadcast_to_user(user_email, "carbon.alert", {
+                "region": region_info["region"],
+                "carbon_intensity": region_info["carbon_intensity_g_kwh"],
+                "energy_source": region_info["energy_source"],
+                "message": f"⚠️ {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']}). Switch to eco mode!"
+            })
         event_data = {
             "query": req.message[:100],
             "tier": classification["tier"],
@@ -177,6 +175,10 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "region": region_info["region"],
             "co2_estimated_g": savings["estimated_co2_g"],
         })
+
+    worst_model = {"model": "gpt-4.5", "carbon_score": 9, "provider": "OpenAI"}
+    worst_region_intensity = 710.0
+    worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 
     return ChatResponse(
         reply=reply_content,
@@ -200,7 +202,18 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "observed_tps": v_result["observed_tps"],
             "integrity_hash": v_result.get("integrity_hash", ""),
             "routing_mode": mode,
-            "is_local_inference": (model_sel["provider"] == "Ollama (Local)")
+            "is_local_inference": (model_sel["provider"] == "Ollama (Local)"),
+            "what_if": {
+                "baseline_model": worst_model["model"],
+                "baseline_region": "ap-south-1 (Mumbai)",
+                "baseline_co2_g": worst_savings["estimated_co2_g"],
+                "actual_model": model_sel["model"],
+                "actual_region": region_info["region"],
+                "actual_co2_g": savings["estimated_co2_g"],
+                "co2_saved_g": round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
+                "baseline_cost": 0.075,
+                "actual_cost": api_cost,
+            },
         }
     )
 
@@ -253,20 +266,10 @@ async def _build_routing(req: ChatRequest):
     return classification, prompt_len, mode, region_info, model_sel, savings
 
 
-def _get_client_kwargs(model_sel: dict):
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    is_openrouter = api_key.startswith("sk-or-")
-    target_model = model_sel["openrouter_id"] if is_openrouter else model_sel["model"]
-    client_kwargs = {"api_key": api_key}
-    if is_openrouter:
-        client_kwargs["base_url"] = "https://openrouter.ai/api/v1"
-    return client_kwargs, target_model, api_key, is_openrouter
-
-
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
     classification, prompt_len, mode, region_info, model_sel, savings = await _build_routing(req)
-    client_kwargs, target_model, api_key, is_openrouter = _get_client_kwargs(model_sel)
+    target_model = model_sel["openrouter_id"] or model_sel["model"]
     api_cost = 0.0
     prompt_tokens = max(5, int(prompt_len / 4.0))
     output_tokens = 40
@@ -276,17 +279,12 @@ async def chat_stream(req: ChatRequest, request: Request):
 
     async def generate():
         nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply
-        client = AsyncOpenAI(**client_kwargs)
         try:
-            stream = await client.chat.completions.create(
-                model=target_model,
+            async for token in provider_router.stream_completion(
+                model_id=target_model,
                 messages=[{"role": "user", "content": req.message}],
                 max_tokens=1024,
-                stream=True
-            )
-            async for chunk in stream:
-                delta = chunk.choices[0].delta if chunk.choices else None
-                token = (delta.content or "") if delta else ""
+            ):
                 if token:
                     full_reply += token
                     yield f"data: {json.dumps({'token': token})}\n\n"
@@ -332,6 +330,13 @@ async def chat_stream(req: ChatRequest, request: Request):
         }, user_email=user_email)
 
         if user_email:
+            if region_info.get("carbon_intensity_g_kwh", 0) > 400:
+                await ws_manager.broadcast_to_user(user_email, "carbon.alert", {
+                    "region": region_info["region"],
+                    "carbon_intensity": region_info["carbon_intensity_g_kwh"],
+                    "energy_source": region_info["energy_source"],
+                    "message": f"⚠️ {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']}). Switch to eco mode!"
+                })
             await ws_manager.broadcast_to_user(user_email, "query.routed", {
                 "query": req.message[:100], "tier": classification["tier"],
                 "model": model_sel["model"], "region": region_info["region"],
@@ -340,6 +345,10 @@ async def chat_stream(req: ChatRequest, request: Request):
                 "api_cost": api_cost, "mode": mode,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
+
+        worst_model = {"model": "gpt-4.5", "carbon_score": 9, "provider": "OpenAI"}
+        worst_region_intensity = 710.0
+        worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 
         metadata = {
             "model_used": model_sel["model"], "model_id": model_sel["model"],
@@ -356,6 +365,18 @@ async def chat_stream(req: ChatRequest, request: Request):
             "observed_tps": v_result["observed_tps"],
             "integrity_hash": v_result.get("integrity_hash", ""),
             "routing_mode": mode,
+            "is_local_inference": (model_sel["provider"] == "Ollama (Local)"),
+            "what_if": {
+                "baseline_model": worst_model["model"],
+                "baseline_region": "ap-south-1 (Mumbai)",
+                "baseline_co2_g": worst_savings["estimated_co2_g"],
+                "actual_model": model_sel["model"],
+                "actual_region": region_info["region"],
+                "actual_co2_g": savings["estimated_co2_g"],
+                "co2_saved_g": round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
+                "baseline_cost": 0.075,
+                "actual_cost": api_cost,
+            },
         }
         yield f"data: {json.dumps({'done': True, 'metadata': metadata})}\n\n"
 

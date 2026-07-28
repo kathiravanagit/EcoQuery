@@ -163,6 +163,20 @@
   gap: 1.5rem;
 }
 
+.hero-stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  background: var(--bg-card);
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 768px) {
   .hero-title {
     font-size: 3rem;
