@@ -79,3 +79,18 @@ def test_one_word_greeting():
     result = _classify_sync("hi")
     assert result["tier"] == "simple"
     assert result["confidence"] >= 0.7
+
+
+def test_method_is_simple_rules():
+    result = _classify_sync("Hello world")
+    assert result["method"] == "simple-rules"
+
+
+def test_classifier_returns_dict():
+    result = _classify_sync("Test query")
+    assert isinstance(result, dict)
+
+
+def test_all_expected_keys_present():
+    result = _classify_sync("Test query")
+    assert set(result.keys()) == {"tier", "confidence", "method"}
