@@ -8,7 +8,7 @@ import os
 import logging
 import time
 from datetime import datetime, timezone
-from carbon import get_carbon_optimal_region, get_all_regions
+from carbon import get_carbon_optimal_region
 from router import compute_savings
 from ledger import ledger
 from verifier import verifier
