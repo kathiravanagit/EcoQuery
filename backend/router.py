@@ -13,12 +13,12 @@ logger = logging.getLogger("EcoQuery.router")
 
 # Performance baselines (estimated latency in seconds)
 MODEL_LATENCY = {
-    "deepseek-v4-flash-free": 1.0,
-    "ling-3.0-flash-free": 0.8,
-    "laguna-s-2.1-free": 1.5,
-    "mimo-v2.5-free": 1.2,
-    "north-mini-code-free": 1.3,
-    "nemotron-3-ultra-free": 2.0,
+    "deepseek-v4-flash": 1.0,
+    "ling-3.0-flash": 0.8,
+    "laguna-s-2.1": 1.5,
+    "mimo-v2.5": 1.2,
+    "north-mini-code": 1.3,
+    "nemotron-3-ultra": 2.0,
 }
 
 
