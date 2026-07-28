@@ -1,7 +1,6 @@
 """
 Multi-provider inference for EcoQuery.
-Primary: OpenCode Zen (free models)
-Fallback: OpenRouter
+Uses OpenRouter with free models.
 """
 
 import os
@@ -9,32 +8,15 @@ import logging
 
 logger = logging.getLogger("EcoQuery.providers")
 
-OPENCODE_BASE_URL = "https://opencode.ai/zen/v1"
-
 
 class ProviderRouter:
     def __init__(self):
-        self.opencode_key = os.getenv("OPENCODE_API_KEY", "")
-        self.openrouter_key = os.getenv("OPENAI_API_KEY", "")
-        self.is_openrouter = self.openrouter_key.startswith("sk-or-")
+        self.api_key = os.getenv("OPENAI_API_KEY", "")
 
     def get_target(self, model_id: str) -> tuple:
-        """Return (client_kwargs, model_name, provider_name).
-
-        Priority:
-        1. OpenCode Zen for all models (free tier)
-        2. OpenRouter fallback
-        """
-        if self.opencode_key:
-            return (
-                {"api_key": self.opencode_key, "base_url": OPENCODE_BASE_URL},
-                model_id,
-                "opencode-zen",
-            )
-
-        # OpenRouter fallback
+        """Return (client_kwargs, model_name, provider_name)."""
         return (
-            {"api_key": self.openrouter_key, "base_url": "https://openrouter.ai/api/v1"},
+            {"api_key": self.api_key, "base_url": "https://openrouter.ai/api/v1"},
             model_id,
             "openrouter",
         )
@@ -42,7 +24,7 @@ class ProviderRouter:
     async def chat_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024
     ) -> dict:
-        """Unified chat completion across providers.
+        """Unified chat completion.
 
         Returns: {"content": str, "usage": {"prompt_tokens": int, "completion_tokens": int}}
         """
@@ -67,13 +49,13 @@ class ProviderRouter:
                 "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
             }
         except Exception as e:
-            logger.error(f"{provider} call failed: {e}")
+            logger.error(f"OpenRouter call failed: {e}")
             return {"content": f"Provider error: {e}", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
     async def stream_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024
     ):
-        """Streaming unified chat completion.
+        """Streaming chat completion.
 
         Yields: str tokens
         """
@@ -94,7 +76,7 @@ class ProviderRouter:
                 if token:
                     yield token
         except Exception as e:
-            logger.error(f"{provider} stream failed: {e}")
+            logger.error(f"OpenRouter stream failed: {e}")
             yield f"Stream error: {e}"
 
 
