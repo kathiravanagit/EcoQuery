@@ -22,9 +22,9 @@ logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
 
 MODEL_COST_MAP = {
-    "deepseek-v4-flash-free": 0.0, "ling-3.0-flash-free": 0.0,
-    "laguna-s-2.1-free": 0.0, "mimo-v2.5-free": 0.0,
-    "north-mini-code-free": 0.0, "nemotron-3-ultra-free": 0.0,
+    "deepseek-v4-flash": 0.0, "ling-3.0-flash": 0.0,
+    "laguna-s-2.1": 0.0, "mimo-v2.5": 0.0,
+    "north-mini-code": 0.0, "nemotron-3-ultra": 0.0,
 }
 
 
@@ -174,7 +174,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "co2_estimated_g": savings["estimated_co2_g"],
         })
 
-    worst_model = {"model": "nemotron-3-ultra-free", "carbon_score": 6, "provider": "OpenCode Zen"}
+        worst_model = {"model": "nemotron-3-ultra", "carbon_score": 6, "provider": "NVIDIA"}
     worst_region_intensity = 710.0
     worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 
@@ -344,7 +344,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
-        worst_model = {"model": "nemotron-3-ultra-free", "carbon_score": 6, "provider": "OpenCode Zen"}
+    worst_model = {"model": "nemotron-3-ultra", "carbon_score": 6, "provider": "NVIDIA"}
         worst_region_intensity = 710.0
         worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 
