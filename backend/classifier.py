@@ -6,18 +6,57 @@ import openai
 
 logger = logging.getLogger("EcoQuery.classifier")
 
+MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
+PIPELINE_PATH = os.path.join(MODEL_DIR, "pipeline.pkl")
+
 
 class QueryClassifier:
     def __init__(self):
-        pass
+        self._pipeline = None
+        self._available = False
+        self._load_model()
+
+    def _load_model(self):
+        import joblib
+        try:
+            if os.path.exists(PIPELINE_PATH):
+                self._pipeline = joblib.load(PIPELINE_PATH)
+                self._available = True
+                logger.info("Loaded trained classifier pipeline from %s", PIPELINE_PATH)
+            else:
+                logger.info("No trained model found at %s — will use ML API or simple rules", PIPELINE_PATH)
+        except Exception as e:
+            logger.warning("Failed to load classifier model: %s", e)
 
     async def classify(self, message: str) -> dict:
+        # Testing mode — skip everything and use deterministic rules
         if os.getenv("ECO_QUERY_TESTING") == "1":
             return self._classify_simple(message)
+
+        # 1) Trained sklearn model (fastest, no API call)
+        if self._available:
+            try:
+                return self._classify_sklearn(message)
+            except Exception as e:
+                logger.debug("Sklearn classification failed: %s", e)
+
+        # 2) ML model via OpenRouter API
         result = await self._classify_ml(message)
         if result is not None:
             return result
+
+        # 3) Fallback to simple heuristics
         return self._classify_simple(message)
+
+    def _classify_sklearn(self, message: str) -> dict:
+        proba = self._pipeline.predict_proba([message])[0]
+        pred = self._pipeline.predict([message])[0]
+        confidence = round(float(max(proba)), 3)
+        return {
+            "tier": str(pred),
+            "confidence": confidence,
+            "method": "sklearn-logistic-regression",
+        }
 
     async def _classify_ml(self, message: str) -> dict | None:
         api_key = os.getenv("OPENAI_API_KEY", "")
@@ -60,7 +99,7 @@ class QueryClassifier:
                 "method": "ml-gemini-flash-lite",
             }
         except Exception:
-            logger.debug("ML classification failed, falling back to rules", exc_info=True)
+            logger.debug("ML classification failed, falling back", exc_info=True)
             return None
 
     def _classify_simple(self, message: str) -> dict:
