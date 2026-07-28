@@ -9,9 +9,10 @@ interface StatCounterProps {
   suffix?: string
   label: string
   detail?: string
+  decimals?: number
 }
 
-const StatCounter = ({ end, suffix = '', label, detail }: StatCounterProps) => {
+const StatCounter = ({ end, suffix = '', label, detail, decimals }: StatCounterProps) => {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
@@ -28,13 +29,13 @@ const StatCounter = ({ end, suffix = '', label, detail }: StatCounterProps) => {
           setCount(end);
           clearInterval(timer);
         } else {
-          setCount(Math.ceil(start));
+          setCount(decimals !== undefined ? Number(start.toFixed(decimals)) : Math.ceil(start));
         }
       }, 16);
 
       return () => clearInterval(timer);
     }
-  }, [end, isInView]);
+  }, [end, isInView, decimals]);
 
   return (
     <div className="stat-item" ref={ref}>
@@ -48,14 +49,17 @@ const StatCounter = ({ end, suffix = '', label, detail }: StatCounterProps) => {
 };
 
 const ImpactStats = () => {
-  const [totalQueries, setTotalQueries] = useState(0);
+  const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
     fetch(`${API}/api/stats`)
       .then(r => r.json())
-      .then(d => setTotalQueries(d.total_queries || 0))
+      .then(d => setStats(d))
       .catch(() => {});
   }, []);
+
+  const totalQueries = stats?.total_queries || 0;
+  const hasData = stats && stats.total_queries > 0;
 
   return (
     <section className="section stats-section">
@@ -73,9 +77,19 @@ const ImpactStats = () => {
           </div>
           
           <div className="stats-grid">
-            <StatCounter end={40} suffix="%" label="CO₂ Reduction Target" detail="vs coal-baseline regions" />
-            <StatCounter end={95} suffix="%+" label="Quality Preservation Target" detail="via intelligent model matching" />
-            <StatCounter end={100} suffix="ms" label="Latency Overhead Target" detail="added by routing logic" />
+            {hasData ? (
+              <>
+                <StatCounter end={stats.green_query_pct} suffix="%" label="Queries on Green Tier" />
+                <StatCounter end={stats.avg_latency_s} suffix="s" label="Average Latency" decimals={3} />
+                <StatCounter end={stats.total_queries} label="Total Queries Routed" />
+              </>
+            ) : (
+              <>
+                <StatCounter end={40} suffix="%" label="CO₂ Reduction Target (Design Target)" detail="vs coal-baseline regions" />
+                <StatCounter end={95} suffix="%+" label="Quality Preservation Target (Design Target)" detail="via intelligent model matching" />
+                <StatCounter end={100} suffix="ms" label="Latency Overhead Target (Design Target)" detail="added by routing logic" />
+              </>
+            )}
           </div>
 
           {totalQueries > 0 && (
