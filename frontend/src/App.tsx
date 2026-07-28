@@ -6,7 +6,6 @@ import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
-import WorldMap from './components/WorldMap';
 import HowItWorks from './components/HowItWorks';
 import Features from './components/Features';
 import ImpactStats from './components/ImpactStats';
@@ -57,7 +56,6 @@ function HomePage() {
   return (
     <main>
       <Hero />
-      <WorldMap />
       <HowItWorks />
       <Features />
       <ImpactStats />
