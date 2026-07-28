@@ -2,7 +2,6 @@ import os
 import json
 import logging
 import asyncio
-import openai
 
 logger = logging.getLogger("EcoQuery.classifier")
 
@@ -60,18 +59,15 @@ class QueryClassifier:
         }
 
     async def _classify_ml(self, message: str) -> dict | None:
+        from providers import provider_router
+
         api_key = os.getenv("OPENAI_API_KEY", "")
         if not api_key:
             return None
 
-        client_kwargs = {"api_key": api_key}
-        if api_key.startswith("sk-or-"):
-            client_kwargs["base_url"] = "https://openrouter.ai/api/v1"
-
         try:
-            client = openai.OpenAI(**client_kwargs)
-            response = client.chat.completions.create(
-                model="google/gemini-2.5-flash-lite",
+            result = await provider_router.chat_completion(
+                model_id="google/gemini-2.5-flash-lite",
                 messages=[
                     {
                         "role": "system",
@@ -88,9 +84,8 @@ class QueryClassifier:
                     {"role": "user", "content": message},
                 ],
                 max_tokens=50,
-                temperature=0,
             )
-            raw = response.choices[0].message.content.strip()
+            raw = result["content"].strip()
             data = json.loads(raw)
             tier = data.get("tier", "simple")
             confidence = data.get("confidence", 0.5)

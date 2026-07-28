@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Key, Award, Leaf, Server, BarChart3, Copy, Check, TrendingUp, DollarSign, Download, Zap, Search, Shield, Trophy, FileText, Clock, Loader2, ArrowRight } from 'lucide-react';
+import { Award, Leaf, Server, BarChart3, TrendingUp, DollarSign, Download, Zap, Search, Shield, Trophy, FileText, Clock, Loader2, ArrowRight } from 'lucide-react';
 import { PageSkeleton } from '../components/Skeleton';
+import ApiKeyManager from '../components/ApiKeyManager';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
@@ -31,11 +32,9 @@ const Dashboard = () => {
   const { token } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [models, setModels] = useState<Model[]>([]);
-  const [apiKey, setApiKey] = useState('');
   const [cert, setCert] = useState<Cert | null>(null);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [analyticsPeriod, setAnalyticsPeriod] = useState('day');
-  const [copied, setCopied] = useState('');
   const [loading, setLoading] = useState(true);
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [realtimeEvents, setRealtimeEvents] = useState<any[]>([]);
@@ -43,6 +42,7 @@ const Dashboard = () => {
   const [loadedQueries, setLoadedQueries] = useState<QueryRecord[]>([]);
   const [querySkip, setQuerySkip] = useState(0);
   const [badges, setBadges] = useState<Badge[]>([]);
+  const [carbonAlert, setCarbonAlert] = useState<string | null>(null);
   const [report, setReport] = useState<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -50,15 +50,14 @@ const Dashboard = () => {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [s, m, k, c, a, b] = await Promise.all([
+      const [s, m, c, a, b] = await Promise.all([
         fetch(`${API}/api/user/stats`, { headers }).then(r => r.json()),
         fetch(`${API}/api/models`, { headers }).then(r => r.json()),
-        fetch(`${API}/api/user/api-key`, { headers }).then(r => r.json()),
         fetch(`${API}/api/user/certificate`, { headers }).then(r => r.json()),
         fetch(`${API}/api/analytics?days=${analyticsPeriod === 'day' ? 7 : analyticsPeriod === 'week' ? 30 : 90}`, { headers }).then(r => r.json()),
         fetch(`${API}/api/user/badges`, { headers }).then(r => r.json()),
       ]);
-      setStats(s); setModels(m.models || []); setApiKey(k.api_key || '');
+      setStats(s); setModels(m.models || []);
       setCert(c); setAnalytics(a.queries_by_day || []); setBadges(b.badges || []);
     } catch (e) { console.error('Failed to fetch dashboard data', e); }
   }, [analyticsPeriod]);
@@ -66,15 +65,14 @@ const Dashboard = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [s, m, k, c, a, b] = await Promise.all([
+        const [s, m, c, a, b] = await Promise.all([
           fetch(`${API}/api/user/stats`, { headers }).then(r => r.json()),
           fetch(`${API}/api/models`, { headers }).then(r => r.json()),
-          fetch(`${API}/api/user/api-key`, { headers }).then(r => r.json()),
           fetch(`${API}/api/user/certificate`, { headers }).then(r => r.json()),
           fetch(`${API}/api/analytics?days=7`, { headers }).then(r => r.json()),
           fetch(`${API}/api/user/badges`, { headers }).then(r => r.json()),
         ]);
-        setStats(s); setModels(m.models || []); setApiKey(k.api_key || '');
+        setStats(s); setModels(m.models || []);
         setCert(c); setAnalytics(a.queries_by_day || []); setBadges(b.badges || []);
       } catch (e) { console.error('Failed initial fetch', e); }
       finally { setLoading(false); }
@@ -95,19 +93,14 @@ const Dashboard = () => {
         const msg = JSON.parse(e.data);
         if (msg.event === 'query.routed') {
           setRealtimeEvents(prev => [{ ...msg.data, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 20));
+        } else if (msg.event === 'carbon.alert') {
+          setCarbonAlert(msg.data.message);
         }
       } catch {}
     };
     wsRef.current = ws;
     return () => ws.close();
   }, [token]);
-
-  const generateKey = async () => {
-    try {
-      const r = await fetch(`${API}/api/user/api-key`, { method: 'POST', headers });
-      const d = await r.json(); setApiKey(d.api_key);
-    } catch (e) { console.error('Failed to generate key', e); }
-  };
 
   const downloadReport = async () => {
     try {
@@ -182,14 +175,6 @@ const Dashboard = () => {
     } catch (e) { console.error('Export failed', e); }
   };
 
-  const copyToClipboard = async (text: string, id: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(id);
-      setTimeout(() => setCopied(''), 2000);
-    } catch { console.error('Clipboard write failed'); }
-  };
-
   if (loading) return (
     <div className="page">
       <section className="section">
@@ -220,6 +205,14 @@ const Dashboard = () => {
                 {wsStatus === 'connected' ? 'Live' : 'Offline'}
               </span>
             </p>
+
+            {carbonAlert && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '12px', padding: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                <span style={{ flex: 1, color: '#ef4444', fontSize: '0.9rem' }}>{carbonAlert}</span>
+                <button onClick={() => setCarbonAlert(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+              </div>
+            )}
 
             {isFirstRun && (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
@@ -368,20 +361,12 @@ const Dashboard = () => {
               </div>
             </div>
 
+            <ApiKeyManager token={token} API={API} />
+
             <div className="dashboard-section">
-              <h2><Key size={20} /> API Key & Data Export</h2>
-              {apiKey ? (
-                <div className="dashboard-api-key">
-                  <code>{apiKey}</code>
-                  <button className="btn-icon" onClick={() => copyToClipboard(apiKey, 'key')} aria-label="Copy API key">
-                    {copied === 'key' ? <Check size={16} /> : <Copy size={16} />}
-                  </button>
-                </div>
-              ) : (
-                <button className="btn btn-primary" onClick={generateKey}>Generate API Key</button>
-              )}
-              <p className="dashboard-hint">Use this key to call EcoQuery API from your own apps: <code>Authorization: Bearer {apiKey || '&lt;key&gt;'}</code></p>
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+              <h2><FileText size={20} /> Data Export</h2>
+              <p className="dashboard-hint" style={{ marginBottom: '0.75rem' }}>Download your query history for offline analysis.</p>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button className="btn btn-secondary" onClick={() => exportQueries('csv')}><Download size={16} /> Export CSV</button>
                 <button className="btn btn-secondary" onClick={() => exportQueries('json')}><Download size={16} /> Export JSON</button>
                 <button className="btn btn-primary" onClick={downloadReport}><FileText size={16} /> Sustainability Report</button>

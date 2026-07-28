@@ -7,6 +7,17 @@
     <meta name="description" content="EcoQuery — Carbon-aware LLM query routing. Reduce AI inference emissions with intelligent routing and real-time carbon tracking." />
     <meta name="keywords" content="ecoquery, carbon-aware AI, green AI, LLM routing, sustainable AI" />
     <meta name="author" content="EcoQuery Team" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="EcoQuery" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
     <meta property="og:title" content="EcoQuery — Greener AI Routing" />
     <meta property="og:description" content="Intelligent routing + independent verification for lower carbon footprint without sacrificing quality." />
     <meta property="og:type" content="website" />

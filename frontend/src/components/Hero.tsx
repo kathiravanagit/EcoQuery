@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Play, Shield, Leaf, Zap, TreePine, Car, Lightbulb } from 'lucide-react';
 import './Hero.css';
+import { API_URL as API } from '../config';
 
 const stagger = {
   animate: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
@@ -38,6 +39,15 @@ const featureCards = [
 ];
 
 const Hero = () => {
+  const [stats, setStats] = useState<any>(null);
+
+  useEffect(() => {
+    fetch(`${API}/api/stats`)
+      .then(r => r.json())
+      .then(d => setStats(d))
+      .catch(() => {});
+  }, []);
+
   return (
     <section id="home" className="hero-section">
       <div className="hero-bg">
@@ -70,6 +80,14 @@ const Hero = () => {
           <motion.p className="hero-subtitle" variants={fadeUp}>
             Intelligent routing + independent verification for lower carbon footprint without sacrificing quality.
           </motion.p>
+
+          {stats && stats.total_queries > 0 && (
+            <motion.div className="hero-stats-bar" variants={fadeUp}>
+              <span className="hero-stat-item">🌍 {stats.total_queries} queries routed</span>
+              <span className="hero-stat-item">· {stats.total_co2_saved_g}g CO₂ saved</span>
+              <span className="hero-stat-item">· {stats.green_query_pct}% green routing</span>
+            </motion.div>
+          )}
 
           <motion.p variants={fadeUp} style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: '-0.5rem', marginBottom: '0.75rem', textAlign: 'center', fontStyle: 'italic' }}>
             Carbon targets based on IEA 2024 averages. Numbers are estimates, not measured real-time data.
