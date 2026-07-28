@@ -68,20 +68,23 @@ class VerificationLedger:
                     "total_co2": {"$sum": "$co2_saved_vs_baseline"},
                     "total_cost": {"$sum": "$api_cost"},
                     "avg_latency": {"$avg": "$latency_seconds"},
-                    "flagged_count": {"$sum": {"$cond": ["$is_mocked", 1, 0]}},
+                    "green_count": {"$sum": {"$cond": [{"$eq": ["$model_tier", "green"]}, 1, 0]}},
+                    "flagged_count": {"$sum": {"$cond": [{"$eq": ["$verification_status", "flagged_substitution"]}, 1, 0]}},
                 }}
             ]
             result = await self.collection.aggregate(pipeline).to_list(1)
             if result:
+                green_pct = round((result[0].get("green_count", 0) / total * 100), 1) if total else 0
                 return {
                     "total_queries": total,
                     "total_co2_saved_g": round(result[0].get("total_co2", 0), 3),
                     "total_api_cost": round(result[0].get("total_cost", 0), 6),
                     "avg_latency_s": round(result[0].get("avg_latency", 0), 3),
                     "flagged_queries": result[0].get("flagged_count", 0),
+                    "green_query_pct": green_pct,
                 }
-            return {"total_queries": total, "total_co2_saved_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0}
-        return {"total_queries": 0, "total_co2_saved_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0}
+            return {"total_queries": total, "total_co2_saved_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0}
+        return {"total_queries": 0, "total_co2_saved_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0}
 
     async def get_analytics(self, user_email: str = "", days: int = 30) -> dict:
         if not self.available or self.collection is None:
