@@ -241,6 +241,69 @@ python -m pytest --maxfail=1 -v
 
 ---
 
+## Carbon-Aware Proxy (Self-Hosted VPS)
+
+EcoQuery supports routing LLM requests through a self-hosted VPS for **real carbon-aware region pinning**. This is the only way to guarantee your inference runs in a green region.
+
+### Free VPS Setup (Oracle Cloud)
+
+Oracle Cloud offers **Always Free** ARM instances — no credit card, no time limit.
+
+**1. Create a free account**
+1. Go to https://cloud.oracle.com/free
+2. Sign up (select **Pay As You Go** — Always Free resources stay free)
+3. Verify email
+
+**2. Create an ARM instance**
+1. Compute → Instances → Create Instance
+2. Name: `ecoquery-vps`
+3. Image: Ubuntu 24.04 (aarch64)
+4. Shape: **VM.Standard.A1.Flex** (4 OCPUs, 24 GB RAM — free)
+5. Region: **Frankfurt** (eu-frankfurt-1) or **Amsterdam** (eu-amsterdam-1)
+6. Add SSH key
+7. Create
+
+**3. Install Ollama**
+```bash
+ssh ubuntu@YOUR_INSTANCE_IP
+curl -fsSL https://ollama.ai/install.sh | sh
+ollama pull llama3.2
+```
+
+**4. Open port 11434**
+```bash
+# In Oracle Cloud console: Networking → Virtual Cloud Networks → your VCN
+# → Security Lists → Add Ingress Rule:
+#   Source CIDR: 0.0.0.0/0
+#   Destination Port: 11434
+```
+
+**5. Set env vars on Render**
+```
+OLLAMA_BASE_URL=http://YOUR_INSTANCE_IP:11434
+OLLAMA_REGION=eu-frankfurt-1
+```
+
+### Multi-Region Setup
+
+Deploy VPS instances in multiple green regions for automatic failover:
+
+```
+OLLAMA_ENDPOINTS=http://ip1:11434:eu-frankfurt-1,http://ip2:11434:eu-north-1
+```
+
+The proxy auto-routes to the greenest available VPS based on real-time carbon intensity.
+
+### Fallback Chain
+
+If all VPS instances are unavailable, requests fall back through:
+1. Ollama VPS (self-hosted, greenest)
+2. AWS Bedrock (region-pinned)
+3. Google Vertex AI (region-pinned)
+4. OpenRouter (no region pinning)
+
+---
+
 ## Deployment
 
 ### Vercel (Frontend)
