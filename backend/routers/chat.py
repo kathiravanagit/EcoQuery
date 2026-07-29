@@ -174,7 +174,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "co2_estimated_g": savings["estimated_co2_g"],
         })
 
-        worst_model = {"model": "nemotron-3-ultra", "carbon_score": 6, "provider": "NVIDIA"}
+    worst_model = {"model": "nemotron-3-ultra", "carbon_score": 6, "provider": "NVIDIA"}
     worst_region_intensity = 710.0
     worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 

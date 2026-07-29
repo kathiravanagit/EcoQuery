@@ -10,7 +10,7 @@ import logging
 import time
 import httpx
 from datetime import datetime, timezone
-from carbon import get_carbon_optimal_region
+from carbon import get_carbon_optimal_region, REGIONS, STATIC_REGIONAL_INTENSITY, ENERGY_SOURCE_PROFILES
 from router import compute_savings
 from ledger import ledger
 from verifier import verifier
@@ -23,22 +23,47 @@ class CarbonAwareProxy:
     """Routes LLM requests to the greenest available provider/region."""
 
     def __init__(self):
-        self.ollama_url = os.getenv("OLLAMA_BASE_URL", "")
+        self.openrouter_key = os.getenv("OPENAI_API_KEY", "")
         self.aws_key = os.getenv("AWS_ACCESS_KEY_ID", "")
         self.aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY", "")
         self.vertex_key = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
-        self.openrouter_key = os.getenv("OPENAI_API_KEY", "")
-        self.ollama_region = os.getenv("OLLAMA_REGION", "eu-north-1")
+
+        # Parse multiple VPS endpoints from env
+        # Format: URL1:region1,URL2:region2 (e.g., http://ip1:11434:eu-north-1,http://ip2:11434:eu-west-3)
+        self.vps_endpoints = self._parse_vps_endpoints()
+
+    def _parse_vps_endpoints(self) -> list:
+        """Parse OLLAMA_ENDPOINTS env var into list of {url, region} dicts."""
+        raw = os.getenv("OLLAMA_ENDPOINTS", "")
+        if not raw:
+            # Fallback to single OLLAMA_BASE_URL
+            url = os.getenv("OLLAMA_BASE_URL", "")
+            region = os.getenv("OLLAMA_REGION", "eu-north-1")
+            if url:
+                return [{"url": url, "region": region}]
+            return []
+
+        endpoints = []
+        for part in raw.split(","):
+            part = part.strip()
+            if ":" in part:
+                # Format: http://ip:port:region
+                parts = part.rsplit(":", 1)
+                if len(parts) == 2:
+                    url, region = parts
+                    endpoints.append({"url": url, "region": region})
+        return endpoints
 
     def get_available_providers(self) -> list:
         """Return list of available providers with their regions."""
         providers = []
 
-        # Ollama (self-hosted VPS) — highest priority (real region pinning)
-        if self.ollama_url:
+        # Self-hosted VPS (Ollama) — highest priority
+        for ep in self.vps_endpoints:
             providers.append({
                 "name": "ollama",
-                "regions": [self.ollama_region],
+                "url": ep["url"],
+                "regions": [ep["region"]],
                 "supports_region_pinning": True,
                 "is_self_hosted": True,
             })
@@ -57,7 +82,6 @@ class CarbonAwareProxy:
                 "supports_region_pinning": True,
             })
 
-        # OpenRouter always available as fallback
         if self.openrouter_key:
             providers.append({
                 "name": "openrouter",
@@ -78,50 +102,61 @@ class CarbonAwareProxy:
             "usage": dict,
         }
         """
-        # Get optimal region based on carbon intensity
+        providers = self.get_available_providers()
+        self_hosted = [p for p in providers if p.get("is_self_hosted")]
+
+        if self_hosted:
+            # Pick the greenest VPS from available endpoints
+            best_endpoint = None
+            best_intensity = float("inf")
+
+            for ep in self.vps_endpoints:
+                region = ep["region"]
+                intensity = STATIC_REGIONAL_INTENSITY.get(region, 500)
+                if intensity < best_intensity:
+                    best_intensity = intensity
+                    best_endpoint = ep
+
+            if best_endpoint:
+                # Get real-time intensity if available
+                region_info = await get_carbon_optimal_region()
+                carbon_intensity = region_info.get("carbon_intensity_g_kwh", best_intensity)
+
+                return await self._call_ollama(
+                    best_endpoint["url"], model_id, messages, max_tokens,
+                    carbon_intensity, best_endpoint["region"]
+                )
+
+        # Fallback chain
         region_info = await get_carbon_optimal_region()
         region_code = region_info["region"]
         carbon_intensity = region_info["carbon_intensity_g_kwh"]
 
-        # Check which providers support this region
-        providers = self.get_available_providers()
-
-        # Prefer self-hosted (Ollama) — real region pinning
-        self_hosted = [p for p in providers if p.get("is_self_hosted")]
-        if self_hosted:
-            return await self._call_ollama(
-                model_id, messages, max_tokens, carbon_intensity
-            )
-
-        # Then prefer providers with region pinning
         region_providers = [p for p in providers if region_code in p.get("regions", [])]
         pinned_providers = [p for p in region_providers if p["supports_region_pinning"]]
 
         if pinned_providers:
-            provider = pinned_providers[0]
             return await self._call_pinned_provider(
-                provider, region_code, model_id, messages, max_tokens, carbon_intensity
+                pinned_providers[0], region_code, model_id, messages, max_tokens, carbon_intensity
             )
         elif region_providers:
-            provider = region_providers[0]
             return await self._call_pinned_provider(
-                provider, region_code, model_id, messages, max_tokens, carbon_intensity
+                region_providers[0], region_code, model_id, messages, max_tokens, carbon_intensity
             )
         else:
-            # Fallback to OpenRouter (no region pinning)
             return await self._call_openrouter(
                 region_code, model_id, messages, max_tokens, carbon_intensity
             )
 
     async def _call_ollama(
-        self, model_id: str, messages: list, max_tokens: int, carbon_intensity: float
+        self, base_url: str, model_id: str, messages: list,
+        max_tokens: int, carbon_intensity: float, region: str
     ) -> dict:
-        """Call self-hosted Ollama instance (real region pinning)."""
+        """Call a self-hosted Ollama instance."""
         try:
-            # Ollama uses OpenAI-compatible API
             async with httpx.AsyncClient(timeout=60) as client:
                 response = await client.post(
-                    f"{self.ollama_url}/v1/chat/completions",
+                    f"{base_url}/v1/chat/completions",
                     json={
                         "model": model_id,
                         "messages": messages,
@@ -134,21 +169,32 @@ class CarbonAwareProxy:
 
             content = data["choices"][0]["message"]["content"]
             usage = data.get("usage", {})
-            prompt_tokens = usage.get("prompt_tokens", 0)
-            completion_tokens = usage.get("completion_tokens", 0)
 
             return {
                 "content": content,
                 "provider": "ollama",
-                "region": self.ollama_region,
+                "region": region,
                 "carbon_intensity": carbon_intensity,
-                "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+                "usage": {
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "completion_tokens": usage.get("completion_tokens", 0),
+                },
             }
         except Exception as e:
-            logger.warning(f"Ollama call failed: {e}")
-            # Fallback to OpenRouter
+            logger.warning(f"Ollama call failed ({base_url}): {e}")
+            # Try other VPS endpoints
+            for ep in self.vps_endpoints:
+                if ep["url"] != base_url:
+                    try:
+                        return await self._call_ollama(
+                            ep["url"], model_id, messages, max_tokens,
+                            STATIC_REGIONAL_INTENSITY.get(ep["region"], 500), ep["region"]
+                        )
+                    except Exception:
+                        continue
+            # Final fallback to OpenRouter
             return await self._call_openrouter(
-                self.ollama_region, model_id, messages, max_tokens, carbon_intensity
+                region, model_id, messages, max_tokens, carbon_intensity
             )
 
     async def _call_pinned_provider(
