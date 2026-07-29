@@ -1,12 +1,14 @@
 """
 Carbon-aware proxy for EcoQuery.
 Routes requests to the greenest available datacenter.
-Supports: AWS Bedrock, Google Vertex AI, OpenRouter (fallback).
+Supports: Ollama (self-hosted VPS), AWS Bedrock, Google Vertex AI, OpenRouter (fallback).
 """
 
 import os
+import json
 import logging
 import time
+import httpx
 from datetime import datetime, timezone
 from carbon import get_carbon_optimal_region
 from router import compute_savings
@@ -21,15 +23,25 @@ class CarbonAwareProxy:
     """Routes LLM requests to the greenest available provider/region."""
 
     def __init__(self):
+        self.ollama_url = os.getenv("OLLAMA_BASE_URL", "")
         self.aws_key = os.getenv("AWS_ACCESS_KEY_ID", "")
         self.aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-        self.aws_region = os.getenv("AWS_BEDROCK_REGION", "us-east-1")
         self.vertex_key = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
         self.openrouter_key = os.getenv("OPENAI_API_KEY", "")
+        self.ollama_region = os.getenv("OLLAMA_REGION", "eu-north-1")
 
     def get_available_providers(self) -> list:
         """Return list of available providers with their regions."""
         providers = []
+
+        # Ollama (self-hosted VPS) — highest priority (real region pinning)
+        if self.ollama_url:
+            providers.append({
+                "name": "ollama",
+                "regions": [self.ollama_region],
+                "supports_region_pinning": True,
+                "is_self_hosted": True,
+            })
 
         if self.aws_key and self.aws_secret:
             providers.append({
@@ -63,8 +75,6 @@ class CarbonAwareProxy:
             "provider": str,
             "region": str,
             "carbon_intensity": float,
-            "estimated_co2_g": float,
-            "saved_vs_baseline_g": float,
             "usage": dict,
         }
         """
@@ -75,9 +85,16 @@ class CarbonAwareProxy:
 
         # Check which providers support this region
         providers = self.get_available_providers()
-        region_providers = [p for p in providers if region_code in p.get("regions", [])]
 
-        # Prefer providers with region pinning
+        # Prefer self-hosted (Ollama) — real region pinning
+        self_hosted = [p for p in providers if p.get("is_self_hosted")]
+        if self_hosted:
+            return await self._call_ollama(
+                model_id, messages, max_tokens, carbon_intensity
+            )
+
+        # Then prefer providers with region pinning
+        region_providers = [p for p in providers if region_code in p.get("regions", [])]
         pinned_providers = [p for p in region_providers if p["supports_region_pinning"]]
 
         if pinned_providers:
@@ -96,13 +113,49 @@ class CarbonAwareProxy:
                 region_code, model_id, messages, max_tokens, carbon_intensity
             )
 
+    async def _call_ollama(
+        self, model_id: str, messages: list, max_tokens: int, carbon_intensity: float
+    ) -> dict:
+        """Call self-hosted Ollama instance (real region pinning)."""
+        try:
+            # Ollama uses OpenAI-compatible API
+            async with httpx.AsyncClient(timeout=60) as client:
+                response = await client.post(
+                    f"{self.ollama_url}/v1/chat/completions",
+                    json={
+                        "model": model_id,
+                        "messages": messages,
+                        "max_tokens": max_tokens,
+                    },
+                    headers={"Content-Type": "application/json"},
+                )
+                response.raise_for_status()
+                data = response.json()
+
+            content = data["choices"][0]["message"]["content"]
+            usage = data.get("usage", {})
+            prompt_tokens = usage.get("prompt_tokens", 0)
+            completion_tokens = usage.get("completion_tokens", 0)
+
+            return {
+                "content": content,
+                "provider": "ollama",
+                "region": self.ollama_region,
+                "carbon_intensity": carbon_intensity,
+                "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+            }
+        except Exception as e:
+            logger.warning(f"Ollama call failed: {e}")
+            # Fallback to OpenRouter
+            return await self._call_openrouter(
+                self.ollama_region, model_id, messages, max_tokens, carbon_intensity
+            )
+
     async def _call_pinned_provider(
         self, provider: dict, region_code: str, model_id: str,
         messages: list, max_tokens: int, carbon_intensity: float
     ) -> dict:
         """Call a provider with region pinning."""
-        import openai
-
         if provider["name"] == "aws-bedrock":
             return await self._call_aws_bedrock(
                 region_code, model_id, messages, max_tokens, carbon_intensity
@@ -131,7 +184,6 @@ class CarbonAwareProxy:
                 aws_secret_access_key=self.aws_secret,
             )
 
-            # Map model ID to Bedrock model ID
             bedrock_model = self._map_to_bedrock_model(model_id)
 
             response = bedrock.invoke_model(
