@@ -1,6 +1,7 @@
 """
 Carbon-aware proxy endpoint.
 Routes requests to the greenest available datacenter.
+Supports multiple self-hosted VPS instances across green regions.
 """
 
 import os
@@ -31,7 +32,8 @@ async def proxy_chat(req: ChatRequest, request: Request):
     """Carbon-aware chat endpoint.
 
     Routes to the greenest available provider/region.
-    Supports AWS Bedrock, Google Vertex AI, OpenRouter (fallback).
+    Supports multiple self-hosted VPS instances across green regions.
+    Fallback chain: Ollama VPS → AWS Bedrock → Vertex AI → OpenRouter.
     """
     start_time = time.time()
 
@@ -68,7 +70,7 @@ async def proxy_chat(req: ChatRequest, request: Request):
                 savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
                 break
 
-    # Route to greenest provider
+    # Route to greenest provider (handles multiple VPS endpoints)
     target_model = model_sel["openrouter_id"] or model_sel["model"]
     result = await proxy.route_to_greenest(
         model_id=target_model,
@@ -104,7 +106,8 @@ async def proxy_chat(req: ChatRequest, request: Request):
         token = auth_header[7:]
         if token.startswith("eq_"):
             try:
-                user = await proxy._get_user_by_api_key(token)
+                from auth import db
+                user = await db.users.find_one({"api_key": token})
                 if user:
                     user_email = user.get("email", "")
             except Exception:
@@ -143,6 +146,10 @@ async def proxy_chat(req: ChatRequest, request: Request):
         "is_local_inference": False,
     }, user_email=user_email)
 
+    # Get available providers for metadata
+    available = proxy.get_available_providers()
+    provider_names = [p["name"] for p in available]
+
     return ChatResponse(
         reply=reply_content,
         metadata={
@@ -167,6 +174,7 @@ async def proxy_chat(req: ChatRequest, request: Request):
             "is_local_inference": False,
             "proxy_provider": actual_provider,
             "proxy_region_pinned": actual_provider != "openrouter",
+            "available_providers": provider_names,
             "what_if": {
                 "baseline_model": "nemotron-3-ultra",
                 "baseline_region": "ap-south-1 (Mumbai)",
