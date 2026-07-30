@@ -70,3 +70,17 @@ class ResetPasswordRequest(BaseModel):
 class AdminUserUpdateRequest(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
+
+
+class VerifyOTPRequest(BaseModel):
+    email: str
+    otp: str = Field(..., min_length=6, max_length=6)
+
+
+class VerifyEmailRequest(BaseModel):
+    email: str
+    token: str
+
+
+class ResendEmailRequest(BaseModel):
+    email: str
