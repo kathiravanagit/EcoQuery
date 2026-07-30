@@ -1,19 +1,21 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import RedirectResponse
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import os
+import secrets
 import httpx
 
 from schemas import (
     SignupRequest, LoginRequest, AuthResponse,
     UpdateNameRequest, UpdatePasswordRequest, DeleteAccountRequest,
-    ForgotPasswordRequest, ResetPasswordRequest
+    ForgotPasswordRequest, ResetPasswordRequest,
+    VerifyOTPRequest, VerifyEmailRequest, ResendEmailRequest
 )
 from auth import (
     auth_db, hash_password, verify_password, create_access_token,
     get_current_user, UserInDB
 )
-from email_service import email_service
+from email_service import email_service, otp_store
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -32,8 +34,19 @@ async def signup(req: SignupRequest):
     success = await auth_db.create_user(user)
     if not success:
         raise HTTPException(status_code=500, detail="Could not create user")
+
+    # Generate email verification token
+    verify_token = secrets.token_urlsafe(32)
+    await auth_db.update_user(req.email, {
+        "email_verified": False,
+        "verify_token": verify_token,
+        "verify_token_expires": datetime.now(timezone.utc) + timedelta(hours=24),
+    })
+
+    # Send confirmation email
+    await email_service.send_confirmation(req.email, verify_token)
+
     token = create_access_token({"sub": req.email})
-    await auth_db.update_user(req.email, {"email_verified": True})
     return AuthResponse(access_token=token, user={"email": req.email, "display_name": req.display_name})
 
 
@@ -160,3 +173,117 @@ async def reset_password(req: ResetPasswordRequest):
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     await auth_db.update_user(email, {"hashed_password": hash_password(req.new_password)})
     return {"status": "ok", "message": "Password has been reset. You can now log in."}
+
+
+# ── Email Verification ────────────────────────────────────────────────────
+
+@router.post("/verify-email")
+async def verify_email(req: VerifyEmailRequest):
+    """Verify email with token from confirmation email."""
+    user = await auth_db.find_user_by_email(req.email)
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    # Check token
+    stored_token = user.get("verify_token", "")
+    expires = user.get("verify_token_expires")
+    if not stored_token or stored_token != req.token:
+        raise HTTPException(status_code=400, detail="Invalid verification token")
+    if expires and expires < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Verification token expired")
+
+    # Mark as verified
+    await auth_db.update_user(req.email, {
+        "email_verified": True,
+        "verify_token": None,
+        "verify_token_expires": None,
+    })
+    return {"status": "ok", "message": "Email verified successfully"}
+
+
+@router.post("/resend-verification")
+async def resend_verification(req: ResendEmailRequest):
+    """Resend verification email."""
+    user = await auth_db.find_user_by_email(req.email)
+    if not user:
+        return {"status": "ok", "message": "If the email exists, a verification link has been sent."}
+    if user.get("email_verified"):
+        return {"status": "ok", "message": "Email already verified."}
+
+    # Generate new token
+    verify_token = secrets.token_urlsafe(32)
+    await auth_db.update_user(req.email, {
+        "verify_token": verify_token,
+        "verify_token_expires": datetime.now(timezone.utc) + timedelta(hours=24),
+    })
+
+    await email_service.send_confirmation(req.email, verify_token)
+    return {"status": "ok", "message": "If the email exists, a verification link has been sent."}
+
+
+# ── OTP-based Password Reset ──────────────────────────────────────────────
+
+@router.post("/forgot-password-otp")
+async def forgot_password_otp(req: ForgotPasswordRequest):
+    """Send OTP to email for password reset."""
+    user = await auth_db.find_user_by_email(req.email)
+    if not user:
+        return {"status": "ok", "message": "If the email exists, an OTP has been sent."}
+    if user.get("auth_provider") == "google":
+        return {"status": "ok", "message": "Google accounts use Google login. No password reset needed."}
+
+    # Generate and send OTP
+    otp = otp_store.generate(req.email, "password reset")
+    await email_service.send_otp(req.email, otp, "password reset")
+    return {"status": "ok", "message": "If the email exists, an OTP has been sent."}
+
+
+@router.post("/verify-otp")
+async def verify_otp(req: VerifyOTPRequest):
+    """Verify OTP code."""
+    valid = otp_store.verify(req.email, req.otp)
+    if not valid:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
+    # Generate reset token for password change
+    reset_token = await auth_db.create_reset_token(req.email)
+    return {
+        "status": "ok",
+        "message": "OTP verified. You can now reset your password.",
+        "reset_token": reset_token,
+    }
+
+
+@router.post("/reset-password-otp")
+async def reset_password_otp(req: ResetPasswordRequest):
+    """Reset password using token from OTP verification."""
+    email = await auth_db.verify_reset_token(req.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    await auth_db.update_user(email, {"hashed_password": hash_password(req.new_password)})
+    return {"status": "ok", "message": "Password has been reset. You can now log in."}
+
+
+# ── Resend any email ──────────────────────────────────────────────────────
+
+@router.post("/resend-email")
+async def resend_email(req: ResendEmailRequest):
+    """Resend verification or password reset email."""
+    user = await auth_db.find_user_by_email(req.email)
+    if not user:
+        return {"status": "ok", "message": "If the email exists, an email has been sent."}
+
+    if not user.get("email_verified"):
+        # Resend verification
+        verify_token = secrets.token_urlsafe(32)
+        await auth_db.update_user(req.email, {
+            "verify_token": verify_token,
+            "verify_token_expires": datetime.now(timezone.utc) + timedelta(hours=24),
+        })
+        await email_service.send_confirmation(req.email, verify_token)
+        return {"status": "ok", "message": "Verification email sent."}
+
+    # Resend password reset OTP
+    otp = otp_store.generate(req.email, "password reset")
+    await email_service.send_otp(req.email, otp, "password reset")
+    return {"status": "ok", "message": "Password reset OTP sent."}
