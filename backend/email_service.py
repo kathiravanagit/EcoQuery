@@ -52,10 +52,10 @@ class EmailService:
             msg["To"] = to
             msg.attach(MIMEText(html, "html"))
 
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_pass)
-                server.sendmail(self.from_email, [to], msg.as_string())
+            server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=15)
+            server.login(self.smtp_user, self.smtp_pass)
+            server.sendmail(self.from_email, [to], msg.as_string())
+            server.quit()
 
             logger.info(f"Email sent to {to}: {subject}")
             return True
