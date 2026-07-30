@@ -62,8 +62,12 @@ class EmailService:
     async def send_confirmation(self, to: str, token: str) -> bool:
         """Send email confirmation after signup."""
         link = f"{self.frontend_url}/verify-email?token={token}"
+        logo_url = f"{self.frontend_url}/logo.png"
         html = f"""
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="text-align:center;padding:20px 0;">
+                <img src="{logo_url}" alt="EcoQuery" width="48" height="48" style="border-radius:8px;">
+            </div>
             <div style="background:#00d46a;color:#000;padding:20px;border-radius:12px 12px 0 0;text-align:center;">
                 <h1 style="margin:0;font-size:24px;">Welcome to EcoQuery</h1>
             </div>
@@ -76,14 +80,18 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_resend(to, "EcoQuery — Confirm your email", html)
+        return await self._send_resend(to, "EcoQuery - Confirm your email", html)
 
     # ── OTP Email (forgot password) ───────────────────────────────────────
 
     async def send_otp(self, to: str, otp: str, purpose: str = "password reset") -> bool:
         """Send OTP code to email."""
+        logo_url = f"{self.frontend_url}/logo.png"
         html = f"""
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="text-align:center;padding:20px 0;">
+                <img src="{logo_url}" alt="EcoQuery" width="48" height="48" style="border-radius:8px;">
+            </div>
             <div style="background:#00d46a;color:#000;padding:20px;border-radius:12px 12px 0 0;text-align:center;">
                 <h1 style="margin:0;font-size:24px;">EcoQuery Verification</h1>
             </div>
@@ -98,15 +106,19 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_resend(to, f"EcoQuery — Your {purpose} code", html)
+        return await self._send_resend(to, f"EcoQuery - Your {purpose} code", html)
 
     # ── Password Reset Link ───────────────────────────────────────────────
 
     async def send_password_reset(self, to: str, token: str) -> bool:
         """Send password reset link."""
         link = f"{self.frontend_url}/reset-password?token={token}"
+        logo_url = f"{self.frontend_url}/logo.png"
         html = f"""
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="text-align:center;padding:20px 0;">
+                <img src="{logo_url}" alt="EcoQuery" width="48" height="48" style="border-radius:8px;">
+            </div>
             <div style="background:#00d46a;color:#000;padding:20px;border-radius:12px 12px 0 0;text-align:center;">
                 <h1 style="margin:0;font-size:24px;">EcoQuery Password Reset</h1>
             </div>
@@ -119,15 +131,19 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_resend(to, "EcoQuery — Password Reset", html)
+        return await self._send_resend(to, "EcoQuery - Password Reset", html)
 
     # ── Org Invite ────────────────────────────────────────────────────────
 
     async def send_org_invite(self, to: str, org_name: str, invited_by: str, token: str) -> bool:
         """Send organization invitation."""
         link = f"{self.frontend_url}/join-org?token={token}"
+        logo_url = f"{self.frontend_url}/logo.png"
         html = f"""
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="text-align:center;padding:20px 0;">
+                <img src="{logo_url}" alt="EcoQuery" width="48" height="48" style="border-radius:8px;">
+            </div>
             <div style="background:#00d46a;color:#000;padding:20px;border-radius:12px 12px 0 0;text-align:center;">
                 <h1 style="margin:0;font-size:24px;">You're Invited!</h1>
             </div>
@@ -139,7 +155,7 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_resend(to, f"EcoQuery — Join {org_name}", html)
+        return await self._send_resend(to, f"EcoQuery - Join {org_name}", html)
 
 
 # ── OTP Store (in-memory + MongoDB) ────────────────────────────────────────
