@@ -1,18 +1,24 @@
 """
-Email Service — uses Resend API for transactional emails.
+Email Service — uses Gmail SMTP for transactional emails.
 Sends: confirmation, OTP, password reset, org invites.
 """
 
 import os
 import logging
 import secrets
-import httpx
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger("EcoQuery.email")
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@ecoquery.app")
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASS = os.getenv("SMTP_PASS", "")
+FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
+FROM_NAME = os.getenv("FROM_NAME", "EcoQuery")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://eco2query.vercel.app")
 OTP_EXPIRY_MINUTES = 10
 RESET_EXPIRY_MINUTES = 60
@@ -20,39 +26,39 @@ RESET_EXPIRY_MINUTES = 60
 
 class EmailService:
     def __init__(self):
-        self.api_key = RESEND_API_KEY
+        self.smtp_host = SMTP_HOST
+        self.smtp_port = SMTP_PORT
+        self.smtp_user = SMTP_USER
+        self.smtp_pass = SMTP_PASS
         self.from_email = FROM_EMAIL
+        self.from_name = FROM_NAME
         self.frontend_url = FRONTEND_URL
-        self._available = bool(self.api_key)
+        self._available = bool(self.smtp_host and self.smtp_user and self.smtp_pass)
 
     @property
     def available(self):
         return self._available
 
-    async def _send_resend(self, to: str, subject: str, html: str) -> bool:
-        """Send email via Resend API."""
+    async def _send_smtp(self, to: str, subject: str, html: str) -> bool:
+        """Send email via Gmail SMTP."""
         if not self._available:
             logger.info(f"[EMAIL MOCK] To: {to} | Subject: {subject}")
             return True
 
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.post(
-                    "https://api.resend.com/emails",
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "from": self.from_email,
-                        "to": [to],
-                        "subject": subject,
-                        "html": html,
-                    },
-                )
-                response.raise_for_status()
-                logger.info(f"Email sent to {to}: {subject}")
-                return True
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = to
+            msg.attach(MIMEText(html, "html"))
+
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.smtp_user, self.smtp_pass)
+                server.sendmail(self.from_email, [to], msg.as_string())
+
+            logger.info(f"Email sent to {to}: {subject}")
+            return True
         except Exception as e:
             logger.warning(f"Failed to send email to {to}: {e}")
             return False
@@ -61,7 +67,7 @@ class EmailService:
 
     async def send_confirmation(self, to: str, token: str) -> bool:
         """Send email confirmation after signup."""
-        link = f"{self.frontend_url}/verify-email?token={token}"
+        link = f"{self.frontend_url}/verify-email?token={token}&email={to}"
         logo_url = f"{self.frontend_url}/logo.png"
         html = f"""
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
@@ -80,7 +86,7 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_resend(to, "EcoQuery - Confirm your email", html)
+        return await self._send_smtp(to, "EcoQuery - Confirm your email", html)
 
     # ── OTP Email (forgot password) ───────────────────────────────────────
 
@@ -106,7 +112,7 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_resend(to, f"EcoQuery - Your {purpose} code", html)
+        return await self._send_smtp(to, f"EcoQuery - Your {purpose} code", html)
 
     # ── Password Reset Link ───────────────────────────────────────────────
 
@@ -131,7 +137,7 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_resend(to, "EcoQuery - Password Reset", html)
+        return await self._send_smtp(to, "EcoQuery - Password Reset", html)
 
     # ── Org Invite ────────────────────────────────────────────────────────
 
@@ -155,20 +161,20 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_resend(to, f"EcoQuery - Join {org_name}", html)
+        return await self._send_smtp(to, f"EcoQuery - Join {org_name}", html)
 
 
-# ── OTP Store (in-memory + MongoDB) ────────────────────────────────────────
+# ── OTP Store (in-memory) ─────────────────────────────────────────────────
 
 class OTPStore:
     """Stores OTPs in memory with expiry."""
 
     def __init__(self):
-        self._store: dict = {}  # email -> {otp, purpose, expires_at}
+        self._store: dict = {}
 
     def generate(self, email: str, purpose: str = "password reset") -> str:
         """Generate and store OTP."""
-        otp = f"{secrets.randbelow(900000) + 100000}"  # 6-digit OTP
+        otp = f"{secrets.randbelow(900000) + 100000}"
         self._store[email] = {
             "otp": otp,
             "purpose": purpose,
