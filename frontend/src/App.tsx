@@ -28,6 +28,7 @@ const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const Terms = lazy(() => import('./pages/Terms'));
 const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Admin = lazy(() => import('./pages/Admin'));
@@ -94,6 +95,7 @@ function AppContent() {
           <Route path="/signup" element={<AnimatedPage><Signup /></AnimatedPage>} />
           <Route path="/forgot-password" element={<AnimatedPage><ForgotPassword /></AnimatedPage>} />
           <Route path="/reset-password" element={<AnimatedPage><ResetPassword /></AnimatedPage>} />
+          <Route path="/verify-email" element={<AnimatedPage><VerifyEmail /></AnimatedPage>} />
           <Route path="/terms" element={<AnimatedPage><Terms /></AnimatedPage>} />
           <Route path="/cookies" element={<AnimatedPage><CookiePolicy /></AnimatedPage>} />
           <Route path="/auth/callback" element={<AnimatedPage><AuthCallback /></AnimatedPage>} />
