@@ -23,30 +23,10 @@ from router import compute_savings
 from ledger import ledger
 from verifier import verifier
 from websocket_manager import ws_manager
+from vps_utils import parse_vps_endpoints
 
 logger = logging.getLogger("EcoQuery.ollama")
 router = APIRouter(prefix="/api/ollama", tags=["ollama"])
-
-
-def _parse_vps_endpoints() -> list:
-    """Parse OLLAMA_ENDPOINTS env var into list of {url, region} dicts."""
-    raw = os.getenv("OLLAMA_ENDPOINTS", "")
-    if not raw:
-        url = os.getenv("OLLAMA_BASE_URL", "")
-        region = os.getenv("OLLAMA_REGION", "eu-north-1")
-        if url:
-            return [{"url": url, "region": region}]
-        return []
-
-    endpoints = []
-    for part in raw.split(","):
-        part = part.strip()
-        if ":" in part:
-            parts = part.rsplit(":", 1)
-            if len(parts) == 2:
-                url, region = parts
-                endpoints.append({"url": url.rstrip("/"), "region": region})
-    return endpoints
 
 
 async def _pick_greenest_vps(endpoints: list) -> dict:
@@ -128,7 +108,7 @@ async def ollama_chat(req: ChatRequest, request: Request):
     No OpenRouter involved. Pure self-hosted inference.
     """
     start_time = time.time()
-    endpoints = _parse_vps_endpoints()
+    endpoints = parse_vps_endpoints()
 
     if not endpoints:
         raise HTTPException(
@@ -274,7 +254,7 @@ async def ollama_chat(req: ChatRequest, request: Request):
 async def ollama_chat_stream(req: ChatRequest, request: Request):
     """Streaming Ollama chat — direct to self-hosted VPS."""
     start_time = time.time()
-    endpoints = _parse_vps_endpoints()
+    endpoints = parse_vps_endpoints()
 
     if not endpoints:
         raise HTTPException(status_code=503, detail="No Ollama endpoints configured.")
@@ -355,7 +335,7 @@ async def ollama_chat_stream(req: ChatRequest, request: Request):
 @router.get("/endpoints")
 async def list_ollama_endpoints():
     """List configured Ollama endpoints with their regions."""
-    endpoints = _parse_vps_endpoints()
+    endpoints = parse_vps_endpoints()
     results = []
     for ep in endpoints:
         results.append({
