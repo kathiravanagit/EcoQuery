@@ -100,6 +100,7 @@ from routers.admin import router as admin_router
 from routers.chat import router as chat_router
 from routers.misc import router as misc_router
 from routers.proxy import router as proxy_router
+from routers.ollama import router as ollama_router
 
 app.include_router(auth_router)
 app.include_router(orgs_router)
@@ -109,6 +110,7 @@ app.include_router(admin_router)
 app.include_router(chat_router)
 app.include_router(misc_router)
 app.include_router(proxy_router)
+app.include_router(ollama_router)
 
 
 @app.get("/")
