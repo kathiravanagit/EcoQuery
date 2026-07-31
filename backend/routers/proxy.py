@@ -40,15 +40,14 @@ async def proxy_chat(req: ChatRequest, request: Request):
     # Classify the query
     classification = await classifier.classify(req.message)
     prompt_len = len(req.message)
-    mode = req.mode or "eco"
 
     # Get optimal region
     region_info = await get_carbon_optimal_region()
     carbon_intensity = region_info["carbon_intensity_g_kwh"]
 
-    # Select model based on tier and mode
+    # Select model based on tier
     from router import route_query
-    routing = await route_query(classification["tier"], prompt_length=prompt_len, mode=mode)
+    routing = await route_query(classification["tier"], prompt_length=prompt_len)
     model_sel = routing["model"]
     savings = routing["savings"]
 

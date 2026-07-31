@@ -22,7 +22,7 @@ const steps = [
   { 
     id: 4, title: 'Intelligent Router', icon: GitBranch, 
     desc: 'Routes to the most eco-friendly suitable model.',
-    detail: 'Eco mode: carbon-first. Performance mode: latency-first.',
+    detail: 'Always carbon-first. Picks greenest provider based on real-time data.',
   },
   { 
     id: 5, title: 'Verification Engine', icon: ShieldCheck, 

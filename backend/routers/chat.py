@@ -34,44 +34,42 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     start_time = time.time()
     classification = await classifier.classify(req.message)
     prompt_len = len(req.message)
-    mode = req.mode or "eco"
-    routing = await route_query(classification["tier"], prompt_length=prompt_len, mode=mode)
+    routing = await route_query(classification["tier"], prompt_length=prompt_len)
     region_info = routing["region"]
     model_sel = routing["model"]
     savings = routing["savings"]
 
     green_source = None
-    if mode == "eco":
-        try:
-            green_route = await green_router.route_to_greenest()
-            green_model_id = await green_router.get_green_model(req.message)
-            green_provider = green_route["provider"]
-            green_intensity = green_route["intensity"]
-            green_score = green_route["score"]
-            green_region = green_route["region"]
-            green_source = green_route.get("alternatives", [])
+    try:
+        green_route = await green_router.route_to_greenest()
+        green_model_id = await green_router.get_green_model(req.message)
+        green_provider = green_route["provider"]
+        green_intensity = green_route["intensity"]
+        green_score = green_route["score"]
+        green_region = green_route["region"]
+        green_source = green_route.get("alternatives", [])
 
-            model_sel = {
-                "model": green_model_id.split("/")[-1],
-                "provider": green_provider,
-                "display_name": f"{green_provider} {green_model_id} (greenest)",
-                "openrouter_id": green_model_id,
-                "tier": "free",
-                "carbon_score": round(green_score, 1),
-                "estimated_latency_s": model_sel.get("estimated_latency_s", 2.0),
-                "reason": f"Routed to greenest provider: {green_provider} ({green_route['location']}, {green_intensity} g/kWh, grid: {green_route['grid']})"
-            }
-            region_info = {
-                "region": green_region,
-                "energy_source": green_route["grid"],
-                "carbon_intensity_g_kwh": green_intensity,
-                "method": "green-provider-realtime",
-            }
-            intensity = green_intensity
-            savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
-            logger.info(f"Green provider override: {green_provider} ({green_region}) @ {green_intensity} g/kWh")
-        except Exception as e:
-            logger.warning(f"Green provider routing failed, falling back: {e}")
+        model_sel = {
+            "model": green_model_id.split("/")[-1],
+            "provider": green_provider,
+            "display_name": f"{green_provider} {green_model_id} (greenest)",
+            "openrouter_id": green_model_id,
+            "tier": "free",
+            "carbon_score": round(green_score, 1),
+            "estimated_latency_s": model_sel.get("estimated_latency_s", 2.0),
+            "reason": f"Routed to greenest provider: {green_provider} ({green_route['location']}, {green_intensity} g/kWh, grid: {green_route['grid']})"
+        }
+        region_info = {
+            "region": green_region,
+            "energy_source": green_route["grid"],
+            "carbon_intensity_g_kwh": green_intensity,
+            "method": "green-provider-realtime",
+        }
+        intensity = green_intensity
+        savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
+        logger.info(f"Green provider override: {green_provider} ({green_region}) @ {green_intensity} g/kWh")
+    except Exception as e:
+        logger.warning(f"Green provider routing failed, falling back: {e}")
 
     if req.model_id:
         for m in CARBON_MODELS:
@@ -176,7 +174,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         "verification_confidence": v_result["confidence"],
         "observed_tps": v_result["observed_tps"],
         "integrity_hash": v_result.get("integrity_hash", ""),
-        "routing_mode": mode,
+        "routing_mode": "eco",
         "is_local_inference": (model_sel["provider"] == "Ollama (Local)")
     }, user_email=user_email)
 
@@ -186,7 +184,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                 "region": region_info["region"],
                 "carbon_intensity": region_info["carbon_intensity_g_kwh"],
                 "energy_source": region_info["energy_source"],
-                "message": f"⚠️ {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']}). Switch to eco mode!"
+                "message": f"⚠️ {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']})."
             })
         event_data = {
             "query": req.message[:100],
@@ -196,7 +194,6 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "co2_g": savings["estimated_co2_g"],
             "co2_saved_g": savings["saved_vs_baseline_g"],
             "api_cost": api_cost,
-            "mode": mode,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         await ws_manager.broadcast_to_user(user_email, "query.routed", event_data)
@@ -233,7 +230,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "verification_reason": v_result["reason"],
             "observed_tps": v_result["observed_tps"],
             "integrity_hash": v_result.get("integrity_hash", ""),
-            "routing_mode": mode,
+            "routing_mode": "eco",
             "is_local_inference": (model_sel["provider"] == "Ollama (Local)"),
             "what_if": {
                 "baseline_model": worst_model["model"],
@@ -274,42 +271,40 @@ async def _resolve_user_email(request: Request) -> str:
 async def _build_routing(req: ChatRequest):
     classification = await classifier.classify(req.message)
     prompt_len = len(req.message)
-    mode = req.mode or "eco"
-    routing = await route_query(classification["tier"], prompt_length=prompt_len, mode=mode)
+    routing = await route_query(classification["tier"], prompt_length=prompt_len)
     region_info = routing["region"]
     model_sel = routing["model"]
     savings = routing["savings"]
 
-    if mode == "eco":
-        try:
-            green_route = await green_router.route_to_greenest()
-            green_model_id = await green_router.get_green_model(req.message)
-            green_provider = green_route["provider"]
-            green_intensity = green_route["intensity"]
-            green_score = green_route["score"]
-            green_region = green_route["region"]
+    try:
+        green_route = await green_router.route_to_greenest()
+        green_model_id = await green_router.get_green_model(req.message)
+        green_provider = green_route["provider"]
+        green_intensity = green_route["intensity"]
+        green_score = green_route["score"]
+        green_region = green_route["region"]
 
-            model_sel = {
-                "model": green_model_id.split("/")[-1],
-                "provider": green_provider,
-                "display_name": f"{green_provider} {green_model_id} (greenest)",
-                "openrouter_id": green_model_id,
-                "tier": "free",
-                "carbon_score": round(green_score, 1),
-                "estimated_latency_s": model_sel.get("estimated_latency_s", 2.0),
-                "reason": f"Routed to greenest provider: {green_provider} ({green_route['location']}, {green_intensity} g/kWh, grid: {green_route['grid']})"
-            }
-            region_info = {
-                "region": green_region,
-                "energy_source": green_route["grid"],
-                "carbon_intensity_g_kwh": green_intensity,
-                "method": "green-provider-realtime",
-            }
-            intensity = green_intensity
-            savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
-            logger.info(f"Green provider override (stream): {green_provider} ({green_region}) @ {green_intensity} g/kWh")
-        except Exception as e:
-            logger.warning(f"Green provider routing failed (stream), falling back: {e}")
+        model_sel = {
+            "model": green_model_id.split("/")[-1],
+            "provider": green_provider,
+            "display_name": f"{green_provider} {green_model_id} (greenest)",
+            "openrouter_id": green_model_id,
+            "tier": "free",
+            "carbon_score": round(green_score, 1),
+            "estimated_latency_s": model_sel.get("estimated_latency_s", 2.0),
+            "reason": f"Routed to greenest provider: {green_provider} ({green_route['location']}, {green_intensity} g/kWh, grid: {green_route['grid']})"
+        }
+        region_info = {
+            "region": green_region,
+            "energy_source": green_route["grid"],
+            "carbon_intensity_g_kwh": green_intensity,
+            "method": "green-provider-realtime",
+        }
+        intensity = green_intensity
+        savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
+        logger.info(f"Green provider override (stream): {green_provider} ({green_region}) @ {green_intensity} g/kWh")
+    except Exception as e:
+        logger.warning(f"Green provider routing failed (stream), falling back: {e}")
 
     if req.model_id:
         for m in CARBON_MODELS:
@@ -326,12 +321,12 @@ async def _build_routing(req: ChatRequest):
                 savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
                 break
 
-    return classification, prompt_len, mode, region_info, model_sel, savings
+    return classification, prompt_len, region_info, model_sel, savings
 
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
-    classification, prompt_len, mode, region_info, model_sel, savings = await _build_routing(req)
+    classification, prompt_len, region_info, model_sel, savings = await _build_routing(req)
     target_model = model_sel["openrouter_id"] or model_sel["model"]
     api_cost = 0.0
     prompt_tokens = max(5, int(prompt_len / 4.0))
@@ -388,7 +383,7 @@ async def chat_stream(req: ChatRequest, request: Request):
             "verification_confidence": v_result["confidence"],
             "observed_tps": v_result["observed_tps"],
             "integrity_hash": v_result.get("integrity_hash", ""),
-            "routing_mode": mode,
+            "routing_mode": "eco",
             "is_local_inference": (model_sel["provider"] == "Ollama (Local)")
         }, user_email=user_email)
 
@@ -398,14 +393,14 @@ async def chat_stream(req: ChatRequest, request: Request):
                     "region": region_info["region"],
                     "carbon_intensity": region_info["carbon_intensity_g_kwh"],
                     "energy_source": region_info["energy_source"],
-                    "message": f"\u26a0\ufe0f {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']}). Switch to eco mode!"
+                    "message": f"\u26a0\ufe0f {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']})."
                 })
             await ws_manager.broadcast_to_user(user_email, "query.routed", {
                 "query": req.message[:100], "tier": classification["tier"],
                 "model": model_sel["model"], "region": region_info["region"],
                 "co2_g": savings["estimated_co2_g"],
                 "co2_saved_g": savings["saved_vs_baseline_g"],
-                "api_cost": api_cost, "mode": mode,
+                "api_cost": api_cost,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
@@ -427,7 +422,7 @@ async def chat_stream(req: ChatRequest, request: Request):
             "verification_reason": v_result["reason"],
             "observed_tps": v_result["observed_tps"],
             "integrity_hash": v_result.get("integrity_hash", ""),
-            "routing_mode": mode,
+            "routing_mode": "eco",
             "is_local_inference": (model_sel["provider"] == "Ollama (Local)"),
             "what_if": {
                 "baseline_model": worst_model["model"],
