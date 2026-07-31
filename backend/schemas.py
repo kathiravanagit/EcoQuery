@@ -7,7 +7,6 @@ from typing import Optional
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     model_id: Optional[str] = None
-    mode: Optional[str] = Field(default="eco")
 
 
 class ChatResponse(BaseModel):
