@@ -29,11 +29,11 @@ class ProviderRouter:
         Returns: {"content": str, "usage": {"prompt_tokens": int, "completion_tokens": int}}
         """
         client_kwargs, target_model, provider = self.get_target(model_id)
-        import openai
+        from openai import AsyncOpenAI
 
         try:
-            client = openai.OpenAI(**client_kwargs)
-            response = client.chat.completions.create(
+            client = AsyncOpenAI(**client_kwargs)
+            response = await client.chat.completions.create(
                 model=target_model,
                 messages=messages,
                 max_tokens=max_tokens,
