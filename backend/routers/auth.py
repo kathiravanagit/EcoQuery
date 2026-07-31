@@ -187,7 +187,7 @@ async def verify_email(req: VerifyEmailRequest):
     # Check token
     stored_token = user.get("verify_token", "")
     expires = user.get("verify_token_expires")
-    if not stored_token or stored_token != req.token:
+    if not stored_token or not secrets.compare_digest(stored_token, req.token):
         raise HTTPException(status_code=400, detail="Invalid verification token")
     if expires and expires < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Verification token expired")

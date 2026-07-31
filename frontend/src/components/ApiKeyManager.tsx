@@ -31,6 +31,7 @@ const ApiKeyManager: React.FC<Props> = ({ token, API }) => {
       setLoading(true);
       setError('');
       const r = await fetch(`${API}/api/user/api-key`, { headers });
+      if (!r.ok) throw new Error();
       const d = await r.json();
       const key = d.api_key || '';
       setApiKey(key);

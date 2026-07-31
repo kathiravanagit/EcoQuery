@@ -53,7 +53,7 @@ const ImpactStats = () => {
 
   useEffect(() => {
     fetch(`${API}/api/stats`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(d => setStats(d))
       .catch(() => {});
   }, []);

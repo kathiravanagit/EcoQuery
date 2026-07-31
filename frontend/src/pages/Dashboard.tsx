@@ -66,11 +66,11 @@ const Dashboard = () => {
     (async () => {
       try {
         const [s, m, c, a, b] = await Promise.all([
-          fetch(`${API}/api/user/stats`, { headers }).then(r => r.json()),
-          fetch(`${API}/api/models`, { headers }).then(r => r.json()),
-          fetch(`${API}/api/user/certificate`, { headers }).then(r => r.json()),
-          fetch(`${API}/api/analytics?days=7`, { headers }).then(r => r.json()),
-          fetch(`${API}/api/user/badges`, { headers }).then(r => r.json()),
+          fetch(`${API}/api/user/stats`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+          fetch(`${API}/api/models`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+          fetch(`${API}/api/user/certificate`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+          fetch(`${API}/api/analytics?days=7`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+          fetch(`${API}/api/user/badges`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
         ]);
         setStats(s); setModels(m.models || []);
         setCert(c); setAnalytics(a.queries_by_day || []); setBadges(b.badges || []);

@@ -149,9 +149,10 @@ async def get_org_member_roles(org_id: str, current_user: dict = Depends(get_cur
     if not org or current_user["email"] not in org.get("members", []):
         raise HTTPException(status_code=404, detail="Organization not found")
     
+    roles = org.get("roles", {})
     members = []
     for email in org.get("members", []):
-        role = "admin" if email == org.get("owner") else "member"
+        role = roles.get(email, "admin" if email == org.get("owner") else "member")
         members.append({"email": email, "role": role})
     
     return {"org_id": org_id, "members": members}
@@ -167,6 +168,11 @@ async def update_member_role(org_id: str, email: str, role: str, current_user: d
     
     if role not in ["admin", "member", "viewer"]:
         raise HTTPException(status_code=400, detail="Invalid role. Use: admin, member, viewer")
+    
+    org.setdefault("roles", {})[email] = role
+    coll = await get_orgs_collection()
+    if coll:
+        await coll.update_one({"id": org_id}, {"$set": {f"roles.{email}": role}})
     
     return {"status": "ok", "email": email, "role": role, "org_id": org_id}
 
