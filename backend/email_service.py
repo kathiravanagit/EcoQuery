@@ -186,7 +186,7 @@ class OTPStore:
         if record["expires_at"] < datetime.now(timezone.utc):
             del self._store[email]
             return False
-        if record["otp"] != otp:
+        if not secrets.compare_digest(record["otp"], otp):
             return False
         del self._store[email]
         return True

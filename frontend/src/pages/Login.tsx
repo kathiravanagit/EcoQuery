@@ -9,7 +9,7 @@ import './Pages.css';
 
 const Login = () => {
   const [email, setEmail] = useState(() => localStorage.getItem('saved_email') || '');
-  const [password, setPassword] = useState(() => localStorage.getItem('saved_password') || '');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errors, setErrors] = useState({ email: '', password: '' });
@@ -27,9 +27,8 @@ const Login = () => {
     setErrors({ email: '', password: '' });
     setIsSubmitting(true);
     try {
-      localStorage.setItem('saved_email', email);
-      if (rememberMe) localStorage.setItem('saved_password', password);
-      else localStorage.removeItem('saved_password');
+      if (rememberMe) localStorage.setItem('saved_email', email);
+      else localStorage.removeItem('saved_email');
       await login(email, password);
       toast('success', 'Welcome back!');
       navigate('/');

@@ -20,8 +20,8 @@ const Admin = () => {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch(`${API}/api/admin/stats`, { headers }).then(r => r.json()),
-      fetch(`${API}/api/admin/users?limit=200`, { headers }).then(r => r.json()),
+      fetch(`${API}/api/admin/stats`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch(`${API}/api/admin/users?limit=200`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     ]).then(([s, u]) => { setStats(s); setUsers(u.users || []); }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 

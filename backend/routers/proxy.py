@@ -105,8 +105,8 @@ async def proxy_chat(req: ChatRequest, request: Request):
         token = auth_header[7:]
         if token.startswith("eq_"):
             try:
-                from auth import db
-                user = await db.users.find_one({"api_key": token})
+                from auth import auth_db
+                user = await auth_db.collection.find_one({"api_key": token})
                 if user:
                     user_email = user.get("email", "")
             except Exception:
@@ -141,7 +141,7 @@ async def proxy_chat(req: ChatRequest, request: Request):
         "verification_confidence": v_result["confidence"],
         "observed_tps": v_result["observed_tps"],
         "integrity_hash": v_result.get("integrity_hash", ""),
-        "routing_mode": mode,
+        "routing_mode": "eco",
         "is_local_inference": False,
     }, user_email=user_email)
 
@@ -169,7 +169,7 @@ async def proxy_chat(req: ChatRequest, request: Request):
             "verification_reason": v_result["reason"],
             "observed_tps": v_result["observed_tps"],
             "integrity_hash": v_result.get("integrity_hash", ""),
-            "routing_mode": mode,
+            "routing_mode": "eco",
             "is_local_inference": False,
             "proxy_provider": actual_provider,
             "proxy_region_pinned": actual_provider != "openrouter",
