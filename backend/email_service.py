@@ -1,23 +1,18 @@
 """
-Email Service — uses Gmail SMTP for transactional emails.
+Email Service — uses Brevo (Sendinblue) API for transactional emails.
 Sends: confirmation, OTP, password reset, org invites.
 """
 
 import os
 import logging
 import secrets
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import httpx
 from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger("EcoQuery.email")
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASS = os.getenv("SMTP_PASS", "")
-FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@ecoquery.app")
 FROM_NAME = os.getenv("FROM_NAME", "EcoQuery")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://eco2query.vercel.app")
 OTP_EXPIRY_MINUTES = 10
@@ -26,39 +21,40 @@ RESET_EXPIRY_MINUTES = 60
 
 class EmailService:
     def __init__(self):
-        self.smtp_host = SMTP_HOST
-        self.smtp_port = SMTP_PORT
-        self.smtp_user = SMTP_USER
-        self.smtp_pass = SMTP_PASS
+        self.api_key = BREVO_API_KEY
         self.from_email = FROM_EMAIL
         self.from_name = FROM_NAME
         self.frontend_url = FRONTEND_URL
-        self._available = bool(self.smtp_host and self.smtp_user and self.smtp_pass)
+        self._available = bool(self.api_key)
 
     @property
     def available(self):
         return self._available
 
-    async def _send_smtp(self, to: str, subject: str, html: str) -> bool:
-        """Send email via Gmail SMTP."""
+    async def _send_brevo(self, to: str, subject: str, html: str) -> bool:
+        """Send email via Brevo API."""
         if not self._available:
             logger.info(f"[EMAIL MOCK] To: {to} | Subject: {subject}")
             return True
 
         try:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = subject
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
-            msg["To"] = to
-            msg.attach(MIMEText(html, "html"))
-
-            server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=15)
-            server.login(self.smtp_user, self.smtp_pass)
-            server.sendmail(self.from_email, [to], msg.as_string())
-            server.quit()
-
-            logger.info(f"Email sent to {to}: {subject}")
-            return True
+            async with httpx.AsyncClient(timeout=15) as client:
+                response = await client.post(
+                    "https://api.brevo.com/v3/smtp/email",
+                    headers={
+                        "api-key": self.api_key,
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "sender": {"name": self.from_name, "email": self.from_email},
+                        "to": [{"email": to}],
+                        "subject": subject,
+                        "htmlContent": html,
+                    },
+                )
+                response.raise_for_status()
+                logger.info(f"Email sent to {to}: {subject}")
+                return True
         except Exception as e:
             logger.warning(f"Failed to send email to {to}: {e}")
             return False
@@ -86,7 +82,7 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_smtp(to, "EcoQuery - Confirm your email", html)
+        return await self._send_brevo(to, "EcoQuery - Confirm your email", html)
 
     # ── OTP Email (forgot password) ───────────────────────────────────────
 
@@ -112,7 +108,7 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_smtp(to, f"EcoQuery - Your {purpose} code", html)
+        return await self._send_brevo(to, f"EcoQuery - Your {purpose} code", html)
 
     # ── Password Reset Link ───────────────────────────────────────────────
 
@@ -137,7 +133,7 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_smtp(to, "EcoQuery - Password Reset", html)
+        return await self._send_brevo(to, "EcoQuery - Password Reset", html)
 
     # ── Org Invite ────────────────────────────────────────────────────────
 
@@ -161,7 +157,7 @@ class EmailService:
             </div>
         </div>
         """
-        return await self._send_smtp(to, f"EcoQuery - Join {org_name}", html)
+        return await self._send_brevo(to, f"EcoQuery - Join {org_name}", html)
 
 
 # ── OTP Store (in-memory) ─────────────────────────────────────────────────
