@@ -60,7 +60,7 @@ const Dashboard = () => {
       setStats(s); setModels(m.models || []);
       setCert(c); setAnalytics(a.queries_by_day || []); setBadges(b.badges || []);
     } catch (e) { console.error('Failed to fetch dashboard data', e); }
-  }, [analyticsPeriod]);
+  }, [analyticsPeriod, token]);
 
   useEffect(() => {
     (async () => {

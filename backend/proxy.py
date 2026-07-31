@@ -15,6 +15,7 @@ from router import compute_savings
 from ledger import ledger
 from verifier import verifier
 from websocket_manager import ws_manager
+from vps_utils import parse_vps_endpoints
 
 logger = logging.getLogger("EcoQuery.proxy")
 
@@ -28,31 +29,7 @@ class CarbonAwareProxy:
         self.aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY", "")
         self.vertex_key = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
 
-        # Parse multiple VPS endpoints from env
-        # Format: URL1:region1,URL2:region2 (e.g., http://ip1:11434:eu-north-1,http://ip2:11434:eu-west-3)
-        self.vps_endpoints = self._parse_vps_endpoints()
-
-    def _parse_vps_endpoints(self) -> list:
-        """Parse OLLAMA_ENDPOINTS env var into list of {url, region} dicts."""
-        raw = os.getenv("OLLAMA_ENDPOINTS", "")
-        if not raw:
-            # Fallback to single OLLAMA_BASE_URL
-            url = os.getenv("OLLAMA_BASE_URL", "")
-            region = os.getenv("OLLAMA_REGION", "eu-north-1")
-            if url:
-                return [{"url": url, "region": region}]
-            return []
-
-        endpoints = []
-        for part in raw.split(","):
-            part = part.strip()
-            if ":" in part:
-                # Format: http://ip:port:region
-                parts = part.rsplit(":", 1)
-                if len(parts) == 2:
-                    url, region = parts
-                    endpoints.append({"url": url, "region": region})
-        return endpoints
+        self.vps_endpoints = parse_vps_endpoints()
 
     def get_available_providers(self) -> list:
         """Return list of available providers with their regions."""

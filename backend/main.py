@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import os
 import time
 import logging
+import asyncio
 from jose import JWTError, jwt
 
 from auth import auth_db, SECRET_KEY, ALGORITHM
@@ -76,7 +77,17 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("No Electricity Maps API key — using mock carbon data")
 
+    async def cleanup_otps():
+        while True:
+            await asyncio.sleep(300)
+            from email_service import otp_store
+            otp_store.cleanup()
+
+    otp_task = asyncio.create_task(cleanup_otps())
+
     yield
+
+    otp_task.cancel()
     logger.info("Shutting down EcoQuery backend...")
 
 app = FastAPI(title="EcoQuery Backend", lifespan=lifespan)
