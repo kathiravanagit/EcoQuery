@@ -17,6 +17,7 @@ from ledger import ledger
 from verifier import verifier
 from websocket_manager import ws_manager
 from providers import provider_router
+from green_provider import green_router
 
 logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -38,6 +39,39 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     region_info = routing["region"]
     model_sel = routing["model"]
     savings = routing["savings"]
+
+    green_source = None
+    if mode == "eco":
+        try:
+            green_route = await green_router.route_to_greenest()
+            green_model_id = await green_router.get_green_model(req.message)
+            green_provider = green_route["provider"]
+            green_intensity = green_route["intensity"]
+            green_score = green_route["score"]
+            green_region = green_route["region"]
+            green_source = green_route.get("alternatives", [])
+
+            model_sel = {
+                "model": green_model_id.split("/")[-1],
+                "provider": green_provider,
+                "display_name": f"{green_provider} {green_model_id} (greenest)",
+                "openrouter_id": green_model_id,
+                "tier": "free",
+                "carbon_score": round(green_score, 1),
+                "estimated_latency_s": model_sel.get("estimated_latency_s", 2.0),
+                "reason": f"Routed to greenest provider: {green_provider} ({green_route['location']}, {green_intensity} g/kWh, grid: {green_route['grid']})"
+            }
+            region_info = {
+                "region": green_region,
+                "energy_source": green_route["grid"],
+                "carbon_intensity_g_kwh": green_intensity,
+                "method": "green-provider-realtime",
+            }
+            intensity = green_intensity
+            savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
+            logger.info(f"Green provider override: {green_provider} ({green_region}) @ {green_intensity} g/kWh")
+        except Exception as e:
+            logger.warning(f"Green provider routing failed, falling back: {e}")
 
     if req.model_id:
         for m in CARBON_MODELS:
@@ -245,6 +279,37 @@ async def _build_routing(req: ChatRequest):
     region_info = routing["region"]
     model_sel = routing["model"]
     savings = routing["savings"]
+
+    if mode == "eco":
+        try:
+            green_route = await green_router.route_to_greenest()
+            green_model_id = await green_router.get_green_model(req.message)
+            green_provider = green_route["provider"]
+            green_intensity = green_route["intensity"]
+            green_score = green_route["score"]
+            green_region = green_route["region"]
+
+            model_sel = {
+                "model": green_model_id.split("/")[-1],
+                "provider": green_provider,
+                "display_name": f"{green_provider} {green_model_id} (greenest)",
+                "openrouter_id": green_model_id,
+                "tier": "free",
+                "carbon_score": round(green_score, 1),
+                "estimated_latency_s": model_sel.get("estimated_latency_s", 2.0),
+                "reason": f"Routed to greenest provider: {green_provider} ({green_route['location']}, {green_intensity} g/kWh, grid: {green_route['grid']})"
+            }
+            region_info = {
+                "region": green_region,
+                "energy_source": green_route["grid"],
+                "carbon_intensity_g_kwh": green_intensity,
+                "method": "green-provider-realtime",
+            }
+            intensity = green_intensity
+            savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
+            logger.info(f"Green provider override (stream): {green_provider} ({green_region}) @ {green_intensity} g/kWh")
+        except Exception as e:
+            logger.warning(f"Green provider routing failed (stream), falling back: {e}")
 
     if req.model_id:
         for m in CARBON_MODELS:
