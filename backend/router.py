@@ -1,8 +1,6 @@
 """
 Carbon-aware model router for EcoQuery.
-Supports two routing modes:
-  - eco: Carbon-first (minimize CO2, accept higher latency)
-  - performance: Latency-first (minimize latency, accept higher carbon)
+Always routes with carbon-first priority.
 """
 
 import logging
@@ -11,7 +9,6 @@ from models import CARBON_MODELS, REGION_MODEL_AFFINITY
 
 logger = logging.getLogger("EcoQuery.router")
 
-# Performance baselines (estimated latency in seconds)
 MODEL_LATENCY = {
     "deepseek-v4-flash": 1.0,
     "ling-3.0-flash": 0.8,
@@ -22,7 +19,7 @@ MODEL_LATENCY = {
 }
 
 
-def select_model(tier: str, region_code: str, carbon_intensity: float, mode: str = "eco") -> dict:
+def select_model(tier: str, region_code: str, carbon_intensity: float) -> dict:
     available = REGION_MODEL_AFFINITY.get(region_code, [])
     candidates = [m for m in CARBON_MODELS if m["id"] in available]
 
@@ -34,15 +31,10 @@ def select_model(tier: str, region_code: str, carbon_intensity: float, mode: str
     elif tier == "medium":
         candidates = [c for c in candidates if c["carbon_score"] <= 6] or candidates
 
-    if mode == "eco":
-        green_threshold = 100
-        if carbon_intensity < green_threshold and tier != "simple":
-            candidates = [c for c in candidates if c["tier"] in ("green", "balanced")] or candidates
-        candidates.sort(key=lambda m: m["carbon_score"])
-    elif mode == "performance":
-        candidates.sort(key=lambda m: MODEL_LATENCY.get(m["id"], 5.0))
-    else:
-        candidates.sort(key=lambda m: m["carbon_score"])
+    green_threshold = 100
+    if carbon_intensity < green_threshold and tier != "simple":
+        candidates = [c for c in candidates if c["tier"] in ("green", "balanced")] or candidates
+    candidates.sort(key=lambda m: m["carbon_score"])
 
     chosen = candidates[0]
     estimated_latency = MODEL_LATENCY.get(chosen["id"], 2.0)
@@ -76,16 +68,15 @@ def compute_savings(model_carbon_score: int | float, region_intensity: float, pr
     }
 
 
-async def route_query(tier: str, prompt_length: int = 50, mode: str = "eco") -> dict:
+async def route_query(tier: str, prompt_length: int = 50) -> dict:
     region_info = await get_carbon_optimal_region()
     region_code = region_info["region"]
     intensity = region_info.get("carbon_intensity_g_kwh", 200.0)
-    selection = select_model(tier, region_code, intensity, mode=mode)
+    selection = select_model(tier, region_code, intensity)
     savings = compute_savings(selection["carbon_score"], intensity, prompt_length=prompt_length)
     return {
         "region": region_info,
         "model": selection,
         "savings": savings,
         "display": f"{selection['display_name']} via {region_code} ({region_info['energy_source']})",
-        "mode": mode
     }

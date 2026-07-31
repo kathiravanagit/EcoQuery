@@ -67,7 +67,6 @@ const LiveDemo = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [overrideModel, setOverrideModel] = useState('');
-  const [routingMode, setRoutingMode] = useState<'eco' | 'performance'>('eco');
   const [models, setModels] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
@@ -95,7 +94,6 @@ const LiveDemo = () => {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMsg,
-          mode: routingMode,
           ...(overrideModel ? { model_id: overrideModel } : {})
         })
       });
@@ -121,35 +119,11 @@ const LiveDemo = () => {
               <motion.div className="status-dot" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}></motion.div>
               <span>EcoQuery Router Active</span>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <div className="routing-mode-toggle" style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                  <button
-                    type="button"
-                    onClick={() => setRoutingMode('eco')}
-                    style={{
-                      padding: '4px 10px', fontSize: '0.75rem', border: 'none', cursor: 'pointer',
-                      background: routingMode === 'eco' ? 'rgba(0,212,106,0.2)' : 'transparent',
-                      color: routingMode === 'eco' ? '#00d46a' : 'var(--text-secondary)',
-                      fontWeight: routingMode === 'eco' ? 600 : 400,
-                    }}
-                  >
-                    <TreePine size={12} style={{ marginRight: 3, verticalAlign: 'middle' }} />Eco
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRoutingMode('performance')}
-                    style={{
-                      padding: '4px 10px', fontSize: '0.75rem', border: 'none', cursor: 'pointer',
-                      background: routingMode === 'performance' ? 'rgba(245,158,11,0.2)' : 'transparent',
-                      color: routingMode === 'performance' ? '#f59e0b' : 'var(--text-secondary)',
-                      fontWeight: routingMode === 'performance' ? 600 : 400,
-                    }}
-                  >
-                    <Timer size={12} style={{ marginRight: 3, verticalAlign: 'middle' }} />Fast
-                  </button>
-                </div>
+                <span style={{ fontSize: '0.75rem', color: '#00d46a', fontWeight: 600 }}>
+                  <TreePine size={12} style={{ marginRight: 3, verticalAlign: 'middle' }} />Eco Mode
+                </span>
                 <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} className="model-picker" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
-                  <option value="">🌿 Auto (Eco)</option>
-                  <option value="">⚡ Auto (Performance)</option>
+                  <option value="">🌿 Auto (Greenest)</option>
                   <option disabled>──────────</option>
                   {['green', 'balanced', 'performance'].map(tier => {
                     const tierModels = models.filter(m => m.tier === tier);
@@ -183,8 +157,8 @@ const LiveDemo = () => {
                           <span className="meta-tag"><Server size={12}/> {msg.metadata.model_id}</span>
                           <span className="meta-tag"><Leaf size={12} style={{ color: 'var(--accent)' }}/> {msg.metadata.energy_source}</span>
                           {msg.metadata.routing_mode && (
-                            <span className="meta-tag" style={{ borderColor: msg.metadata.routing_mode === 'eco' ? '#00d46a' : '#f59e0b', color: msg.metadata.routing_mode === 'eco' ? '#00d46a' : '#f59e0b' }}>
-                              {msg.metadata.routing_mode === 'eco' ? '🌿 Eco Mode' : '⚡ Performance Mode'}
+                            <span className="meta-tag" style={{ borderColor: '#00d46a', color: '#00d46a' }}>
+                              <TreePine size={12} style={{ marginRight: 3, verticalAlign: 'middle' }} />Eco Mode
                             </span>
                           )}
                           {msg.metadata.is_local_inference && (
