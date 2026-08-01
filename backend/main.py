@@ -102,6 +102,20 @@ app.add_middleware(
 
 app.middleware("http")(rate_limit_middleware)
 
+
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    return response
+
+
+app.middleware("http")(security_headers_middleware)
+
 # ─── Include Routers ──────────────────────────────────────────────
 from routers.auth import router as auth_router
 from routers.orgs import router as orgs_router

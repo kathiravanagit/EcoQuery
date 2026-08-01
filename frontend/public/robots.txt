@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /profile
+Disallow: /teams
+
+Sitemap: https://eco2query.vercel.app/sitemap.xml
