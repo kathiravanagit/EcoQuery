@@ -191,24 +191,13 @@ const LiveDemo = () => {
                     <p>{msg.content}</p>
                     {msg.metadata && (
                       <motion.div className="message-metadata" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                           <span className="meta-tag">
                             {msg.metadata.model_id}
                           </span>
                           <span className="meta-tag">
-                            {msg.metadata.region}
+                            auto picked by query heavy
                           </span>
-                          <span className="meta-tag">
-                            auto-picked by query complexity
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                          <span className="meta-tag savings">{msg.metadata.co2_saved_g}g saved</span>
-                          {msg.metadata.what_if && (
-                            <span className="meta-tag" style={{ cursor: 'pointer' }}>
-                              vs {msg.metadata.what_if.baseline_model}
-                            </span>
-                          )}
                         </div>
                       </motion.div>
                     )}
