@@ -60,10 +60,9 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
   overflow-x: hidden;
   background-image:
-    radial-gradient(ellipse at center, transparent 0%, var(--bg-color) 100%),
     linear-gradient(var(--border-color) 1px, transparent 1px),
     linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
-  background-size: 100% 100%, 50px 50px, 50px 50px;
+  background-size: 40px 40px;
   background-attachment: fixed;
 }
 

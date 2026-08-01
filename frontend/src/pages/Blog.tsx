@@ -47,6 +47,24 @@ AI inference is projected to consume more energy than training by 2027. Yet most
 
 A single GPT-4 query produces approximately 0.8g of CO₂. By routing to green regions (like Sweden or Norway), this drops to 0.05g — a 93% reduction.
 
+**Code Example:**
+
+\`\`\`python
+# EcoQuery automatically routes to the greenest provider
+import ecoquery
+
+client = ecoquery.Client(api_key="eq_...")
+
+response = client.chat(
+    message="Explain quantum computing",
+    # Automatically routes to lowest carbon intensity region
+)
+
+print(response.metadata.region)       # "se-stockholm"
+print(response.metadata.co2_saved_g)  # 0.75g saved
+print(response.metadata.carbon_score) # 9.2/10
+\`\`\`
+
 **Why It Matters:**
 
 Companies are under increasing pressure to report and reduce their AI carbon footprint. Carbon-aware routing provides a measurable, verifiable way to do this without changing your AI models or infrastructure.
@@ -73,16 +91,36 @@ The AI industry has a dirty secret: while training gets all the attention, infer
 
 Every time someone asks ChatGPT a question, the model runs across thousands of GPUs. Multiply this by millions of daily users, and the energy consumption becomes staggering.
 
+**Code: Tracking Your Inference Emissions**
+
+\`\`\`python
+# Calculate your AI carbon footprint
+def calculate_co2(query_count, tokens_per_query, grid_intensity):
+    """
+    query_count: Number of queries per day
+    tokens_per_query: Average tokens per query
+    grid_intensity: g/kWh (e.g., 700 for India, 13 for Sweden)
+    """
+    energy_per_1k_tokens = 0.0002  # kWh
+    total_tokens = query_count * tokens_per_query
+    energy_kwh = (total_tokens / 1000) * energy_per_1k_tokens
+    co2_grams = energy_kwh * grid_intensity
+    return co2_grams
+
+# India (coal-heavy grid)
+india_co2 = calculate_co2(1000, 500, 700)
+print(f"India: {india_co2:.2f}g CO₂/day")  # 70.00g
+
+# Sweden (hydro/nuclear)
+sweden_co2 = calculate_co2(1000, 500, 13)
+print(f"Sweden: {sweden_co2:.4f}g CO₂/day")  # 1.30g
+
+print(f"Reduction: {((india_co2 - sweden_co2) / india_co2 * 100):.0f}%")
+\`\`\`
+
 **The Solution:**
 
 Carbon-aware routing doesn't eliminate inference energy use — it makes it cleaner. By sending queries to data centers powered by hydro, wind, or nuclear energy, we can reduce the carbon footprint of every AI interaction.
-
-**What Companies Can Do:**
-
-1. Track inference emissions separately from training
-2. Use carbon-aware routing for non-critical queries
-3. Choose AI providers with renewable energy commitments
-4. Report AI carbon footprint in sustainability reports
     `
   },
   {
@@ -106,6 +144,20 @@ Carbon-aware routing doesn't eliminate inference energy use — it makes it clea
 | Iceland | 0 g/kWh | Geothermal |
 | US (Oregon) | 80 g/kWh | Hydro |
 | India | 700 g/kWh | Coal |
+
+**Code: Query Real-Time Carbon Intensity**
+
+\`\`\`bash
+# Check carbon intensity for any region
+$ curl https://api.electricitymap.org/v3/carbon-intensity/se-stockholm
+
+{
+  "carbonIntensity": 13,
+  "unit": "gCO2eq/kWh",
+  "energySource": "hydro,nuclear",
+  "timestamp": "2025-01-05T10:30:00Z"
+}
+\`\`\`
 
 **What to Look For:**
 
@@ -151,6 +203,53 @@ Now compare with green routing:
 - CO₂: 0.0026g per query
 - **Reduction: 98%**
 
+**Code: Full Measurement Script**
+
+\`\`\`python
+import json
+from datetime import datetime
+
+class CarbonTracker:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.log = []
+    
+    def track_query(self, model, tokens, region, co2):
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "model": model,
+            "tokens": tokens,
+            "region": region,
+            "co2_grams": co2
+        }
+        self.log.append(entry)
+        return entry
+    
+    def total_co2(self):
+        return sum(e["co2_grams"] for e in self.log)
+    
+    def savings_vs_baseline(self, baseline_intensity=700):
+        baseline = sum(
+            e["tokens"] / 1000 * 0.0002 * baseline_intensity 
+            for e in self.log
+        )
+        return baseline - self.total_co2()
+    
+    def export_report(self):
+        return {
+            "total_queries": len(self.log),
+            "total_co2_g": self.total_co2(),
+            "savings_g": self.savings_vs_baseline(),
+            "log": self.log
+        }
+
+# Usage
+tracker = CarbonTracker("eq_...")
+tracker.track_query("deepseek-v4-flash", 500, "se-stockholm", 0.001)
+tracker.track_query("mimo-v2.5", 800, "no-oslo", 0.002)
+print(json.dumps(tracker.export_report(), indent=2))
+\`\`\`
+
 **What to Track:**
 
 1. Total queries per day/month
@@ -195,6 +294,33 @@ The green AI movement is just beginning. Here is what the next decade looks like
 - Quantum computing for optimization problems
 - AI self-optimizing for energy efficiency
 - Zero-carbon inference possible
+
+**Code: The Green AI Roadmap**
+
+\`\`\`yaml
+# green-ai-roadmap.yaml
+version: "1.0"
+milestones:
+  2025:
+    - Carbon-aware routing adoption
+    - Real-time emission tracking
+    - ESG reporting integration
+  
+  2027:
+    - Edge inference (on-device)
+    - Sparse model architectures
+    - 100% renewable data centers
+  
+  2030:
+    - Neuromorphic chips
+    - Carbon-negative AI
+    - Self-optimizing inference
+
+metrics:
+  carbon_per_query_target: "0.001g"
+  renewable_energy_target: "100%"
+  pue_target: 1.1
+\`\`\`
 
 **What You Can Do Now:**
 
