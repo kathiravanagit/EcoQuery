@@ -1,6 +1,8 @@
 .demo-container {
   max-width: 800px;
   margin: 0 auto;
+  background: var(--bg-secondary);
+  border-radius: 1rem;
 }
 
 .chat-interface {
@@ -12,6 +14,7 @@
   border-radius: 1rem;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
 .chat-interface:hover {
