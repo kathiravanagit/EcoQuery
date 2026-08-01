@@ -2,6 +2,7 @@
   max-width: 800px;
   margin: 0 auto;
   background: var(--bg-secondary);
+  overflow: hidden;
 }
 
 .chat-interface {
