@@ -32,6 +32,8 @@ const Navbar = ({ theme, toggleTheme }: NavbarProps) => {
   const pageLinks = [
     { name: 'Home', to: isHome ? '#home' : '/' },
     { name: 'Pricing', to: '/pricing' },
+    { name: 'Blog', to: '/blog' },
+    { name: 'FAQ', to: '/faq' },
     { name: 'About', to: '/about' },
     { name: 'Contact', to: '/contact' },
     ...(user ? [{ name: 'Dashboard', to: '/dashboard' }] : []),

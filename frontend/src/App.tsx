@@ -32,6 +32,9 @@ const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Admin = lazy(() => import('./pages/Admin'));
+const Blog = lazy(() => import('./pages/Blog'));
+const BlogPost = lazy(() => import('./pages/BlogPost'));
+const FAQ = lazy(() => import('./pages/FAQ'));
 
 const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
 
@@ -98,6 +101,9 @@ function AppContent() {
           <Route path="/verify-email" element={<AnimatedPage><VerifyEmail /></AnimatedPage>} />
           <Route path="/terms" element={<AnimatedPage><Terms /></AnimatedPage>} />
           <Route path="/cookies" element={<AnimatedPage><CookiePolicy /></AnimatedPage>} />
+          <Route path="/blog" element={<AnimatedPage><Blog /></AnimatedPage>} />
+          <Route path="/blog/:id" element={<AnimatedPage><BlogPost /></AnimatedPage>} />
+          <Route path="/faq" element={<AnimatedPage><FAQ /></AnimatedPage>} />
           <Route path="/auth/callback" element={<AnimatedPage><AuthCallback /></AnimatedPage>} />
           <Route path="*" element={<AnimatedPage><NotFound /></AnimatedPage>} />
         </Routes>
