@@ -59,7 +59,7 @@ PROVIDERS = {
     },
     "openrouter": {
         "regions": {"global": {"endpoint": "openrouter.ai/api/v1", "name": "Global"}},
-        "models": ["deepseek-v4-flash", "ling-3.0-flash", "nemotron-3-ultra"],
+        "models": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free", "llama-4-maverick:free"],
         "requires_key": True,
         "env_key": "OPENAI_API_KEY",
     },
@@ -134,7 +134,7 @@ class SmartRouter:
                 name="openrouter",
                 region="global",
                 endpoint="openrouter.ai/api/v1",
-                model="deepseek-v4-flash",
+                model="deepseek-r1-0528:free",
                 supports_region_pinning=False,
                 cost_per_1k_tokens=0,
                 api_key=os.getenv("OPENAI_API_KEY", ""),

@@ -238,7 +238,7 @@ class CarbonAwareExecutor:
         )
 
         response = client.chat.completions.create(
-            model=model or "deepseek-v4-flash",
+            model=model or "deepseek-r1-0528:free",
             messages=messages,
             max_tokens=max_tokens,
         )
