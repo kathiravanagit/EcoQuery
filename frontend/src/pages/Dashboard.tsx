@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Award, Leaf, Server, BarChart3, TrendingUp, DollarSign, Download, Zap, Search, Shield, Trophy, FileText, Clock, Loader2, ArrowRight } from 'lucide-react';
+import { Award, Leaf, ArrowRight } from 'lucide-react';
 import { PageSkeleton } from '../components/Skeleton';
 import ApiKeyManager from '../components/ApiKeyManager';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
+import {
+  DashboardStats, DashboardImpact, DashboardRealtime, DashboardAnalytics,
+  DashboardBadges, DashboardCatalog, DashboardQueries, DashboardExport
+} from '../components/dashboard';
 import './Pages.css';
 
 interface Stats {
@@ -17,16 +20,6 @@ interface Stats {
 interface Model { id: string; provider: string; tier: string; carbon_score: number; description: string; }
 interface Cert { display_name?: string; user?: string; total_queries?: number; total_co2_saved_g?: number; green_query_percent?: number; }
 interface Badge { id: string; name: string; description: string; icon: string; earned_at: string; }
-interface QueryRecord { query?: string; model_used?: string; region?: string; co2_saved_vs_baseline?: number; tier?: string; api_cost?: number; latency_seconds?: number; verification_status?: string; }
-
-const PIE_COLORS = ['#00d46a', '#f59e0b', '#ef4444'];
-
-const CO2_EQUIVALENTS = {
-  trees: (g: number) => (g / 21.77).toFixed(1),
-  driving: (g: number) => (g / 0.21).toFixed(0),
-  ledHours: (g: number) => (g / 0.01).toFixed(0),
-  phones: (g: number) => (g / 8.0).toFixed(1),
-};
 
 const Dashboard = () => {
   const { token } = useAuth();
@@ -38,12 +31,9 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [realtimeEvents, setRealtimeEvents] = useState<any[]>([]);
-  const [querySearch, setQuerySearch] = useState('');
-  const [loadedQueries, setLoadedQueries] = useState<QueryRecord[]>([]);
-  const [querySkip, setQuerySkip] = useState(0);
+  const [loadedQueries, setLoadedQueries] = useState<any[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [carbonAlert, setCarbonAlert] = useState<string | null>(null);
-  const [report, setReport] = useState<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   const headers = { Authorization: `Bearer ${token}` };
@@ -102,18 +92,6 @@ const Dashboard = () => {
     return () => ws.close();
   }, [token]);
 
-  const downloadReport = async () => {
-    try {
-      const r = await fetch(`${API}/api/user/sustainability-report`, { headers });
-      const d = await r.json();
-      setReport(d);
-      const blob = new Blob([d.text_report || JSON.stringify(d, null, 2)], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'ecoquery-sustainability-report.txt'; a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) { console.error('Report download failed', e); }
-  };
-
   const downloadBadge = (data: any) => {
     const c = document.createElement('canvas');
     c.width = 500; c.height = 620;
@@ -147,34 +125,6 @@ const Dashboard = () => {
     link.href = c.toDataURL('image/png'); link.click();
   };
 
-  const loadMore = async () => {
-    const newSkip = querySkip + 10;
-    try {
-      const r = await fetch(`${API}/api/audit?skip=${newSkip}&limit=10`, { headers });
-      const d = await r.json();
-      setLoadedQueries(prev => [...prev, ...(d.records || [])]);
-      setQuerySkip(newSkip);
-    } catch (e) { console.error('Failed to load more queries', e); }
-  };
-
-  const exportQueries = async (format: string) => {
-    try {
-      const r = await fetch(`${API}/api/user/export?format=${format}`, { headers });
-      if (format === 'csv') {
-        const blob = await r.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'ecoquery-export.csv'; a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        const d = await r.json();
-        const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'ecoquery-export.json'; a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (e) { console.error('Export failed', e); }
-  };
-
   if (loading) return (
     <div className="page">
       <section className="section">
@@ -187,8 +137,6 @@ const Dashboard = () => {
       </section>
     </div>
   );
-
-  const isFirstRun = stats && stats.total_queries === 0;
 
   const tierData = stats?.queries_by_tier ? Object.entries(stats.queries_by_tier).map(([name, value]) => ({ name, value })) : [];
 
@@ -208,16 +156,14 @@ const Dashboard = () => {
 
             {carbonAlert && (
               <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '12px', padding: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
                 <span style={{ flex: 1, color: '#ef4444', fontSize: '0.9rem' }}>{carbonAlert}</span>
                 <button onClick={() => setCarbonAlert(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
               </div>
             )}
 
-            {isFirstRun && (
+            {stats && stats.total_queries === 0 && (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'center' }}
-              >
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'center' }}>
                 <p style={{ margin: '0 0 0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                   No queries yet. Send your first one from the <a href="/#demo" style={{ color: 'var(--accent)' }}>Live Demo</a> below.
                 </p>
@@ -225,157 +171,17 @@ const Dashboard = () => {
               </motion.div>
             )}
 
-            <div className="dashboard-cards">
-              <div className="dashboard-card" aria-label={`Total queries: ${stats?.total_queries || 0}`}>
-                <BarChart3 size={24} style={{ color: 'var(--accent)' }} />
-                <div className="dashboard-card-value">{stats?.total_queries || 0}</div>
-                <div className="dashboard-card-label">Total Queries</div>
-              </div>
-              <div className="dashboard-card" aria-label={`CO2 saved: ${stats?.total_co2_saved_g || 0} grams`}>
-                <Leaf size={24} style={{ color: 'var(--accent)' }} />
-                <div className="dashboard-card-value">{stats?.total_co2_saved_g || 0}g</div>
-                <div className="dashboard-card-label">CO₂ Saved</div>
-              </div>
-              <div className="dashboard-card" aria-label={`Total API cost: $${(stats?.total_api_cost || 0).toFixed(4)}`}>
-                <DollarSign size={24} style={{ color: 'var(--accent)' }} />
-                <div className="dashboard-card-value">${(stats?.total_api_cost || 0).toFixed(4)}</div>
-                <div className="dashboard-card-label">Total API Cost</div>
-              </div>
-              <div className="dashboard-card" aria-label={`Green queries: ${cert?.green_query_percent || 0} percent`}>
-                <Server size={24} style={{ color: 'var(--accent)' }} />
-                <div className="dashboard-card-value">{cert?.green_query_percent || 0}%</div>
-                <div className="dashboard-card-label">Green Queries</div>
-              </div>
-              <div className="dashboard-card" aria-label={`Avg latency: ${stats?.avg_latency_s || 0}s`}>
-                <Clock size={24} style={{ color: '#f59e0b' }} />
-                <div className="dashboard-card-value">{stats?.avg_latency_s || 0}s</div>
-                <div className="dashboard-card-label">Avg Latency</div>
-              </div>
-              <div className="dashboard-card" aria-label={`Flagged: ${stats?.flagged_queries || 0}`}>
-                <Shield size={24} style={{ color: stats?.flagged_queries ? '#ef4444' : '#00d46a' }} />
-                <div className="dashboard-card-value">{stats?.flagged_queries || 0}</div>
-                <div className="dashboard-card-label">Flagged Queries</div>
-              </div>
-            </div>
-
-            {badges.length > 0 && (
-              <div className="dashboard-section">
-                <h2><Trophy size={20} /> Your Badges ({badges.length})</h2>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                  {badges.map((b) => (
-                    <motion.div key={b.id} initial={{ scale: 0 }} animate={{ scale: 1 }} style={{
-                      background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px',
-                      padding: '12px 16px', minWidth: 140, textAlign: 'center',
-                    }}>
-                      <div style={{ fontSize: '2rem' }}>{b.icon}</div>
-                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{b.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{b.description}</div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {stats?.total_co2_saved_g ? (
-              <div className="dashboard-section">
-                <h2><Leaf size={20} /> Your Impact in Real Terms</h2>
-                <div style={{ 
-                  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px',
-                }}>
-                  {[
-                    { icon: <span style={{ fontSize: '1.5rem' }}>🌳</span>, value: CO2_EQUIVALENTS.trees(stats.total_co2_saved_g), unit: 'trees absorbed CO₂', color: '#00d46a' },
-                    { icon: <span style={{ fontSize: '1.5rem' }}>🚗</span>, value: CO2_EQUIVALENTS.driving(stats.total_co2_saved_g), unit: 'km driving saved', color: '#3b82f6' },
-                    { icon: <span style={{ fontSize: '1.5rem' }}>💡</span>, value: CO2_EQUIVALENTS.ledHours(stats.total_co2_saved_g), unit: 'hours LED bulb', color: '#f59e0b' },
-                    { icon: <span style={{ fontSize: '1.5rem' }}>📱</span>, value: CO2_EQUIVALENTS.phones(stats.total_co2_saved_g), unit: 'phone charges', color: '#8b5cf6' },
-                  ].map((eq, i) => (
-                    <motion.div key={i} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.1 }}
-                      style={{
-                        background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px',
-                        padding: '16px', textAlign: 'center',
-                      }}
-                    >
-                      <div>{eq.icon}</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: eq.color, marginTop: '4px' }}>{eq.value}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{eq.unit}</div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="dashboard-section">
-              <h2><Zap size={20} /> Real-time Query Events</h2>
-              {realtimeEvents.length === 0 ? (
-                <p className="dashboard-hint">Waiting for queries... Send one from the Live Demo!</p>
-              ) : (
-                <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-                  {realtimeEvents.map((e, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>{e.time}</span>
-                      <span className="meta-tag savings">+{e.co2_saved_g}g CO₂</span>
-                      <span className="meta-tag">{e.model}</span>
-                      <span className="meta-tag">{e.tier}</span>
-                      {e.mode && <span className="meta-tag" style={{ borderColor: e.mode === 'eco' ? '#00d46a' : '#f59e0b', color: e.mode === 'eco' ? '#00d46a' : '#f59e0b' }}>{e.mode}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="dashboard-section">
-              <h2><TrendingUp size={20} /> Usage Analytics</h2>
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-                {['day', 'week', 'month'].map(p => (
-                  <button key={p} className={`btn ${analyticsPeriod === p ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.3rem 0.75rem', fontSize: '0.85rem' }} onClick={() => setAnalyticsPeriod(p)}>
-                    {p.charAt(0).toUpperCase() + p.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 280, height: 250 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={analytics}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                      <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} />
-                      <YAxis stroke="var(--text-secondary)" fontSize={12} />
-                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }} />
-                      <Line type="monotone" dataKey="count" stroke="#00d46a" strokeWidth={2} dot={false} name="Queries" />
-                      <Line type="monotone" dataKey="co2_saved" stroke="#f59e0b" strokeWidth={2} dot={false} name="CO₂ Saved (g)" />
-                      <Line type="monotone" dataKey="avg_latency" stroke="#3b82f6" strokeWidth={2} dot={false} name="Avg Latency (s)" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                {tierData.length > 0 && (
-                  <div style={{ width: 200, height: 250 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={tierData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }: any) => `${name || ''} ${((percent || 0) * 100).toFixed(0)}%`}>
-                          {tierData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            </div>
-
+            <DashboardStats stats={stats} cert={cert} />
+            <DashboardBadges badges={badges} />
+            <DashboardImpact co2Saved={stats?.total_co2_saved_g || 0} />
+            <DashboardRealtime events={realtimeEvents} />
+            <DashboardAnalytics analytics={analytics} analyticsPeriod={analyticsPeriod} setAnalyticsPeriod={setAnalyticsPeriod} tierData={tierData} />
             <ApiKeyManager token={token} API={API} />
+            <DashboardExport token={token} />
 
-            <div className="dashboard-section">
-              <h2><FileText size={20} /> Data Export</h2>
-              <p className="dashboard-hint" style={{ marginBottom: '0.75rem' }}>Download your query history for offline analysis.</p>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button className="btn btn-secondary" onClick={() => exportQueries('csv')}><Download size={16} /> Export CSV</button>
-                <button className="btn btn-secondary" onClick={() => exportQueries('json')}><Download size={16} /> Export JSON</button>
-                <button className="btn btn-primary" onClick={downloadReport}><FileText size={16} /> Sustainability Report</button>
-              </div>
-            </div>
-
-            <div className="dashboard-section">
-              <h2><Award size={20} /> EcoQuery Appreciation Badge</h2>
-              {cert ? (
+            {cert && (
+              <div className="dashboard-section">
+                <h2><Award size={20} /> EcoQuery Appreciation Badge</h2>
                 <div className="dashboard-badge-wrap">
                   <div className="dashboard-badge" id="ecoquery-badge">
                     <div className="dashboard-badge-icon"><Leaf size={40} /></div>
@@ -396,69 +202,11 @@ const Dashboard = () => {
                     <Award size={16} /> Download Badge
                   </button>
                 </div>
-              ) : (
-                <p className="dashboard-hint">No data yet. Send some queries first!</p>
-              )}
-            </div>
-
-            <div className="dashboard-section">
-              <h2><Server size={20} /> Carbon-Aware Model Catalog</h2>
-              <div className="dashboard-model-grid">
-                {['green', 'balanced', 'performance'].map(tier => (
-                  <div key={tier} className="dashboard-model-tier">
-                    <h3 style={{ color: tier === 'green' ? '#00d46a' : tier === 'balanced' ? '#f59e0b' : '#ef4444' }}>
-                      {tier.charAt(0).toUpperCase() + tier.slice(1)}
-                    </h3>
-                    {models.filter(m => m.tier === tier).map(m => (
-                      <div key={m.id} className="dashboard-model-item">
-                        <div className="dashboard-model-name">{m.provider} {m.id}</div>
-                        <div className="dashboard-model-score">Score: {m.carbon_score}/10</div>
-                        <div className="dashboard-model-desc">{m.description}</div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
               </div>
-            </div>
+            )}
 
-            <div className="dashboard-section">
-              <h2><BarChart3 size={20} /> Recent Queries</h2>
-              <div className="input-group" style={{ marginBottom: '1rem', maxWidth: 400 }}>
-                <Search size={18} />
-                <input placeholder="Search queries..." value={querySearch} onChange={e => setQuerySearch(e.target.value)} aria-label="Search queries" />
-              </div>
-              {(() => {
-                const all = [...(stats?.latest_queries || []), ...loadedQueries];
-                const filtered = querySearch ? all.filter(q => q.query?.toLowerCase().includes(querySearch.toLowerCase()) || q.model_used?.toLowerCase().includes(querySearch.toLowerCase()) || q.region?.toLowerCase().includes(querySearch.toLowerCase())) : all;
-                return filtered.length ? (
-                  <div className="dashboard-query-list">
-                    {filtered.map((q, i) => (
-                      <div key={i} className="dashboard-query-item">
-                        <div className="dashboard-query-query">{q.query?.substring(0, 80)}{q.query?.length > 80 ? '...' : ''}</div>
-                        <div className="dashboard-query-meta">
-                          <span className="meta-tag">{q.model_used}</span>
-                          <span className="meta-tag">{q.region}</span>
-                          <span className="meta-tag savings">+{q.co2_saved_vs_baseline}g CO₂</span>
-                          <span className="meta-tag">{q.tier}</span>
-                          {q.latency_seconds ? <span className="meta-tag">{q.latency_seconds}s</span> : null}
-                          {q.verification_status && (
-                            <span className="meta-tag" style={{ borderColor: q.verification_status === 'flagged_substitution' ? '#ef4444' : '#00d46a', color: q.verification_status === 'flagged_substitution' ? '#ef4444' : '#00d46a' }}>
-                              {q.verification_status === 'flagged_substitution' ? '⚠️' : '🛡️'}
-                            </span>
-                          )}
-                          {q.api_cost ? <span className="meta-tag">${q.api_cost.toFixed(6)}</span> : null}
-                        </div>
-                      </div>
-                    ))}
-                    <button className="btn btn-secondary" onClick={loadMore} style={{ marginTop: '0.75rem', width: '100%' }}>
-                      Load More
-                    </button>
-                  </div>
-                ) : (
-                  <p className="dashboard-hint">{querySearch ? 'No matching queries found.' : 'No queries yet. Try the Live Demo!'}</p>
-                );
-              })()}
-            </div>
+            <DashboardCatalog models={models} />
+            <DashboardQueries stats={stats} loadedQueries={loadedQueries} setLoadedQueries={setLoadedQueries} token={token} />
           </motion.div>
         </div>
       </section>
