@@ -13,13 +13,13 @@
   padding: 0;
   border-radius: 1rem;
   box-shadow: var(--shadow-lg);
-  border: 1px solid var(--border-color) !important;
+  border: 1px solid var(--border-color);
   background: var(--bg-secondary);
 }
 
 .chat-interface:hover {
-  border-color: var(--border-color) !important;
-  box-shadow: var(--shadow-lg) !important;
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-lg);
 }
 
 .chat-header {
