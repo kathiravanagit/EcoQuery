@@ -150,7 +150,7 @@ const LiveDemo = () => {
         </motion.div>
 
         <motion.div className="demo-container" initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}>
-          <div className="chat-interface card">
+          <div className="chat-interface">
             <div className="chat-header">
               <motion.div className="status-dot" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}></motion.div>
               <span>EcoQuery Router Active</span>
