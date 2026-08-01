@@ -97,10 +97,22 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     output_tokens = 40
     is_mocked = False
 
+    messages = []
+    if req.images:
+        content = [{"type": "text", "text": req.message}]
+        for img in req.images:
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{img}"}
+            })
+        messages = [{"role": "user", "content": content}]
+    else:
+        messages = [{"role": "user", "content": req.message}]
+
     try:
         result = await provider_router.chat_completion(
             model_id=target_model,
-            messages=[{"role": "user", "content": req.message}],
+            messages=messages,
             max_tokens=1024,
         )
         reply_content = result["content"]
@@ -332,9 +344,21 @@ async def chat_stream(req: ChatRequest, request: Request):
     async def generate():
         nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply
         try:
+            messages = []
+            if req.images:
+                content = [{"type": "text", "text": req.message}]
+                for img in req.images:
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{img}"}
+                    })
+                messages = [{"role": "user", "content": content}]
+            else:
+                messages = [{"role": "user", "content": req.message}]
+
             async for token in provider_router.stream_completion(
                 model_id=target_model,
-                messages=[{"role": "user", "content": req.message}],
+                messages=messages,
                 max_tokens=1024,
             ):
                 if token:

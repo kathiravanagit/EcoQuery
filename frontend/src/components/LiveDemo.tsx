@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Leaf, Server, Zap, Shield, TreePine, Timer } from 'lucide-react';
+import { Send, Leaf, Server, Zap, Shield, TreePine, Timer, Paperclip, X, Image as ImageIcon, FileText } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
 
@@ -38,6 +38,7 @@ interface Message {
   role: string
   content: string
   metadata?: Metadata
+  images?: string[]
 }
 
 const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
@@ -68,8 +69,11 @@ const LiveDemo = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [overrideModel, setOverrideModel] = useState('');
   const [models, setModels] = useState<any[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<{name: string; type: string; data: string}[]>([]);
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`${API}/api/models`).then(r => r.json()).then(d => setModels(d.models || [])).catch(() => {});
@@ -82,11 +86,47 @@ const LiveDemo = () => {
 
   useEffect(() => { scrollToBottom(); }, [messages]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        const base64Data = base64.split(',')[1];
+
+        if (file.type.startsWith('image/')) {
+          setAttachedImages(prev => [...prev, base64Data]);
+        } else {
+          setAttachedFiles(prev => [...prev, {
+            name: file.name,
+            type: file.type,
+            data: base64Data
+          }]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (index: number, type: 'image' | 'file') => {
+    if (type === 'image') {
+      setAttachedImages(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    const userMsg = input;
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    if (!input.trim() && attachedImages.length === 0 && attachedFiles.length === 0) return;
+    const userMsg = input || (attachedImages.length > 0 ? 'Describe this image' : 'Analyze this file');
+    setMessages(prev => [...prev, { role: 'user', content: userMsg, images: attachedImages.length > 0 ? attachedImages : undefined }]);
     setInput('');
     setIsTyping(true);
     try {
@@ -94,7 +134,9 @@ const LiveDemo = () => {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMsg,
-          ...(overrideModel ? { model_id: overrideModel } : {})
+          ...(overrideModel ? { model_id: overrideModel } : {}),
+          ...(attachedImages.length > 0 ? { images: attachedImages } : {}),
+          ...(attachedFiles.length > 0 ? { files: attachedFiles } : {}),
         })
       });
       const data = await response.json();
@@ -146,6 +188,13 @@ const LiveDemo = () => {
                 <motion.div key={idx} className={`message ${msg.role}`} variants={msgVariants} initial="initial" animate="animate">
                   {msg.role === 'assistant' && <div className="avatar"><Leaf size={16} /></div>}
                   <div className="message-content">
+                    {msg.images && msg.images.length > 0 && (
+                      <div className="message-images">
+                        {msg.images.map((img, i) => (
+                          <img key={i} src={`data:image/jpeg;base64,${img}`} alt="Attached" className="message-image" />
+                        ))}
+                      </div>
+                    )}
                     <p>{msg.content}</p>
                     {msg.metadata && (
                       <motion.div className="message-metadata" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
@@ -224,10 +273,48 @@ const LiveDemo = () => {
             </div>
             
             <form className="chat-input-form" onSubmit={handleSend}>
-              <motion.div className="input-wrapper" whileFocus={{ scale: 1.01 }}>
-                <input type="text" placeholder="Ask something to test the routing..." value={input} onChange={(e) => setInput(e.target.value)} aria-label="Chat message" />
-              </motion.div>
-              <motion.button type="submit" disabled={!input.trim() || isTyping} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              {(attachedImages.length > 0 || attachedFiles.length > 0) && (
+                <div className="attached-files">
+                  {attachedImages.map((img, i) => (
+                    <div key={`img-${i}`} className="attached-file">
+                      <img src={`data:image/jpeg;base64,${img}`} alt={`Attached ${i}`} className="attached-image" />
+                      <button type="button" className="remove-file" onClick={() => removeFile(i, 'image')}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {attachedFiles.map((file, i) => (
+                    <div key={`file-${i}`} className="attached-file">
+                      <FileText size={20} />
+                      <span>{file.name}</span>
+                      <button type="button" className="remove-file" onClick={() => removeFile(i, 'file')}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  multiple
+                  accept="image/*,.pdf,.txt,.csv,.json,.md"
+                  style={{ display: 'none' }}
+                  aria-label="Upload file"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="attach-btn"
+                  title="Attach file or image"
+                >
+                  <Paperclip size={18} />
+                </button>
+                <input type="text" placeholder="Ask something to test the routing..." value={input} onChange={(e) => setInput(e.target.value)} aria-label="Chat message" style={{ flex: 1 }} />
+              </div>
+              <motion.button type="submit" disabled={(!input.trim() && attachedImages.length === 0 && attachedFiles.length === 0) || isTyping} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Send size={18} />
               </motion.button>
             </form>

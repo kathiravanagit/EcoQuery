@@ -2,7 +2,7 @@
 
 import re
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
+from typing import Optional, List
 
 EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 
@@ -10,6 +10,8 @@ EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     model_id: Optional[str] = None
+    images: Optional[List[str]] = None  # Base64 encoded images
+    files: Optional[List[dict]] = None  # [{name, content_type, data}]
 
 
 class ChatResponse(BaseModel):
