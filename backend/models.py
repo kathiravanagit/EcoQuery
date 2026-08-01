@@ -5,70 +5,70 @@ All models are free-tier via OpenRouter.
 
 CARBON_MODELS = [
     {
-        "id": "deepseek-v4-flash",
+        "id": "deepseek-r1-0528:free",
         "provider": "DeepSeek",
         "tier": "green",
         "carbon_score": 1,
         "capability": "high",
-        "openrouter_id": "deepseek/deepseek-v4-flash:free",
-        "description": "Fast DeepSeek V4 lane, 1M context, reasoning capable"
+        "openrouter_id": "deepseek/deepseek-r1-0528:free",
+        "description": "DeepSeek R1 reasoning model, 671B MoE"
     },
     {
-        "id": "ling-3.0-flash",
-        "provider": "InclusionAI",
+        "id": "qwen3-235b-a22b:free",
+        "provider": "Alibaba",
         "tier": "green",
         "carbon_score": 2,
-        "capability": "medium",
-        "openrouter_id": "inclusionai/ling-3.0-flash:free",
-        "description": "124B MoE, ultra-fast flash model for simple queries"
+        "capability": "high",
+        "openrouter_id": "qwen/qwen3-235b-a22b:free",
+        "description": "235B MoE, strong reasoning and coding"
     },
     {
-        "id": "laguna-s-2.1",
-        "provider": "Poolside",
+        "id": "llama-4-maverick:free",
+        "provider": "Meta",
+        "tier": "green",
+        "carbon_score": 2,
+        "capability": "high",
+        "openrouter_id": "meta-llama/llama-4-maverick:free",
+        "description": "400B MoE, 1M context, multimodal"
+    },
+    {
+        "id": "gemma-3-27b-it:free",
+        "provider": "Google",
         "tier": "balanced",
         "carbon_score": 3,
-        "capability": "very-high",
-        "openrouter_id": "poolside/laguna-s-2.1:free",
-        "description": "Poolside coding agent, 128K context, tool calling"
+        "capability": "medium",
+        "openrouter_id": "google/gemma-3-27b-it:free",
+        "description": "27B instruct-tuned, fast and efficient"
     },
     {
-        "id": "mimo-v2.5",
-        "provider": "Xiaomi",
+        "id": "mistral-small-3.1-24b-instruct:free",
+        "provider": "Mistral",
         "tier": "balanced",
         "carbon_score": 4,
-        "capability": "very-high",
-        "openrouter_id": "xiaomi/mimo-v2.5:free",
-        "description": "Balanced reasoning and coding model"
+        "capability": "medium",
+        "openrouter_id": "mistralai/mistral-small-3.1-24b-instruct:free",
+        "description": "24B, 128K context, function calling"
     },
     {
-        "id": "north-mini-code",
-        "provider": "Cohere",
-        "tier": "balanced",
+        "id": "phi-4-reasoning:free",
+        "provider": "Microsoft",
+        "tier": "performance",
         "carbon_score": 5,
         "capability": "high",
-        "openrouter_id": "cohere/north-mini-code:free",
-        "description": "30B MoE, code-focused, 256K context"
-    },
-    {
-        "id": "nemotron-3-ultra",
-        "provider": "NVIDIA",
-        "tier": "performance",
-        "carbon_score": 6,
-        "capability": "highest",
-        "openrouter_id": "nvidia/nemotron-3-ultra-550b-a55b:free",
-        "description": "550B MoE, 1M context, highest capability"
+        "openrouter_id": "microsoft/phi-4-reasoning:free",
+        "description": "14B, advanced reasoning capabilities"
     },
 ]
 
 REGION_MODEL_AFFINITY = {
-    "eu-west-1": ["deepseek-v4-flash", "ling-3.0-flash", "laguna-s-2.1", "mimo-v2.5"],
-    "eu-west-2": ["deepseek-v4-flash", "ling-3.0-flash", "north-mini-code"],
-    "eu-west-3": ["deepseek-v4-flash", "ling-3.0-flash", "mimo-v2.5", "laguna-s-2.1"],
-    "eu-central-1": ["deepseek-v4-flash", "ling-3.0-flash", "north-mini-code", "mimo-v2.5"],
-    "eu-north-1": ["deepseek-v4-flash", "ling-3.0-flash"],
-    "us-east-1": ["deepseek-v4-flash", "ling-3.0-flash", "laguna-s-2.1", "mimo-v2.5", "nemotron-3-ultra"],
-    "us-west-1": ["deepseek-v4-flash", "ling-3.0-flash", "mimo-v2.5", "north-mini-code", "nemotron-3-ultra"],
-    "us-west-2": ["deepseek-v4-flash", "ling-3.0-flash", "north-mini-code", "nemotron-3-ultra"],
+    "eu-west-1": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free", "llama-4-maverick:free"],
+    "eu-west-2": ["deepseek-r1-0528:free", "gemma-3-27b-it:free", "mistral-small-3.1-24b-instruct:free"],
+    "eu-west-3": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free", "llama-4-maverick:free"],
+    "eu-central-1": ["deepseek-r1-0528:free", "gemma-3-27b-it:free", "mistral-small-3.1-24b-instruct:free"],
+    "eu-north-1": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free"],
+    "us-east-1": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free", "llama-4-maverick:free", "phi-4-reasoning:free"],
+    "us-west-1": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free", "gemma-3-27b-it:free", "phi-4-reasoning:free"],
+    "us-west-2": ["deepseek-r1-0528:free", "gemma-3-27b-it:free", "phi-4-reasoning:free"],
 }
 
 MODEL_MAP = {m["id"]: m for m in CARBON_MODELS}

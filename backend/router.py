@@ -10,12 +10,12 @@ from models import CARBON_MODELS, REGION_MODEL_AFFINITY
 logger = logging.getLogger("EcoQuery.router")
 
 MODEL_LATENCY = {
-    "deepseek-v4-flash": 1.0,
-    "ling-3.0-flash": 0.8,
-    "laguna-s-2.1": 1.5,
-    "mimo-v2.5": 1.2,
-    "north-mini-code": 1.3,
-    "nemotron-3-ultra": 2.0,
+    "deepseek-r1-0528:free": 1.5,
+    "qwen3-235b-a22b:free": 1.8,
+    "llama-4-maverick:free": 2.0,
+    "gemma-3-27b-it:free": 1.0,
+    "mistral-small-3.1-24b-instruct:free": 1.2,
+    "phi-4-reasoning:free": 1.3,
 }
 
 

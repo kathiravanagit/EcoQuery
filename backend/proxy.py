@@ -298,12 +298,12 @@ class CarbonAwareProxy:
     def _map_to_bedrock_model(self, model_id: str) -> str:
         """Map OpenRouter model ID to Bedrock model ID."""
         mapping = {
-            "deepseek-v4-flash": "deepseek.v4-flash",
-            "ling-3.0-flash": "inclusionai.ling-3.0-flash",
-            "laguna-s-2.1": "poolside.laguna-s-2.1",
-            "mimo-v2.5": "xiaomi.mimo-v2.5",
-            "north-mini-code": "cohere.north-mini-code",
-            "nemotron-3-ultra": "nvidia.nemotron-3-ultra",
+            "deepseek-r1-0528:free": "deepseek.r1",
+            "qwen3-235b-a22b:free": "qwen.qwen3",
+            "llama-4-maverick:free": "meta.llama4",
+            "gemma-3-27b-it:free": "google.gemma3",
+            "mistral-small-3.1-24b-instruct:free": "mistral.mistral",
+            "phi-4-reasoning:free": "microsoft.phi4",
         }
         return mapping.get(model_id, model_id)
 
