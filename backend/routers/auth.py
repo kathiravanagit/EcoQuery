@@ -13,11 +13,36 @@ from schemas import (
 )
 from auth import (
     auth_db, hash_password, verify_password, create_access_token,
-    get_current_user, UserInDB
+    SECRET_KEY, ALGORITHM, get_current_user, UserInDB
 )
-from email_service import email_service, otp_store
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+# In-memory store for OAuth state parameters (with expiry)
+_oauth_states: dict[str, datetime] = {}
+
+
+def _generate_state() -> str:
+    """Generate and store a random OAuth state parameter."""
+    state = secrets.token_urlsafe(32)
+    _oauth_states[state] = datetime.now(timezone.utc) + timedelta(minutes=10)
+    return state
+
+
+def _validate_state(state: str) -> bool:
+    """Validate and consume an OAuth state parameter."""
+    if state not in _oauth_states:
+        return False
+    expiry = _oauth_states.pop(state)
+    return datetime.now(timezone.utc) < expiry
+
+
+def _cleanup_states():
+    """Remove expired state parameters."""
+    now = datetime.now(timezone.utc)
+    expired = [k for k, v in _oauth_states.items() if v < now]
+    for k in expired:
+        del _oauth_states[k]
 
 
 @router.post("/signup", response_model=AuthResponse)
@@ -65,12 +90,17 @@ async def google_login():
     if not client_id:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/auth/google/callback")
-    params = f"client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope=openid%20email%20profile"
+    state = _generate_state()
+    params = f"client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope=openid%20email%20profile&state={state}"
     return RedirectResponse(url=f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
 
 
 @router.get("/google/callback")
-async def google_callback(code: str):
+async def google_callback(code: str, state: str = ""):
+    # Validate state parameter to prevent CSRF
+    if not state or not _validate_state(state):
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state. Please try again.")
+    
     client_id = os.getenv("GOOGLE_CLIENT_ID", "")
     client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/auth/google/callback")
