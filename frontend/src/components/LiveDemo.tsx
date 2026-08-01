@@ -236,7 +236,7 @@ const LiveDemo = () => {
                   ))}
                 </div>
               )}
-              <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="input-wrapper">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -252,9 +252,9 @@ const LiveDemo = () => {
                   className="attach-btn"
                   title="Attach file or image"
                 >
-                  <Paperclip size={18} />
+                  <Paperclip size={16} />
                 </button>
-                <input type="text" placeholder="Ask something to test the routing..." value={input} onChange={(e) => setInput(e.target.value)} aria-label="Chat message" style={{ flex: 1 }} />
+                <input type="text" placeholder="Ask something to test the routing..." value={input} onChange={(e) => setInput(e.target.value)} aria-label="Chat message" />
               </div>
               <motion.button type="submit" disabled={(!input.trim() && attachedImages.length === 0 && attachedFiles.length === 0) || isTyping} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Send size={18} />
