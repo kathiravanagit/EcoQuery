@@ -1,4 +1,4 @@
-/* Shared page styles */
+/* Shared page styles - Terminal/Developer Aesthetic */
 
 .page {
   padding-top: 80px;
@@ -10,15 +10,30 @@
 }
 
 .page-hero h1 {
-  font-size: 3rem;
+  font-size: 2.5rem;
   margin-bottom: 1rem;
+  font-family: var(--font-sans);
+}
+
+.page-hero h1::before {
+  content: '$ ';
+  color: var(--accent);
+  opacity: 0.5;
+  font-family: var(--font-mono);
 }
 
 .page-subtitle {
   color: var(--text-secondary);
-  font-size: 1.2rem;
+  font-size: 0.875rem;
+  font-family: var(--font-mono);
   max-width: 500px;
   margin: 0 auto;
+}
+
+.page-subtitle::before {
+  content: '// ';
+  color: var(--accent);
+  opacity: 0.5;
 }
 
 /* About page */
@@ -38,6 +53,7 @@
   color: var(--text-secondary);
   margin-bottom: 1rem;
   line-height: 1.8;
+  font-size: 0.9rem;
 }
 
 .values-grid {
@@ -54,11 +70,13 @@
 
 .value-card h3 {
   margin: 1rem 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 1rem;
 }
 
 .value-card p {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 /* Pricing page */
@@ -77,8 +95,7 @@
 
 .pricing-featured {
   border-color: var(--accent);
-  box-shadow: 0 0 20px var(--accent-glow);
-  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(0, 255, 65, 0.1);
 }
 
 .pricing-badge {
@@ -87,28 +104,34 @@
   left: 50%;
   transform: translateX(-50%);
   background: var(--accent);
-  color: #fff;
+  color: #0a0a0a;
   padding: 0.25rem 1rem;
-  border-radius: 9999px;
-  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .section-title {
   text-align: center;
   margin-bottom: 0.5rem;
   font-size: 2rem;
+  font-family: var(--font-sans);
 }
 
 .section-subtitle {
   text-align: center;
   color: var(--text-secondary);
-  font-size: 1rem;
+  font-size: 0.875rem;
+  font-family: var(--font-mono);
 }
 
 .pricing-name {
   font-size: 1.2rem;
   margin-bottom: 0.5rem;
+  font-family: var(--font-mono);
+  text-transform: lowercase;
 }
 
 .pricing-price {
@@ -118,16 +141,18 @@
 .price-amount {
   font-size: 3rem;
   font-weight: 700;
+  font-family: var(--font-mono);
 }
 
 .price-period {
   color: var(--text-secondary);
-  font-size: 1rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
 }
 
 .pricing-desc {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   margin-bottom: 1.5rem;
 }
 
@@ -142,7 +167,13 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+}
+
+.pricing-features li::before {
+  content: '>';
+  color: var(--accent);
+  font-family: var(--font-mono);
 }
 
 /* Contact page */
@@ -168,11 +199,14 @@
 
 .contact-item h4 {
   margin-bottom: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
 }
 
 .contact-item p {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
 }
 
 .contact-form {
@@ -185,18 +219,18 @@
 .contact-form textarea {
   background: var(--bg-color);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
   padding: 0.75rem 1rem;
   color: var(--text-primary);
-  font-family: inherit;
-  font-size: 1rem;
-  transition: border-color 0.2s;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  transition: border-color 0.15s;
 }
 
 .contact-form input:focus,
 .contact-form textarea:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
 }
 
 .contact-form .btn {
@@ -206,23 +240,25 @@
 /* Legal / Privacy page */
 .legal-content h2 {
   margin: 2rem 0 0.75rem;
-  font-size: 1.3rem;
+  font-size: 1.25rem;
 }
 
 .legal-content p {
   color: var(--text-secondary);
   line-height: 1.8;
   margin-bottom: 1rem;
+  font-size: 0.9rem;
 }
 
 .legal-date {
   margin-top: 3rem;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
+  font-family: var(--font-mono);
 }
 
 @media (max-width: 768px) {
-  .page-hero h1 { font-size: 2rem; }
+  .page-hero h1 { font-size: 1.8rem; }
   .pricing-grid { grid-template-columns: 1fr; }
   .pricing-featured { transform: none; }
   .contact-grid { grid-template-columns: 1fr; }
@@ -234,7 +270,7 @@
   .dashboard-card { padding: 1rem; }
   .dashboard-card-value { font-size: 1.3rem; }
   .dashboard-section { padding: 1rem; }
-  .dashboard-section h2 { font-size: 1.1rem; }
+  .dashboard-section h2 { font-size: 1rem; }
   .dashboard-model-grid { grid-template-columns: 1fr; }
   .dashboard-badge { padding: 1.5rem; }
   .dashboard-badge-title { font-size: 1.6rem; }
@@ -243,7 +279,7 @@
   .profile-field label { font-size: 0.85rem; }
   .admin-grid { grid-template-columns: 1fr; }
   .section-title { font-size: 1.5rem !important; }
-  .section-subtitle { font-size: 0.9rem !important; }
+  .section-subtitle { font-size: 0.8rem !important; }
   .auth-container { min-height: auto; padding: 2rem 0; }
   .pricing-card { padding: 1.5rem; }
   .contact-form .btn { align-self: stretch; }
@@ -271,13 +307,21 @@
 }
 
 .auth-title {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   margin-bottom: 0.5rem;
+  font-family: var(--font-mono);
+  text-transform: lowercase;
+}
+
+.auth-title::before {
+  content: '> ';
+  color: var(--accent);
 }
 
 .auth-subtitle {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
   margin-bottom: 2rem;
 }
 
@@ -285,11 +329,11 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(255, 85, 85, 0.1);
+  color: #ff5555;
   padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
   margin-bottom: 1rem;
 }
 
@@ -305,14 +349,21 @@
   gap: 0.75rem;
   background: var(--bg-color);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
   padding: 0.75rem 1rem;
   color: var(--text-secondary);
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
+}
+
+.input-group::before {
+  content: '$';
+  color: var(--accent);
+  opacity: 0.5;
+  font-family: var(--font-mono);
 }
 
 .input-group:focus-within {
   border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
 }
 
 .input-group input {
@@ -320,8 +371,8 @@
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-family: inherit;
-  font-size: 0.95rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
   outline: none;
 }
 
@@ -329,7 +380,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
@@ -346,11 +398,11 @@
   display: flex;
   align-items: center;
   color: var(--text-secondary);
-  transition: color 0.2s;
+  transition: color 0.15s;
 }
 
 .password-toggle:hover {
-  color: var(--text-primary);
+  color: var(--accent);
 }
 
 .auth-divider {
@@ -359,7 +411,8 @@
   gap: 1rem;
   margin: 1.5rem 0;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
 }
 
 .auth-divider::before,
@@ -387,21 +440,22 @@
   justify-content: center;
   gap: 0.75rem;
   padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  font-size: 0.95rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   text-decoration: none;
 }
 
 .btn-google:hover {
-  background: var(--bg-secondary);
   border-color: var(--accent);
+  color: var(--accent);
 }
 
 .auth-footer-text {
   margin-top: 1.5rem;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
 }
 
@@ -417,15 +471,13 @@
 /* Profile page accordion */
 .profile-accordion {
   border: 1px solid var(--border);
-  border-radius: 12px;
   margin-bottom: 1rem;
-  overflow: hidden;
   background: var(--bg-card);
 }
 
 .profile-accordion-danger {
-  border-color: rgba(239, 68, 68, 0.2);
-  background: rgba(239, 68, 68, 0.03);
+  border-color: rgba(255, 85, 85, 0.2);
+  background: rgba(255, 85, 85, 0.03);
 }
 
 .profile-accordion-header {
@@ -438,9 +490,9 @@
   border: none;
   cursor: pointer;
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 0.875rem;
   font-weight: 600;
-  font-family: inherit;
+  font-family: var(--font-mono);
   transition: background 0.15s ease;
 }
 
@@ -461,7 +513,7 @@
 }
 
 .profile-accordion-danger .profile-accordion-header {
-  color: #ef4444;
+  color: #ff5555;
 }
 
 .profile-field {
@@ -470,69 +522,70 @@
 
 .profile-field label {
   display: block;
-  font-size: 13px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
   font-weight: 500;
   color: var(--text-secondary);
   margin-bottom: 6px;
+  text-transform: lowercase;
 }
 
 .profile-field input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
   box-sizing: border-box;
 }
 
 .profile-field input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(0, 212, 106, 0.15);
+  box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.1);
 }
 
 .profile-message {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
   padding: 8px 12px;
-  border-radius: 8px;
   margin-bottom: 1rem;
 }
 
 .profile-message-success {
-  background: rgba(0, 212, 106, 0.1);
+  background: rgba(0, 255, 65, 0.1);
   color: var(--accent);
 }
 
 .profile-message-error {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(255, 85, 85, 0.1);
+  color: #ff5555;
 }
 
 .profile-warning {
-  font-size: 13px;
-  color: #ef4444;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: #ff5555;
   margin: 0 0 1rem;
   padding: 8px 12px;
-  background: rgba(239, 68, 68, 0.08);
-  border-radius: 8px;
+  background: rgba(255, 85, 85, 0.08);
 }
 
 .btn-danger {
-  background: #ef4444;
+  background: #ff5555;
   color: #fff;
   padding: 0.6rem 1.4rem;
   border: none;
-  border-radius: 9999px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: opacity 0.2s;
-  font-family: inherit;
-  font-size: 14px;
+  transition: opacity 0.15s;
 }
 
 .btn-danger:hover {
@@ -547,7 +600,7 @@
 /* Dashboard */
 .dashboard-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
@@ -555,7 +608,6 @@
 .dashboard-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 12px;
   padding: 1.25rem;
   text-align: center;
 }
@@ -563,19 +615,21 @@
 .dashboard-card-value {
   font-size: 1.5rem;
   font-weight: 700;
+  font-family: var(--font-mono);
   margin: 0.5rem 0 0.25rem;
   color: var(--text-primary);
 }
 
 .dashboard-card-label {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
+  text-transform: lowercase;
 }
 
 .dashboard-section {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 12px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
 }
@@ -584,9 +638,15 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  font-family: var(--font-mono);
   margin: 0 0 1rem;
-  color: var(--text-primary);
+  color: var(--accent);
+}
+
+.dashboard-section h2::before {
+  content: '// ';
+  opacity: 0.5;
 }
 
 .dashboard-api-key {
@@ -595,13 +655,13 @@
   gap: 8px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 8px;
   padding: 0.75rem 1rem;
 }
 
 .dashboard-api-key code {
   flex: 1;
-  font-size: 12px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
   word-break: break-all;
   color: var(--accent);
 }
@@ -619,21 +679,20 @@
 .btn-icon:hover { color: var(--accent); }
 
 .dashboard-hint {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
   margin-top: 0.5rem;
 }
 
 .dashboard-hint code {
-  font-size: 11px;
+  font-size: 0.7rem;
   background: var(--bg-primary);
   padding: 2px 6px;
-  border-radius: 4px;
 }
 
 .dashboard-certificate {
   border: 2px solid;
-  border-radius: 12px;
   padding: 1.25rem;
 }
 
@@ -647,25 +706,27 @@
 .dashboard-cert-tier {
   font-size: 1.3rem;
   font-weight: 800;
+  font-family: var(--font-mono);
   letter-spacing: 2px;
 }
 
 .dashboard-cert-name {
   font-size: 0.85rem;
   opacity: 0.8;
+  font-family: var(--font-mono);
 }
 
 .dashboard-cert-body p {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   margin-bottom: 0.5rem;
   color: var(--text-primary);
 }
 
 .dashboard-cert-text {
-  font-size: 11px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
   background: var(--bg-primary);
   padding: 1rem;
-  border-radius: 8px;
   white-space: pre-wrap;
   color: var(--text-secondary);
   margin-top: 0.75rem;
@@ -679,33 +740,36 @@
 }
 
 .dashboard-model-tier h3 {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 700;
+  font-family: var(--font-mono);
   margin-bottom: 0.75rem;
 }
 
 .dashboard-model-item {
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
   margin-bottom: 0.5rem;
   background: var(--bg-primary);
 }
 
 .dashboard-model-name {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  font-family: var(--font-mono);
   color: var(--text-primary);
 }
 
 .dashboard-model-score {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
   margin: 2px 0;
 }
 
 .dashboard-model-desc {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
   opacity: 0.8;
 }
@@ -719,12 +783,12 @@
 .dashboard-query-item {
   padding: 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
   background: var(--bg-primary);
 }
 
 .dashboard-query-query {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
   color: var(--text-primary);
   margin-bottom: 0.4rem;
 }
@@ -745,12 +809,11 @@
 .dashboard-badge {
   width: 100%;
   max-width: 440px;
-  background: linear-gradient(145deg, #111128, #0d0d20);
+  background: var(--bg-secondary);
   border: 2px solid var(--accent);
-  border-radius: 24px;
   padding: 2rem;
   text-align: center;
-  box-shadow: 0 0 40px rgba(0, 212, 106, 0.15);
+  box-shadow: 0 0 40px rgba(0, 255, 65, 0.1);
 }
 
 .dashboard-badge-icon {
@@ -759,28 +822,32 @@
 }
 
 .dashboard-badge-title {
-  font-size: 2.2rem;
+  font-size: 2rem;
   font-weight: 800;
+  font-family: var(--font-mono);
   color: var(--accent);
   letter-spacing: -1px;
 }
 
 .dashboard-badge-sub {
-  font-size: 1.1rem;
+  font-size: 0.875rem;
+  font-family: var(--font-mono);
   color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 .dashboard-badge-divider {
-  height: 2px;
+  height: 1px;
   width: 60%;
   margin: 1rem auto;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background: var(--accent);
+  opacity: 0.3;
 }
 
 .dashboard-badge-name {
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   font-weight: 700;
+  font-family: var(--font-mono);
   color: #fff;
   margin-bottom: 1rem;
 }
@@ -790,7 +857,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
   flex-wrap: wrap;
 }
@@ -802,10 +870,10 @@
 
 .dashboard-badge-footer {
   margin-top: 1.25rem;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
   color: var(--accent);
   opacity: 0.8;
-  font-style: italic;
 }
 
 @media (max-width: 480px) {
@@ -813,7 +881,7 @@
   .stats-grid { flex-direction: column; }
   .dashboard-model-grid { grid-template-columns: 1fr; }
   .dashboard-section { padding: 1rem; }
-  .dashboard-section h2 { font-size: 1rem; }
+  .dashboard-section h2 { font-size: 0.875rem; }
   .stats-container { padding: 1.5rem; }
   .stat-number { font-size: 2.5rem; }
   .stat-label { font-size: 0.9rem; }

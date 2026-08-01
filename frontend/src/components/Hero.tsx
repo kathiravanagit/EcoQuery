@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Play } from 'lucide-react';
+import { ArrowRight, Terminal } from 'lucide-react';
 import './Hero.css';
 import { API_URL as API } from '../config';
 
 const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
 
 const fadeUp = {
-  initial: { opacity: 0, y: 30 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.7, ease: easeFn } },
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easeFn } },
 };
 
 const Hero = () => {
   const [stats, setStats] = useState<any>(null);
+  const [typedText, setTypedText] = useState('');
+  const fullText = 'ecoquery --route --greenest';
 
   useEffect(() => {
     fetch(`${API}/api/stats`)
@@ -21,55 +23,59 @@ const Hero = () => {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    let i = 0;
+    const timer = setInterval(() => {
+      if (i <= fullText.length) {
+        setTypedText(fullText.slice(0, i));
+        i++;
+      } else {
+        clearInterval(timer);
+      }
+    }, 50);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <section id="home" className="hero-section">
-      <div className="hero-bg">
-        <div className="globe-container">
-          <div className="globe"></div>
-          <div className="flow-lines">
-            <div className="line line-1"></div>
-            <div className="line line-2"></div>
-            <div className="line line-3"></div>
-          </div>
-        </div>
-      </div>
+    <section id="home" className="hero-section scanlines">
+      <div className="hero-bg"></div>
 
       <div className="container hero-container">
         <motion.div 
           className="hero-content"
           initial="initial"
           animate="animate"
-          variants={{ animate: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } } }}
+          variants={{ animate: { transition: { staggerChildren: 0.1, delayChildren: 0.1 } } }}
         >
-          <motion.div className="badge" variants={{ initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: easeFn } } }}>
+          <motion.div className="badge" variants={{ initial: { opacity: 0, scale: 0.95 }, animate: { opacity: 1, scale: 1, transition: { duration: 0.4 } } }}>
             <span className="badge-dot"></span>
-            EcoQuery v2.0 is live
+            v2.0 // carbon-aware routing
           </motion.div>
           
           <motion.h1 className="hero-title" variants={fadeUp}>
-            Make Every LLM Call <span className="text-gradient">Greener</span>
+            route queries<span className="text-gradient"> greener</span>
           </motion.h1>
           
           <motion.p className="hero-subtitle" variants={fadeUp}>
-            Intelligent routing + independent verification for lower carbon footprint without sacrificing quality.
+            carbon-aware llm routing + independent verification for lower emissions without sacrificing quality.
           </motion.p>
 
           {stats && stats.total_queries > 0 && (
             <motion.div className="hero-stats-bar" variants={fadeUp}>
-              <span className="hero-stat-item">{stats.total_queries} queries routed</span>
+              <span className="hero-stat-item"><span className="value">{stats.total_queries}</span> queries</span>
               <span className="hero-stat-dot"></span>
-              <span className="hero-stat-item">{stats.total_co2_saved_g}g CO₂ saved</span>
+              <span className="hero-stat-item"><span className="value">{stats.total_co2_saved_g}g</span> co2 saved</span>
               <span className="hero-stat-dot"></span>
-              <span className="hero-stat-item">{stats.green_query_pct}% green routing</span>
+              <span className="hero-stat-item"><span className="value">{stats.green_query_pct}%</span> green</span>
             </motion.div>
           )}
 
           <motion.div className="hero-actions" variants={fadeUp}>
             <a href="#demo" className="btn btn-primary">
-              Try Demo <ArrowRight size={18} />
+              <Terminal size={16} /> try demo
             </a>
             <a href="#how-it-works" className="btn btn-secondary">
-              <Play size={18} /> Learn How It Works
+              read docs <ArrowRight size={14} />
             </a>
           </motion.div>
         </motion.div>
