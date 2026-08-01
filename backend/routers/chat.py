@@ -114,14 +114,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         err_msg = str(e)
         logger.warning(f"LLM API call failed: {err_msg}")
         reply_content = (
-            f"Error: {err_msg}\n\n"
-            f"Routing info:\n"
-            f"Classification: {classification['tier']} "
-            f"(confidence: {classification['confidence']:.1%}, method: {classification['method']})\n"
-            f"Routed to: {routed_model_display}\n"
-            f"Model tier: {model_sel['tier']} (carbon score: {model_sel['carbon_score']}/10)\n"
-            f"Region carbon intensity: {region_info.get('carbon_intensity_g_kwh', 'N/A')} g/kWh\n"
-            f"CO\u2082 estimate: {savings['estimated_co2_g']}g (saved {savings['saved_vs_baseline_g']}g vs baseline)"
+            "I'm sorry, I encountered an error processing your request. "
+            "Please try again or contact support if the issue persists."
         )
         is_mocked = True
 
