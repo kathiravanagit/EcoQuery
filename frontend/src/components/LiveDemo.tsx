@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Leaf, Server, Zap, Shield, TreePine, Timer, Paperclip, X, Image as ImageIcon, FileText } from 'lucide-react';
+import { Send, Paperclip, X, FileText } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
 
@@ -53,12 +53,6 @@ const fadeUp = {
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true },
   transition: { duration: 0.6, ease: easeFn },
-};
-
-const modelTierColors: Record<string, string> = {
-  green: '#00d46a',
-  balanced: '#f59e0b',
-  performance: '#ef4444',
 };
 
 const LiveDemo = () => {
@@ -162,10 +156,10 @@ const LiveDemo = () => {
               <span>EcoQuery Router Active</span>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', color: '#00d46a', fontWeight: 600 }}>
-                  <TreePine size={12} style={{ marginRight: 3, verticalAlign: 'middle' }} />Eco Mode
+                  Auto Mode
                 </span>
                 <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} className="model-picker" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
-                  <option value="">🌿 Auto (Greenest)</option>
+                  <option value="">Auto (Greenest)</option>
                   <option disabled>──────────</option>
                   {['green', 'balanced', 'performance'].map(tier => {
                     const tierModels = models.filter(m => m.tier === tier);
@@ -173,7 +167,7 @@ const LiveDemo = () => {
                       <optgroup key={tier} label={`${tier.charAt(0).toUpperCase() + tier.slice(1)} Tier`} className="model-picker-group">
                         {tierModels.map(m => (
                           <option key={m.id} value={m.id} className="model-picker-option" title={m.description}>
-                            {m.provider} {m.id} <span className="model-picker-carbon">Score {m.carbon_score}/10</span>
+                            {m.provider} {m.id}
                           </option>
                         ))}
                       </optgroup>
@@ -186,7 +180,6 @@ const LiveDemo = () => {
             <div className="chat-messages" ref={chatMessagesRef}>
               {messages.map((msg, idx) => (
                 <motion.div key={idx} className={`message ${msg.role}`} variants={msgVariants} initial="initial" animate="animate">
-                  {msg.role === 'assistant' && <div className="avatar"><Leaf size={16} /></div>}
                   <div className="message-content">
                     {msg.images && msg.images.length > 0 && (
                       <div className="message-images">
@@ -199,63 +192,24 @@ const LiveDemo = () => {
                     {msg.metadata && (
                       <motion.div className="message-metadata" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
-                          <span className="meta-tag" style={{ borderColor: modelTierColors[msg.metadata.model_tier] || 'var(--border)' }}>
-                            <Zap size={12} style={{ color: modelTierColors[msg.metadata.model_tier] || 'var(--text-secondary)' }} />
-                            {msg.metadata.model_tier.charAt(0).toUpperCase() + msg.metadata.model_tier.slice(1)} Tier
+                          <span className="meta-tag">
+                            {msg.metadata.model_id}
                           </span>
-                          <span className="meta-tag"><Server size={12}/> {msg.metadata.model_id}</span>
-                          <span className="meta-tag"><Leaf size={12} style={{ color: 'var(--accent)' }}/> {msg.metadata.energy_source}</span>
-                          {msg.metadata.routing_mode && (
-                            <span className="meta-tag" style={{ borderColor: '#00d46a', color: '#00d46a' }}>
-                              <TreePine size={12} style={{ marginRight: 3, verticalAlign: 'middle' }} />Eco Mode
-                            </span>
-                          )}
-                          {msg.metadata.is_local_inference && (
-                            <span className="meta-tag" style={{ borderColor: '#00C853', color: '#00C853', background: 'rgba(0,200,83,0.1)' }}>
-                              💻 Local Ollama (0 Cloud CO₂)
-                            </span>
-                          )}
+                          <span className="meta-tag">
+                            {msg.metadata.region}
+                          </span>
+                          <span className="meta-tag">
+                            auto-picked by query complexity
+                          </span>
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                          <span className="meta-tag savings">~{msg.metadata.co2_estimated_g}g CO₂</span>
-                          <span className="meta-tag savings">Saved {msg.metadata.co2_saved_g}g vs baseline</span>
-                          <span className="meta-tag">{msg.metadata.region}</span>
-                          {msg.metadata.observed_tps ? (
-                            <span className="meta-tag">⚡ {msg.metadata.observed_tps} TPS</span>
-                          ) : null}
-                          {msg.metadata.integrity_hash && (
-                            <span className="meta-tag" style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
-                              <Shield size={11} /> {msg.metadata.integrity_hash.slice(0, 8)}
-                            </span>
-                          )}
-                          {msg.metadata.verification_status && (
-                            <span className="meta-tag" style={{
-                              borderColor: msg.metadata.verification_status === 'flagged_substitution' ? '#ef4444' : '#00C853',
-                              color: msg.metadata.verification_status === 'flagged_substitution' ? '#ef4444' : '#00C853',
-                              background: msg.metadata.verification_status === 'flagged_substitution' ? 'rgba(239,68,68,0.1)' : 'rgba(0,200,83,0.1)'
-                            }}>
-                              {msg.metadata.verification_status === 'flagged_substitution' ? '⚠️ Flagged' : '🛡️ Verified'}
+                          <span className="meta-tag savings">{msg.metadata.co2_saved_g}g saved</span>
+                          {msg.metadata.what_if && (
+                            <span className="meta-tag" style={{ cursor: 'pointer' }}>
+                              vs {msg.metadata.what_if.baseline_model}
                             </span>
                           )}
                         </div>
-                        {msg.metadata.what_if && (
-                          <details style={{ marginTop: '0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>
-                            <summary style={{ color: 'var(--accent)' }}>📊 What-If Comparison</summary>
-                            <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                <div style={{ fontWeight: 600 }}>✅ Eco Mode (used)</div>
-                                <div style={{ fontWeight: 600, color: '#ef4444' }}>❌ Baseline (GPT-4.5)</div>
-                                <div>CO₂: {msg.metadata.what_if.actual_co2_g}g</div>
-                                <div style={{ color: '#ef4444' }}>CO₂: {msg.metadata.what_if.baseline_co2_g}g</div>
-                                <div>Cost: ${msg.metadata.what_if.actual_cost}</div>
-                                <div style={{ color: '#ef4444' }}>Cost: ${msg.metadata.what_if.baseline_cost}</div>
-                                <div style={{ gridColumn: '1 / -1', color: 'var(--accent)', fontWeight: 600 }}>
-                                  Saved: {msg.metadata.what_if.co2_saved_g}g CO₂
-                                </div>
-                              </div>
-                            </div>
-                          </details>
-                        )}
                       </motion.div>
                     )}
                   </div>
@@ -264,7 +218,6 @@ const LiveDemo = () => {
               <AnimatePresence>
                 {isTyping && (
                   <motion.div className="message assistant typing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <div className="avatar"><Leaf size={16} /></div>
                     <div className="typing-indicator"><span></span><span></span><span></span></div>
                   </motion.div>
                 )}
