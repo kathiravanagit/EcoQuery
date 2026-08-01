@@ -423,37 +423,37 @@ async def chat_stream(req: ChatRequest, request: Request):
             })
 
     worst_model = {"model": "phi-4-reasoning", "carbon_score": 5, "provider": "Microsoft"}
-        worst_region_intensity = 710.0
-        worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
+    worst_region_intensity = 710.0
+    worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 
-        metadata = {
-            "model_used": model_sel["model"], "model_id": model_sel["model"],
-            "model_tier": model_sel["tier"], "carbon_score": model_sel["carbon_score"],
-            "region": region_info["region"], "energy_source": region_info["energy_source"],
-            "co2_estimated_g": savings["estimated_co2_g"],
-            "co2_saved_g": savings["saved_vs_baseline_g"],
-            "tier": classification["tier"],
-            "confidence": round(classification["confidence"], 3),
-            "is_mocked": is_mocked, "api_cost": api_cost,
-            "latency_seconds": latency_seconds,
-            "verification_status": v_result["status"],
-            "verification_reason": v_result["reason"],
-            "observed_tps": v_result["observed_tps"],
-            "integrity_hash": v_result.get("integrity_hash", ""),
-            "routing_mode": "eco",
-            "is_local_inference": (model_sel["provider"] == "Ollama (Local)"),
-            "what_if": {
-                "baseline_model": worst_model["model"],
-                "baseline_region": "ap-south-1 (Mumbai)",
-                "baseline_co2_g": worst_savings["estimated_co2_g"],
-                "actual_model": model_sel["model"],
-                "actual_region": region_info["region"],
-                "actual_co2_g": savings["estimated_co2_g"],
-                "co2_saved_g": round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
-                "baseline_cost": 0.0,
-                "actual_cost": api_cost,
-            },
-        }
-        yield f"data: {json.dumps({'done': True, 'metadata': metadata})}\n\n"
+    metadata = {
+        "model_used": model_sel["model"], "model_id": model_sel["model"],
+        "model_tier": model_sel["tier"], "carbon_score": model_sel["carbon_score"],
+        "region": region_info["region"], "energy_source": region_info["energy_source"],
+        "co2_estimated_g": savings["estimated_co2_g"],
+        "co2_saved_g": savings["saved_vs_baseline_g"],
+        "tier": classification["tier"],
+        "confidence": round(classification["confidence"], 3),
+        "is_mocked": is_mocked, "api_cost": api_cost,
+        "latency_seconds": latency_seconds,
+        "verification_status": v_result["status"],
+        "verification_reason": v_result["reason"],
+        "observed_tps": v_result["observed_tps"],
+        "integrity_hash": v_result.get("integrity_hash", ""),
+        "routing_mode": "eco",
+        "is_local_inference": (model_sel["provider"] == "Ollama (Local)"),
+        "what_if": {
+            "baseline_model": worst_model["model"],
+            "baseline_region": "ap-south-1 (Mumbai)",
+            "baseline_co2_g": worst_savings["estimated_co2_g"],
+            "actual_model": model_sel["model"],
+            "actual_region": region_info["region"],
+            "actual_co2_g": savings["estimated_co2_g"],
+            "co2_saved_g": round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
+            "baseline_cost": 0.0,
+            "actual_cost": api_cost,
+        },
+    }
+    yield f"data: {json.dumps({'done': True, 'metadata': metadata})}\n\n"
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+return StreamingResponse(generate(), media_type="text/event-stream")
