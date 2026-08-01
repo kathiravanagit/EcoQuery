@@ -182,7 +182,7 @@ const FAQ = () => {
             <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               Can not find the answer you are looking for? Contact our support team.
             </p>
-            <a href="mailto:support@ecoquery.app" className="btn btn-primary">
+            <a href="mailto:kathiravanawork@gmail.com" className="btn btn-primary">
               Contact Support
             </a>
           </motion.div>
