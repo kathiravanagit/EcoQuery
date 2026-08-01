@@ -14,6 +14,11 @@
   border: 1px solid var(--border-color);
 }
 
+.chat-interface:hover {
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-lg);
+}
+
 .chat-header {
   padding: 1rem 1.5rem;
   background: var(--bg-color);
