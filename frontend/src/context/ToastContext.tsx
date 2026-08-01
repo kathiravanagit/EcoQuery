@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 interface Toast {
   id: number;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'warning' | 'info';
   message: string;
 }
 
@@ -28,26 +29,65 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const remove = (id: number) => setToasts(prev => prev.filter(t => t.id !== id));
 
-  const bgColor = { success: '#00d46a', error: '#ef4444', info: '#4fc3f7' };
+  const icons = {
+    success: <CheckCircle size={16} />,
+    error: <XCircle size={16} />,
+    warning: <AlertTriangle size={16} />,
+    info: <Info size={16} />,
+  };
+
+  const borderColors = {
+    success: 'var(--accent)',
+    error: '#ff5555',
+    warning: '#f1fa8c',
+    info: '#8be9fd',
+  };
+
+  const iconColors = {
+    success: 'var(--accent)',
+    error: '#ff5555',
+    warning: '#f1fa8c',
+    info: '#8be9fd',
+  };
 
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{
+        position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999,
+        display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: '400px',
+      }}>
         <AnimatePresence>
           {toasts.map(t => (
             <motion.div
               key={t.id}
-              initial={{ opacity: 0, x: 80, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 80, scale: 0.9 }}
-              onClick={() => remove(t.id)}
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 100, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
               style={{
-                background: bgColor[t.type], color: '#0a0a0a', padding: '12px 20px',
-                borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 14,
-                boxShadow: '0 4px 20px rgba(0,0,0,0.3)', maxWidth: 360,
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                padding: '0.875rem 1rem', background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderLeft: `3px solid ${borderColors[t.type]}`,
+                fontFamily: 'var(--font-mono)', fontSize: '0.8rem',
+                color: 'var(--text-primary)',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+                cursor: 'pointer',
               }}
-            >{t.message}</motion.div>
+              onClick={() => remove(t.id)}
+            >
+              <span style={{ flexShrink: 0, display: 'flex', color: iconColors[t.type] }}>
+                {icons[t.type]}
+              </span>
+              <span style={{ flex: 1 }}>{t.message}</span>
+              <button style={{
+                flexShrink: 0, display: 'flex', color: 'var(--text-secondary)',
+                cursor: 'pointer', background: 'none', border: 'none', padding: '2px',
+              }}>
+                <X size={14} />
+              </button>
+            </motion.div>
           ))}
         </AnimatePresence>
       </div>
