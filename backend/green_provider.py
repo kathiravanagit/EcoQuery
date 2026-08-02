@@ -6,6 +6,7 @@ Combines provider region knowledge with Electricity Maps zone-based carbon inten
 import os
 import logging
 import asyncio
+import hashlib
 from typing import Dict, List, Optional
 from carbon_collector import collector
 
@@ -183,8 +184,8 @@ class GreenProviderRouter:
         scores.sort(key=lambda x: x["score"])
         return scores
 
-    async def route_to_greenest(self, preferred_provider: Optional[str] = None) -> dict:
-        """Route to the greenest provider.
+    async def route_to_greenest(self, preferred_provider: Optional[str] = None, query: str = "") -> dict:
+        """Route to the greenest provider, varying by query to show different results.
 
         Returns:
             {
@@ -209,15 +210,26 @@ class GreenProviderRouter:
                         "alternatives": [x for x in scores if x["provider"] != preferred_provider][:2],
                     }
 
-        # Return greenest
-        best = scores[0]
+        # Pick from top 3 greenest providers, varying by query content
+        # This ensures different queries route to different green providers
+        top_green = [s for s in scores if s["is_green"]][:3]
+        if not top_green:
+            top_green = scores[:3]
+
+        if query and len(top_green) > 1:
+            query_hash = int(hashlib.md5(query.encode()).hexdigest()[:8], 16)
+            idx = query_hash % len(top_green)
+            chosen = top_green[idx]
+        else:
+            chosen = top_green[0]
+
         return {
-            "provider": best["provider"],
-            "region": best["greenest_region"],
-            "intensity": best["intensity"],
-            "score": best["score"],
-            "is_green": best["is_green"],
-            "alternatives": scores[1:3],
+            "provider": chosen["provider"],
+            "region": chosen["greenest_region"],
+            "intensity": chosen["intensity"],
+            "score": chosen["score"],
+            "is_green": chosen["is_green"],
+            "alternatives": [x for x in top_green if x["provider"] != chosen["provider"]][:2],
         }
 
     async def get_green_model(self, query: str = "") -> str:
