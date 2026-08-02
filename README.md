@@ -99,7 +99,7 @@ EcoQuery sits between your application and LLM providers. It leverages AI/ML tec
 | Database | MongoDB Atlas | NoSQL document store |
 | Caching | Redis (optional) + in-memory | ML training data cache pattern |
 | AI/ML Models | GPT-4o-mini (OpenRouter), TokenReply fallback | Query classifier + routing optimizer |
-| APIs | Electricity Maps, OpenRouter, TokenReply | Real-time carbon + LLM routing data |
+| APIs | Electricity Maps, OpenRouter | Real-time carbon + LLM routing data |
 | Auth | JWT + Google OAuth | Secure authentication |
 | CI/CD | GitHub Actions | Automated testing + deployment |
 | Deploy | Vercel + Render | Cloud hosting |
@@ -208,7 +208,6 @@ npm run dev
 # Backend (.env)
 JWT_SECRET=your-random-secret-string
 OPENAI_API_KEY=sk-or-...           # OpenRouter key
-TOKENREPLY_API_KEY=...            # TokenReply fallback (optional)
 ELECTRICITY_MAPS_API_KEY=em_...    # Optional (uses static fallback)
 MONGODB_URL=mongodb+srv://...      # Optional (degrades without)
 ALLOWED_ORIGINS=https://eco2query.vercel.app,http://localhost:5173
@@ -301,8 +300,7 @@ If all VPS instances are unavailable, requests fall back through:
 1. Ollama VPS (self-hosted, greenest)
 2. AWS Bedrock (region-pinned)
 3. Google Vertex AI (region-pinned)
-4. TokenReply (fallback provider, OpenAI-compatible)
-5. OpenRouter (primary provider)
+4. OpenRouter (primary provider)
 
 ---
 

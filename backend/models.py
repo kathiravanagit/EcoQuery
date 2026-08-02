@@ -58,43 +58,6 @@ CARBON_MODELS = [
         "openrouter_id": "inclusionai/ling-3.0-flash:free",
         "description": "Flash model, ultra-fast responses"
     },
-    # TokenReply-only free models (fallback when OpenRouter fails)
-    {
-        "id": "nemotron-3-ultra-free",
-        "provider": "NVIDIA (TokenReply)",
-        "tier": "green",
-        "carbon_score": 1,
-        "capability": "high",
-        "openrouter_id": "tr-nemotron-3-ultra-free",
-        "description": "550B MoE via TokenReply, largest free model"
-    },
-    {
-        "id": "mimo-v2.5-free",
-        "provider": "Mimo (TokenReply)",
-        "tier": "green",
-        "carbon_score": 1,
-        "capability": "high",
-        "openrouter_id": "tr-mimo-v2.5-free",
-        "description": "Mimo v2.5, strong reasoning via TokenReply"
-    },
-    {
-        "id": "mimo-v2.5-thinking-free",
-        "provider": "Mimo (TokenReply)",
-        "tier": "green",
-        "carbon_score": 1,
-        "capability": "high",
-        "openrouter_id": "tr-mimo-v2.5-thinking-free",
-        "description": "Mimo v2.5 thinking, chain-of-thought via TokenReply"
-    },
-    {
-        "id": "deepseek-v4-flash-free",
-        "provider": "DeepSeek (TokenReply)",
-        "tier": "balanced",
-        "carbon_score": 3,
-        "capability": "medium",
-        "openrouter_id": "tr-deepseek-v4-flash-free",
-        "description": "DeepSeek V4 flash via TokenReply"
-    },
 ]
 
 REGION_MODEL_AFFINITY = {
