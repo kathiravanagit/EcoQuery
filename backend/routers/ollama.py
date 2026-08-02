@@ -237,7 +237,7 @@ async def ollama_chat(req: ChatRequest, request: Request):
             "proxy_provider": "ollama",
             "proxy_region_pinned": True,
             "what_if": {
-                "baseline_model": "phi-4-reasoning",
+                "baseline_model": "ling-3.0-flash",
                 "baseline_region": "ap-south-1 (Mumbai)",
                 "baseline_co2_g": worst_savings["estimated_co2_g"],
                 "actual_model": model,
@@ -320,7 +320,7 @@ async def ollama_chat_stream(req: ChatRequest, request: Request):
             "is_local_inference": True,
             "proxy_provider": "ollama",
             "what_if": {
-                "baseline_model": "phi-4-reasoning",
+                "baseline_model": "ling-3.0-flash",
                 "baseline_co2_g": worst_savings["estimated_co2_g"],
                 "actual_model": model,
                 "actual_co2_g": savings["estimated_co2_g"],

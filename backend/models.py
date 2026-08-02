@@ -5,70 +5,70 @@ All models are free-tier via OpenRouter.
 
 CARBON_MODELS = [
     {
-        "id": "deepseek-r1-0528:free",
-        "provider": "DeepSeek",
+        "id": "nemotron-3-ultra-550b-a55b:free",
+        "provider": "NVIDIA",
         "tier": "green",
         "carbon_score": 1,
         "capability": "high",
-        "openrouter_id": "deepseek/deepseek-r1-0528:free",
-        "description": "DeepSeek R1 reasoning model, 671B MoE"
+        "openrouter_id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "description": "550B MoE, largest free model, strong reasoning"
     },
     {
-        "id": "qwen3-235b-a22b:free",
-        "provider": "Alibaba",
+        "id": "nemotron-3-super-120b-a12b:free",
+        "provider": "NVIDIA",
         "tier": "green",
         "carbon_score": 2,
         "capability": "high",
-        "openrouter_id": "qwen/qwen3-235b-a22b:free",
-        "description": "235B MoE, strong reasoning and coding"
+        "openrouter_id": "nvidia/nemotron-3-super-120b-a12b:free",
+        "description": "120B MoE, balanced performance and efficiency"
     },
     {
-        "id": "llama-4-maverick:free",
-        "provider": "Meta",
-        "tier": "green",
-        "carbon_score": 2,
-        "capability": "high",
-        "openrouter_id": "meta-llama/llama-4-maverick:free",
-        "description": "400B MoE, 1M context, multimodal"
-    },
-    {
-        "id": "gemma-3-27b-it:free",
+        "id": "gemma-4-31b-it:free",
         "provider": "Google",
+        "tier": "green",
+        "carbon_score": 2,
+        "capability": "high",
+        "openrouter_id": "google/gemma-4-31b-it:free",
+        "description": "31B instruct-tuned, latest Gemma"
+    },
+    {
+        "id": "gpt-oss-20b:free",
+        "provider": "OpenAI",
         "tier": "balanced",
         "carbon_score": 3,
         "capability": "medium",
-        "openrouter_id": "google/gemma-3-27b-it:free",
-        "description": "27B instruct-tuned, fast and efficient"
+        "openrouter_id": "openai/gpt-oss-20b:free",
+        "description": "20B open-source, OpenAI quality"
     },
     {
-        "id": "mistral-small-3.1-24b-instruct:free",
-        "provider": "Mistral",
+        "id": "north-mini-code:free",
+        "provider": "Cohere",
         "tier": "balanced",
         "carbon_score": 4,
         "capability": "medium",
-        "openrouter_id": "mistralai/mistral-small-3.1-24b-instruct:free",
-        "description": "24B, 128K context, function calling"
+        "openrouter_id": "cohere/north-mini-code:free",
+        "description": "Compact coding model, fast inference"
     },
     {
-        "id": "phi-4-reasoning:free",
-        "provider": "Microsoft",
+        "id": "ling-3.0-flash:free",
+        "provider": "InclusionAI",
         "tier": "performance",
         "carbon_score": 5,
-        "capability": "high",
-        "openrouter_id": "microsoft/phi-4-reasoning:free",
-        "description": "14B, advanced reasoning capabilities"
+        "capability": "medium",
+        "openrouter_id": "inclusionai/ling-3.0-flash:free",
+        "description": "Flash model, ultra-fast responses"
     },
 ]
 
 REGION_MODEL_AFFINITY = {
-    "eu-west-1": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free", "llama-4-maverick:free"],
-    "eu-west-2": ["deepseek-r1-0528:free", "gemma-3-27b-it:free", "mistral-small-3.1-24b-instruct:free"],
-    "eu-west-3": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free", "llama-4-maverick:free"],
-    "eu-central-1": ["deepseek-r1-0528:free", "gemma-3-27b-it:free", "mistral-small-3.1-24b-instruct:free"],
-    "eu-north-1": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free"],
-    "us-east-1": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free", "llama-4-maverick:free", "phi-4-reasoning:free"],
-    "us-west-1": ["deepseek-r1-0528:free", "qwen3-235b-a22b:free", "gemma-3-27b-it:free", "phi-4-reasoning:free"],
-    "us-west-2": ["deepseek-r1-0528:free", "gemma-3-27b-it:free", "phi-4-reasoning:free"],
+    "eu-west-1": ["nemotron-3-ultra-550b-a55b:free", "gemma-4-31b-it:free", "gpt-oss-20b:free"],
+    "eu-west-2": ["nemotron-3-super-120b-a12b:free", "gemma-4-31b-it:free", "north-mini-code:free"],
+    "eu-west-3": ["nemotron-3-ultra-550b-a55b:free", "gemma-4-31b-it:free", "ling-3.0-flash:free"],
+    "eu-central-1": ["nemotron-3-super-120b-a12b:free", "gemma-4-31b-it:free", "gpt-oss-20b:free"],
+    "eu-north-1": ["nemotron-3-ultra-550b-a55b:free", "gemma-4-31b-it:free"],
+    "us-east-1": ["nemotron-3-ultra-550b-a55b:free", "gemma-4-31b-it:free", "gpt-oss-20b:free", "north-mini-code:free"],
+    "us-west-1": ["nemotron-3-super-120b-a12b:free", "gemma-4-31b-it:free", "ling-3.0-flash:free"],
+    "us-west-2": ["nemotron-3-ultra-550b-a55b:free", "gemma-4-31b-it:free", "gpt-oss-20b:free"],
 }
 
 MODEL_MAP = {m["id"]: m for m in CARBON_MODELS}

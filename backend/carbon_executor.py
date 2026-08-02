@@ -238,7 +238,7 @@ class CarbonAwareExecutor:
         )
 
         response = client.chat.completions.create(
-            model=model or "deepseek-r1-0528:free",
+            model=model or "nemotron-3-ultra-550b-a55b:free",
             messages=messages,
             max_tokens=max_tokens,
         )
