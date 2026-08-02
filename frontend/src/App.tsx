@@ -36,6 +36,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const Blog = lazy(() => import('./pages/Blog'));
 const BlogPost = lazy(() => import('./pages/BlogPost'));
 const FAQ = lazy(() => import('./pages/FAQ'));
+const Teams = lazy(() => import('./pages/Teams'));
 
 const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
 
@@ -103,6 +104,7 @@ function AppContent() {
           <Route path="/profile" element={<ProtectedRoute><AnimatedPage><Profile /></AnimatedPage></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><AnimatedPage><Dashboard /></AnimatedPage></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AnimatedPage><Admin /></AnimatedPage></ProtectedRoute>} />
+          <Route path="/teams" element={<ProtectedRoute><AnimatedPage><Teams /></AnimatedPage></ProtectedRoute>} />
           <Route path="/privacy" element={<AnimatedPage><Privacy /></AnimatedPage>} />
           <Route path="/login" element={<AnimatedPage><Login /></AnimatedPage>} />
           <Route path="/signup" element={<AnimatedPage><Signup /></AnimatedPage>} />
