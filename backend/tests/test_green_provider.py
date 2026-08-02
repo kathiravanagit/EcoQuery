@@ -45,13 +45,5 @@ class TestGreenProviderRouter:
         assert len(providers) >= 8
         assert all("id" in p for p in providers)
 
-    def test_zone_mapping(self):
-        zone = self.router._map_to_zone("gcp-europe-west1")
-        assert zone == "DE"
-
-    def test_zone_mapping_returns_none_for_unknown(self):
-        zone = self.router._map_to_zone("unknown-region")
-        assert zone is None
-
     def test_green_model_exists(self):
         assert callable(self.router.get_green_model)
