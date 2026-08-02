@@ -5,6 +5,7 @@ import os
 import time
 import logging
 import json
+import re
 from jose import JWTError, jwt
 
 from schemas import ChatRequest, ChatResponse
@@ -21,6 +22,36 @@ from green_provider import green_router
 
 logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
+
+
+def clean_response(text: str, max_words: int = 80) -> str:
+    """Post-process LLM response to ensure short, clean output."""
+    if not text:
+        return text
+
+    # Remove markdown headers
+    text = re.sub(r'^#{1,6}\s+.*$', '', text, flags=re.MULTILINE)
+
+    # Remove table rows (lines with |)
+    text = re.sub(r'^\|.*\|.*$', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^[-:]+$', '', text, flags=re.MULTILINE)
+
+    # Remove bullet points and numbered lists, keep content
+    text = re.sub(r'^[\s]*[-*]\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^[\s]*\d+\.\s+', '', text, flags=re.MULTILINE)
+
+    # Remove bold markers
+    text = text.replace('**', '')
+
+    # Collapse multiple newlines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    # Trim to max words
+    words = text.split()
+    if len(words) > max_words:
+        text = ' '.join(words[:max_words]) + '...'
+
+    return text.strip()
 
 MODEL_COST_MAP = {
     "nemotron-3-ultra-550b-a55b": 0.0, "nemotron-3-super-120b-a12b": 0.0,
@@ -128,7 +159,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             messages=messages,
             max_tokens=256,
         )
-        reply_content = result["content"]
+        reply_content = clean_response(result["content"])
         usage = result.get("usage", {})
         prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
         output_tokens = usage.get("completion_tokens", output_tokens)
