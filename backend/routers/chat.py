@@ -98,16 +98,16 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     is_mocked = False
 
     SYSTEM_PROMPT = (
-        "You are EcoQuery. Answer in MAX 5-8 short bullet points or a brief paragraph.\n"
-        "STRICT RULES:\n"
-        "- NEVER write essays, long explanations, or walls of text\n"
-        "- NEVER use markdown headers (#, ##, ###)\n"
-        "- NEVER use tables unless explicitly asked to compare things\n"
-        "- NEVER write more than 150 words total\n"
-        "- Use plain text with simple bullet points (- )\n"
-        "- Get straight to the point, no intro fluff\n"
-        "- If the topic is complex, give just the 3-5 key facts\n"
-        "- Example good answer: 'Thermodynamics studies energy transfer. Key laws: energy is conserved (1st), entropy increases (2nd), absolute zero is unattainable (3rd). Used in engines, chemistry, and black holes.'"
+        "You are a concise encyclopedia. For ANY question, respond with EXACTLY this format:\n\n"
+        "**[Topic]:** [1-2 sentence definition]. [2-3 sentence explanation of what it is, how it works, or why it matters].\n\n"
+        "RULES:\n"
+        "- Total response: MAX 80 words, MAX 4 sentences\n"
+        "- NO headers, NO bullet points, NO tables, NO lists, NO markdown formatting\n"
+        "- NO intro filler like Sure or Great question or Here is\n"
+        "- Start DIRECTLY with the definition\n"
+        "- Write as ONE clean paragraph\n"
+        "- If asked to compare, use max 3 short bullet points\n"
+        "- Example: **Spectrum:** A continuous range of values arranged by frequency or wavelength. In physics, it describes electromagnetic radiation from radio waves to gamma rays. In telecom, it refers to radio frequency bands used for wireless communication like Wi-Fi, Bluetooth, and 5G."
     )
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -126,7 +126,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         result = await provider_router.chat_completion(
             model_id=target_model,
             messages=messages,
-            max_tokens=1024,
+            max_tokens=256,
         )
         reply_content = result["content"]
         usage = result.get("usage", {})
@@ -355,16 +355,16 @@ async def chat_stream(req: ChatRequest, request: Request):
     start_time = time.time()
 
     SYSTEM_PROMPT = (
-        "You are EcoQuery. Answer in MAX 5-8 short bullet points or a brief paragraph.\n"
-        "STRICT RULES:\n"
-        "- NEVER write essays, long explanations, or walls of text\n"
-        "- NEVER use markdown headers (#, ##, ###)\n"
-        "- NEVER use tables unless explicitly asked to compare things\n"
-        "- NEVER write more than 150 words total\n"
-        "- Use plain text with simple bullet points (- )\n"
-        "- Get straight to the point, no intro fluff\n"
-        "- If the topic is complex, give just the 3-5 key facts\n"
-        "- Example good answer: 'Thermodynamics studies energy transfer. Key laws: energy is conserved (1st), entropy increases (2nd), absolute zero is unattainable (3rd). Used in engines, chemistry, and black holes.'"
+        "You are a concise encyclopedia. For ANY question, respond with EXACTLY this format:\n\n"
+        "**[Topic]:** [1-2 sentence definition]. [2-3 sentence explanation of what it is, how it works, or why it matters].\n\n"
+        "RULES:\n"
+        "- Total response: MAX 80 words, MAX 4 sentences\n"
+        "- NO headers, NO bullet points, NO tables, NO lists, NO markdown formatting\n"
+        "- NO intro filler like Sure or Great question or Here is\n"
+        "- Start DIRECTLY with the definition\n"
+        "- Write as ONE clean paragraph\n"
+        "- If asked to compare, use max 3 short bullet points\n"
+        "- Example: **Spectrum:** A continuous range of values arranged by frequency or wavelength. In physics, it describes electromagnetic radiation from radio waves to gamma rays. In telecom, it refers to radio frequency bands used for wireless communication like Wi-Fi, Bluetooth, and 5G."
     )
 
     async def generate():
@@ -385,7 +385,7 @@ async def chat_stream(req: ChatRequest, request: Request):
             async for token in provider_router.stream_completion(
                 model_id=target_model,
                 messages=messages,
-                max_tokens=1024,
+                max_tokens=256,
             ):
                 if token:
                     full_reply += token
