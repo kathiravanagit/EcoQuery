@@ -1,6 +1,6 @@
 """
 Multi-provider inference for EcoQuery.
-Supports OpenRouter (free models), direct Anthropic, Gemini, and OpenAI.
+Supports OpenRouter (free models), TokenReply (fallback), direct Anthropic, Gemini, and OpenAI.
 """
 
 import os
@@ -12,6 +12,7 @@ logger = logging.getLogger("EcoQuery.providers")
 class ProviderRouter:
     def __init__(self):
         self.openrouter_key = os.getenv("OPENAI_API_KEY", "")
+        self.tokenreply_key = os.getenv("TOKENREPLY_API_KEY", "")
         self.anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
         self.gemini_key = os.getenv("GEMINI_API_KEY", "")
         self.openai_key = os.getenv("OPENAI_DIRECT_KEY", "")
@@ -30,11 +31,44 @@ class ProviderRouter:
                 model_id,
                 "gemini",
             )
+        # TokenReply models (tr- prefix)
+        if model_id.startswith("tr-") and self.tokenreply_key:
+            real_model = model_id[3:]  # strip tr- prefix
+            return (
+                {"api_key": self.tokenreply_key, "base_url": "https://api.tokenreply.com/v1"},
+                real_model,
+                "tokenreply",
+            )
         return (
             {"api_key": self.openrouter_key, "base_url": "https://openrouter.ai/api/v1"},
             model_id,
             "openrouter",
         )
+
+    def _try_fallback(self, failed_provider: str, model_id: str, messages: list, max_tokens: int):
+        """Check if we should try TokenReply as fallback."""
+        if failed_provider == "openrouter" and self.tokenreply_key:
+            # Map OpenRouter free models to TokenReply equivalents
+            TOKENREPLY_MAP = {
+                "nvidia/nemotron-3-ultra-550b-a55b:free": "nemotron-3-ultra-free",
+                "nvidia/nemotron-3-super-120b-a12b:free": "nvidia/nemotron-3-super-120b",
+                "google/gemma-4-31b-it:free": "google/gemma-4-31b-it",
+                "openai/gpt-oss-20b:free": "openai/gpt-oss-20b",
+                "cohere/north-mini-code:free": "north-mini-code-free",
+                "inclusionai/ling-3.0-flash:free": "ling-3.0-flash-free",
+                "mimo-v2.5-free": "mimo-v2.5-free",
+                "mimo-v2.5-thinking-free": "mimo-v2.5-thinking-free",
+                "deepseek-v4-flash-free": "deepseek-v4-flash-free",
+            }
+            fallback = TOKENREPLY_MAP.get(model_id)
+            if fallback:
+                logger.info(f"Falling back from OpenRouter to TokenReply: {fallback}")
+                return (
+                    {"api_key": self.tokenreply_key, "base_url": "https://api.tokenreply.com/v1"},
+                    fallback,
+                    "tokenreply",
+                )
+        return None
 
     async def chat_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024
@@ -50,7 +84,14 @@ class ProviderRouter:
         elif provider == "gemini":
             return await self._gemini_call(target_model, messages, max_tokens)
         else:
-            return await self._openrouter_call(client_kwargs, target_model, messages, max_tokens)
+            result = await self._openrouter_call(client_kwargs, target_model, messages, max_tokens)
+            # Fallback to TokenReply on failure
+            if "Provider error" in result.get("content", "") and provider == "openrouter":
+                fallback = self._try_fallback(provider, model_id, messages, max_tokens)
+                if fallback:
+                    fb_kwargs, fb_model, fb_provider = fallback
+                    return await self._tokenreply_call(fb_kwargs, fb_model, messages, max_tokens)
+            return result
 
     async def _openrouter_call(self, client_kwargs, target_model, messages, max_tokens):
         from openai import AsyncOpenAI
@@ -73,6 +114,29 @@ class ProviderRouter:
             }
         except Exception as e:
             logger.error(f"OpenRouter call failed: {e}")
+            return {"content": f"Provider error: {e}", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
+
+    async def _tokenreply_call(self, client_kwargs, target_model, messages, max_tokens):
+        from openai import AsyncOpenAI
+        try:
+            client = AsyncOpenAI(**client_kwargs)
+            response = await client.chat.completions.create(
+                model=target_model,
+                messages=messages,
+                max_tokens=max_tokens,
+            )
+            content = response.choices[0].message.content
+            prompt_tokens = 0
+            completion_tokens = 0
+            if response.usage:
+                prompt_tokens = response.usage.prompt_tokens or 0
+                completion_tokens = response.usage.completion_tokens or 0
+            return {
+                "content": content,
+                "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+            }
+        except Exception as e:
+            logger.error(f"TokenReply call failed: {e}")
             return {"content": f"Provider error: {e}", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
     async def _anthropic_call(self, model_id, messages, max_tokens):

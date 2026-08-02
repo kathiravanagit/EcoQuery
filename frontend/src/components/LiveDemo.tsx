@@ -198,6 +198,21 @@ const LiveDemo = () => {
                           <span className="meta-tag">
                             auto picked by query heavy
                           </span>
+                          {msg.metadata.co2_saved_g > 0 && (
+                            <span className="meta-tag savings">
+                              -{msg.metadata.co2_saved_g}g CO₂ saved
+                            </span>
+                          )}
+                          {msg.metadata.region && (
+                            <span className="meta-tag">
+                              {msg.metadata.region}
+                            </span>
+                          )}
+                          {msg.metadata.energy_source && (
+                            <span className="meta-tag">
+                              {msg.metadata.energy_source}
+                            </span>
+                          )}
                         </div>
                       </motion.div>
                     )}
