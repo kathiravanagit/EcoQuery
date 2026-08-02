@@ -229,16 +229,16 @@ class GreenProviderRouter:
         # Map provider to OpenRouter model
         GREEN_MODELS = {
             "anthropic": "anthropic/claude-3-haiku",
-            "google": "google/gemma-3-27b-it:free",
-            "microsoft": "microsoft/phi-4-reasoning:free",
+            "google": "google/gemma-4-31b-it:free",
+            "microsoft": "openai/gpt-oss-20b:free",
             "amazon": "amazon/nova-micro-v1",
-            "meta": "meta-llama/llama-4-maverick:free",
-            "mistral": "mistralai/mistral-small-3.1-24b-instruct:free",
-            "cohere": "cohere/command-r",
-            "nvidia": "nvidia/nemotron-3-ultra:free",
+            "meta": "nvidia/nemotron-3-super-120b-a12b:free",
+            "mistral": "cohere/north-mini-code:free",
+            "cohere": "cohere/north-mini-code:free",
+            "nvidia": "nvidia/nemotron-3-ultra-550b-a55b:free",
         }
 
-        return GREEN_MODELS.get(provider, "deepseek/deepseek-r1-0528:free")
+        return GREEN_MODELS.get(provider, "nvidia/nemotron-3-ultra-550b-a55b:free")
 
     def _map_to_zone(self, region: str) -> Optional[str]:
         """Map provider region to Electricity Maps zone."""

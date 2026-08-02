@@ -23,9 +23,9 @@ logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
 
 MODEL_COST_MAP = {
-    "deepseek-r1-0528": 0.0, "qwen3-235b-a22b": 0.0,
-    "llama-4-maverick": 0.0, "gemma-3-27b-it": 0.0,
-    "mistral-small-3.1-24b-instruct": 0.0, "phi-4-reasoning": 0.0,
+    "nemotron-3-ultra-550b-a55b": 0.0, "nemotron-3-super-120b-a12b": 0.0,
+    "gemma-4-31b-it": 0.0, "gpt-oss-20b": 0.0,
+    "north-mini-code": 0.0, "ling-3.0-flash": 0.0,
 }
 
 
@@ -211,7 +211,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "co2_estimated_g": savings["estimated_co2_g"],
         })
 
-    worst_model = {"model": "phi-4-reasoning", "carbon_score": 5, "provider": "Microsoft"}
+    worst_model = {"model": "ling-3.0-flash", "carbon_score": 5, "provider": "InclusionAI"}
     worst_region_intensity = 710.0
     worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 
@@ -422,7 +422,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
-        worst_model = {"model": "phi-4-reasoning", "carbon_score": 5, "provider": "Microsoft"}
+        worst_model = {"model": "ling-3.0-flash", "carbon_score": 5, "provider": "InclusionAI"}
         worst_region_intensity = 710.0
         worst_savings = compute_savings(worst_model["carbon_score"], worst_region_intensity, prompt_length=prompt_len)
 

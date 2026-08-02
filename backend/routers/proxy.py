@@ -175,7 +175,7 @@ async def proxy_chat(req: ChatRequest, request: Request):
             "proxy_region_pinned": actual_provider != "openrouter",
             "available_providers": provider_names,
             "what_if": {
-                "baseline_model": "phi-4-reasoning",
+                "baseline_model": "ling-3.0-flash",
                 "baseline_region": "ap-south-1 (Mumbai)",
                 "baseline_co2_g": worst_co2["estimated_co2_g"],
                 "actual_model": model_sel["model"],
