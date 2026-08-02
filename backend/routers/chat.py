@@ -41,7 +41,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
 
     green_source = None
     try:
-        green_route = await green_router.route_to_greenest()
+        green_route = await green_router.route_to_greenest(query=req.message)
         green_model_id = await green_router.get_green_model(req.message)
         green_provider = green_route["provider"]
         green_intensity = green_route["intensity"]
@@ -293,7 +293,7 @@ async def _build_routing(req: ChatRequest):
     savings = routing["savings"]
 
     try:
-        green_route = await green_router.route_to_greenest()
+        green_route = await green_router.route_to_greenest(query=req.message)
         green_model_id = await green_router.get_green_model(req.message)
         green_provider = green_route["provider"]
         green_intensity = green_route["intensity"]
