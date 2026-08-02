@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { Award, Leaf, ArrowRight } from 'lucide-react';
-import { PageSkeleton } from '../components/Skeleton';
+import { Skeleton, PageSkeleton } from '../components/Skeleton';
 import ApiKeyManager from '../components/ApiKeyManager';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
@@ -15,6 +15,39 @@ const DashboardBadges = React.lazy(() => import('../components/dashboard/Dashboa
 const DashboardCatalog = React.lazy(() => import('../components/dashboard/DashboardCatalog'));
 const DashboardQueries = React.lazy(() => import('../components/dashboard/DashboardQueries'));
 const DashboardExport = React.lazy(() => import('../components/dashboard/DashboardExport'));
+
+const StatsSkeleton = () => (
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+    {[1,2,3].map(i => (
+      <div key={i} style={{ padding: '1.25rem', border: '1px solid var(--border-color)', borderRadius: 12 }}>
+        <Skeleton height={14} width="40%" />
+        <Skeleton height={28} width="60%" style={{ marginTop: 8 }} />
+      </div>
+    ))}
+  </div>
+);
+
+const ChartSkeleton = () => (
+  <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: 12, marginBottom: 24 }}>
+    <Skeleton height={18} width="30%" />
+    <Skeleton height={200} style={{ marginTop: 12 }} />
+  </div>
+);
+
+const ListSkeleton = () => (
+  <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: 12, marginBottom: 24 }}>
+    <Skeleton height={18} width="25%" />
+    {[1,2,3].map(i => (
+      <div key={i} style={{ display: 'flex', gap: 12, marginTop: 12, alignItems: 'center' }}>
+        <Skeleton height={32} width={32} style={{ borderRadius: '50%' }} />
+        <div style={{ flex: 1 }}>
+          <Skeleton height={14} width="70%" />
+          <Skeleton height={12} width="40%" style={{ marginTop: 4 }} />
+        </div>
+      </div>
+    ))}
+  </div>
+);
 
 interface Stats {
   total_queries?: number; total_co2_saved_g?: number; total_api_cost?: number;
@@ -176,15 +209,23 @@ const Dashboard = () => {
               </motion.div>
             )}
 
-            <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading...</div>}>
+            <Suspense fallback={<StatsSkeleton />}>
               <DashboardStats stats={stats} cert={cert} />
-              <DashboardBadges badges={badges} />
-              <DashboardImpact co2Saved={stats?.total_co2_saved_g || 0} />
-              <DashboardRealtime events={realtimeEvents} />
-              <DashboardAnalytics analytics={analytics} analyticsPeriod={analyticsPeriod} setAnalyticsPeriod={setAnalyticsPeriod} tierData={tierData} />
-              <ApiKeyManager token={token} API={API} />
-              <DashboardExport token={token} />
             </Suspense>
+            <Suspense fallback={<ListSkeleton />}>
+              <DashboardBadges badges={badges} />
+            </Suspense>
+            <Suspense fallback={<ChartSkeleton />}>
+              <DashboardImpact co2Saved={stats?.total_co2_saved_g || 0} />
+            </Suspense>
+            <Suspense fallback={<ListSkeleton />}>
+              <DashboardRealtime events={realtimeEvents} />
+            </Suspense>
+            <Suspense fallback={<ChartSkeleton />}>
+              <DashboardAnalytics analytics={analytics} analyticsPeriod={analyticsPeriod} setAnalyticsPeriod={setAnalyticsPeriod} tierData={tierData} />
+            </Suspense>
+            <ApiKeyManager token={token} API={API} />
+            <DashboardExport token={token} />
 
             {cert && (
               <div className="dashboard-section">
