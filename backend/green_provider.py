@@ -210,9 +210,9 @@ class GreenProviderRouter:
                         "alternatives": [x for x in scores if x["provider"] != preferred_provider][:2],
                     }
 
-        # Pick from top 3 greenest providers, varying by query content
-        # This ensures different queries route to different green providers
-        top_green = [s for s in scores if s["is_green"]][:3]
+        # Pick from top 5 greenest providers, varying by query content
+        # Ensures different queries route to different providers/models
+        top_green = scores[:5]
         if not top_green:
             top_green = scores[:3]
 
@@ -233,19 +233,21 @@ class GreenProviderRouter:
         }
 
     async def get_green_model(self, query: str = "") -> str:
-        """Get the greenest model ID for OpenRouter."""
-        route = await self.route_to_greenest()
+        """Get the greenest model ID for OpenRouter, varying by query."""
+        route = await self.route_to_greenest(query=query)
         provider = route["provider"]
 
         GREEN_MODELS = {
-            "anthropic": "anthropic/claude-3-haiku",
             "google": "google/gemma-4-31b-it:free",
-            "microsoft": "openai/gpt-oss-20b:free",
-            "amazon": "amazon/nova-micro-v1",
             "meta": "nvidia/nemotron-3-super-120b-a12b:free",
             "mistral": "cohere/north-mini-code:free",
-            "cohere": "cohere/north-mini-code:free",
             "nvidia": "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "cohere": "cohere/north-mini-code:free",
+            "anthropic": "anthropic/claude-3-haiku",
+            "microsoft": "openai/gpt-oss-20b:free",
+            "amazon": "amazon/nova-micro-v1",
+            "deepseek": "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "xiaomi": "nvidia/nemotron-3-super-120b-a12b:free",
         }
 
         return GREEN_MODELS.get(provider, "nvidia/nemotron-3-ultra-550b-a55b:free")
