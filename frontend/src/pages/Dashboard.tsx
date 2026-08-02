@@ -67,9 +67,9 @@ const Dashboard = () => {
       } catch (e) { console.error('Failed initial fetch', e); }
       finally { setLoading(false); }
     })();
-  }, []);
+  }, [token]);
 
-  useEffect(() => { if (!loading) fetchAll(); }, [analyticsPeriod]);
+  useEffect(() => { if (!loading) fetchAll(); }, [fetchAll, loading]);
 
   useEffect(() => {
     const t = token;

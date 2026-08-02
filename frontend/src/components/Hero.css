@@ -96,8 +96,12 @@
   position: relative;
 }
 
-.text-gradient::after {
+.hero-title .text-gradient::after {
   content: '_';
+  animation: blink 1s infinite;
+}
+
+.cursor-blink {
   animation: blink 1s infinite;
 }
 

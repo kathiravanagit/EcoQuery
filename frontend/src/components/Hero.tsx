@@ -49,7 +49,7 @@ const Hero = () => {
         >
           <motion.div className="badge" variants={{ initial: { opacity: 0, scale: 0.95 }, animate: { opacity: 1, scale: 1, transition: { duration: 0.4 } } }}>
             <span className="badge-dot"></span>
-            v2.0 // carbon-aware routing
+            {typedText}<span className="cursor-blink">|</span>
           </motion.div>
           
           <motion.h1 className="hero-title" variants={fadeUp}>

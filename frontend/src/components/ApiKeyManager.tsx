@@ -101,7 +101,7 @@ const ApiKeyManager: React.FC<Props> = ({ token, API }) => {
     }
   };
 
-  useEffect(() => { fetchKey(); }, []);
+  useEffect(() => { fetchKey(); }, [token]);
 
   if (loading) {
     return (

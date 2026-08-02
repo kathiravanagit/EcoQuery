@@ -155,7 +155,7 @@ const LiveDemo = () => {
               <motion.div className="status-dot" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}></motion.div>
               <span>EcoQuery Router Active</span>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: '#00d46a', fontWeight: 600 }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>
                   Auto Mode
                 </span>
                 <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} className="model-picker" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}>

@@ -34,16 +34,13 @@ class ErrorBoundary extends React.Component<Props, State> {
       return (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          minHeight: '60vh', padding: '2rem', textAlign: 'center', color: '#e0e0e0'
+          minHeight: '60vh', padding: '2rem', textAlign: 'center', color: 'var(--text-primary)'
         }}>
           <h2>Something went wrong</h2>
-          <p style={{ color: '#aaa', margin: '1rem 0' }}>
+          <p style={{ color: 'var(--text-secondary)', margin: '1rem 0' }}>
             An unexpected error occurred. Please try again.
           </p>
-          <button onClick={this.handleReset} style={{
-            padding: '0.75rem 2rem', background: '#4fc3f7', color: '#0a0a0a',
-            border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600
-          }}>
+          <button onClick={this.handleReset} className="btn btn-primary">
             Try Again
           </button>
         </div>
