@@ -24,10 +24,13 @@ logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
-def clean_response(text: str, max_words: int = 80) -> str:
+def clean_response(text: str, max_words: int = 60) -> str:
     """Post-process LLM response to ensure short, clean output."""
     if not text:
         return text
+
+    # Remove common LLM intro patterns
+    text = re.sub(r'^(Sure|Great question|Here is|Certainly|Of course|Absolutely)[!.]*\s*', '', text, flags=re.IGNORECASE)
 
     # Remove markdown headers
     text = re.sub(r'^#{1,6}\s+.*$', '', text, flags=re.MULTILINE)
@@ -40,11 +43,15 @@ def clean_response(text: str, max_words: int = 80) -> str:
     text = re.sub(r'^[\s]*[-*]\s+', '', text, flags=re.MULTILINE)
     text = re.sub(r'^[\s]*\d+\.\s+', '', text, flags=re.MULTILINE)
 
-    # Remove bold markers
-    text = text.replace('**', '')
+    # Remove bold/italic markers
+    text = text.replace('**', '').replace('*', '')
 
-    # Collapse multiple newlines
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    # Remove section dividers
+    text = re.sub(r'^---+$', '', text, flags=re.MULTILINE)
+
+    # Collapse multiple newlines/spaces
+    text = re.sub(r'\n{2,}', ' ', text)
+    text = re.sub(r'\s{2,}', ' ', text)
 
     # Trim to max words
     words = text.split()
@@ -157,7 +164,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         result = await provider_router.chat_completion(
             model_id=target_model,
             messages=messages,
-            max_tokens=256,
+            max_tokens=150,
         )
         reply_content = clean_response(result["content"])
         usage = result.get("usage", {})
@@ -416,7 +423,7 @@ async def chat_stream(req: ChatRequest, request: Request):
             async for token in provider_router.stream_completion(
                 model_id=target_model,
                 messages=messages,
-                max_tokens=256,
+                max_tokens=150,
             ):
                 if token:
                     full_reply += token
