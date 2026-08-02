@@ -98,13 +98,16 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     is_mocked = False
 
     SYSTEM_PROMPT = (
-        "You are EcoQuery, a concise AI assistant. Rules:\n"
-        "- Give direct, well-organized answers\n"
-        "- Use headers (##, ###) and bullet points for clarity\n"
-        "- Keep answers focused — no unnecessary filler\n"
-        "- Use tables only when comparing multiple items\n"
-        "- Limit code blocks to essential examples\n"
-        "- End with a brief summary or key takeaway if the answer is long"
+        "You are EcoQuery. Answer in MAX 5-8 short bullet points or a brief paragraph.\n"
+        "STRICT RULES:\n"
+        "- NEVER write essays, long explanations, or walls of text\n"
+        "- NEVER use markdown headers (#, ##, ###)\n"
+        "- NEVER use tables unless explicitly asked to compare things\n"
+        "- NEVER write more than 150 words total\n"
+        "- Use plain text with simple bullet points (- )\n"
+        "- Get straight to the point, no intro fluff\n"
+        "- If the topic is complex, give just the 3-5 key facts\n"
+        "- Example good answer: 'Thermodynamics studies energy transfer. Key laws: energy is conserved (1st), entropy increases (2nd), absolute zero is unattainable (3rd). Used in engines, chemistry, and black holes.'"
     )
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -352,13 +355,16 @@ async def chat_stream(req: ChatRequest, request: Request):
     start_time = time.time()
 
     SYSTEM_PROMPT = (
-        "You are EcoQuery, a concise AI assistant. Rules:\n"
-        "- Give direct, well-organized answers\n"
-        "- Use headers (##, ###) and bullet points for clarity\n"
-        "- Keep answers focused — no unnecessary filler\n"
-        "- Use tables only when comparing multiple items\n"
-        "- Limit code blocks to essential examples\n"
-        "- End with a brief summary or key takeaway if the answer is long"
+        "You are EcoQuery. Answer in MAX 5-8 short bullet points or a brief paragraph.\n"
+        "STRICT RULES:\n"
+        "- NEVER write essays, long explanations, or walls of text\n"
+        "- NEVER use markdown headers (#, ##, ###)\n"
+        "- NEVER use tables unless explicitly asked to compare things\n"
+        "- NEVER write more than 150 words total\n"
+        "- Use plain text with simple bullet points (- )\n"
+        "- Get straight to the point, no intro fluff\n"
+        "- If the topic is complex, give just the 3-5 key facts\n"
+        "- Example good answer: 'Thermodynamics studies energy transfer. Key laws: energy is conserved (1st), entropy increases (2nd), absolute zero is unattainable (3rd). Used in engines, chemistry, and black holes.'"
     )
 
     async def generate():
