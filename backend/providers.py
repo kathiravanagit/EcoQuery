@@ -96,7 +96,7 @@ class ProviderRouter:
     async def _openrouter_call(self, client_kwargs, target_model, messages, max_tokens):
         from openai import AsyncOpenAI
         try:
-            client = AsyncOpenAI(**client_kwargs)
+            client = AsyncOpenAI(**client_kwargs, timeout=60.0)
             response = await client.chat.completions.create(
                 model=target_model,
                 messages=messages,
@@ -119,7 +119,7 @@ class ProviderRouter:
     async def _tokenreply_call(self, client_kwargs, target_model, messages, max_tokens):
         from openai import AsyncOpenAI
         try:
-            client = AsyncOpenAI(**client_kwargs)
+            client = AsyncOpenAI(**client_kwargs, timeout=30.0)
             response = await client.chat.completions.create(
                 model=target_model,
                 messages=messages,
@@ -214,7 +214,7 @@ class ProviderRouter:
 
     async def _openrouter_stream(self, client_kwargs, target_model, messages, max_tokens):
         from openai import AsyncOpenAI
-        client = AsyncOpenAI(**client_kwargs)
+        client = AsyncOpenAI(**client_kwargs, timeout=60.0)
         try:
             stream = await client.chat.completions.create(
                 model=target_model,
