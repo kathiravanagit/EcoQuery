@@ -97,7 +97,17 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     output_tokens = 40
     is_mocked = False
 
-    messages = []
+    SYSTEM_PROMPT = (
+        "You are EcoQuery, a concise AI assistant. Rules:\n"
+        "- Give direct, well-organized answers\n"
+        "- Use headers (##, ###) and bullet points for clarity\n"
+        "- Keep answers focused — no unnecessary filler\n"
+        "- Use tables only when comparing multiple items\n"
+        "- Limit code blocks to essential examples\n"
+        "- End with a brief summary or key takeaway if the answer is long"
+    )
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if req.images:
         content = [{"type": "text", "text": req.message}]
         for img in req.images:
@@ -341,10 +351,20 @@ async def chat_stream(req: ChatRequest, request: Request):
     full_reply = ""
     start_time = time.time()
 
+    SYSTEM_PROMPT = (
+        "You are EcoQuery, a concise AI assistant. Rules:\n"
+        "- Give direct, well-organized answers\n"
+        "- Use headers (##, ###) and bullet points for clarity\n"
+        "- Keep answers focused — no unnecessary filler\n"
+        "- Use tables only when comparing multiple items\n"
+        "- Limit code blocks to essential examples\n"
+        "- End with a brief summary or key takeaway if the answer is long"
+    )
+
     async def generate():
         nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply
         try:
-            messages = []
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}]
             if req.images:
                 content = [{"type": "text", "text": req.message}]
                 for img in req.images:
