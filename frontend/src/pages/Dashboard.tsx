@@ -1,15 +1,20 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { Award, Leaf, ArrowRight } from 'lucide-react';
 import { PageSkeleton } from '../components/Skeleton';
 import ApiKeyManager from '../components/ApiKeyManager';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
-import {
-  DashboardStats, DashboardImpact, DashboardRealtime, DashboardAnalytics,
-  DashboardBadges, DashboardCatalog, DashboardQueries, DashboardExport
-} from '../components/dashboard';
 import './Pages.css';
+
+const DashboardStats = React.lazy(() => import('../components/dashboard/DashboardStats'));
+const DashboardImpact = React.lazy(() => import('../components/dashboard/DashboardImpact'));
+const DashboardRealtime = React.lazy(() => import('../components/dashboard/DashboardRealtime'));
+const DashboardAnalytics = React.lazy(() => import('../components/dashboard/DashboardAnalytics'));
+const DashboardBadges = React.lazy(() => import('../components/dashboard/DashboardBadges'));
+const DashboardCatalog = React.lazy(() => import('../components/dashboard/DashboardCatalog'));
+const DashboardQueries = React.lazy(() => import('../components/dashboard/DashboardQueries'));
+const DashboardExport = React.lazy(() => import('../components/dashboard/DashboardExport'));
 
 interface Stats {
   total_queries?: number; total_co2_saved_g?: number; total_api_cost?: number;
@@ -171,13 +176,15 @@ const Dashboard = () => {
               </motion.div>
             )}
 
-            <DashboardStats stats={stats} cert={cert} />
-            <DashboardBadges badges={badges} />
-            <DashboardImpact co2Saved={stats?.total_co2_saved_g || 0} />
-            <DashboardRealtime events={realtimeEvents} />
-            <DashboardAnalytics analytics={analytics} analyticsPeriod={analyticsPeriod} setAnalyticsPeriod={setAnalyticsPeriod} tierData={tierData} />
-            <ApiKeyManager token={token} API={API} />
-            <DashboardExport token={token} />
+            <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading...</div>}>
+              <DashboardStats stats={stats} cert={cert} />
+              <DashboardBadges badges={badges} />
+              <DashboardImpact co2Saved={stats?.total_co2_saved_g || 0} />
+              <DashboardRealtime events={realtimeEvents} />
+              <DashboardAnalytics analytics={analytics} analyticsPeriod={analyticsPeriod} setAnalyticsPeriod={setAnalyticsPeriod} tierData={tierData} />
+              <ApiKeyManager token={token} API={API} />
+              <DashboardExport token={token} />
+            </Suspense>
 
             {cert && (
               <div className="dashboard-section">
