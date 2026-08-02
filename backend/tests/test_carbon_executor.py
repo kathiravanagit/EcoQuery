@@ -11,6 +11,7 @@ class TestCarbonAwareExecutor:
     def setup_method(self):
         self.executor = CarbonAwareExecutor()
 
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "", "AWS_ACCESS_KEY_ID": "", "OLLAMA_BASE_URL": ""})
     def test_no_providers_configured(self):
         executor = CarbonAwareExecutor()
         assert executor.aws_key == ""
@@ -38,9 +39,9 @@ class TestCarbonAwareExecutor:
         executor.openrouter_key = "sk-or-test"
         assert executor.openrouter_key != ""
 
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "", "AWS_ACCESS_KEY_ID": "", "OLLAMA_BASE_URL": ""})
     def test_execute_no_providers_raises(self):
         executor = CarbonAwareExecutor()
-        # Without any env vars set, no providers are available
         assert executor.ollama_url == ""
         assert executor.aws_key == ""
         assert executor.vertex_cred == ""
