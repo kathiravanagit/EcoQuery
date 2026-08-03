@@ -62,6 +62,8 @@ class ProviderRouter:
                 max_tokens=max_tokens,
             )
             content = response.choices[0].message.content
+            if not content:
+                content = "The model did not generate a response. Please try again."
             prompt_tokens = 0
             completion_tokens = 0
             if response.usage:
