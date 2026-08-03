@@ -260,7 +260,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             messages=_build_messages(req),
             max_tokens=150,
         )
-        reply_content = clean_response(result["content"])
+        reply_content = clean_response(result.get("content") or "") or "No response generated."
         usage = result.get("usage", {})
         prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
         output_tokens = usage.get("completion_tokens", output_tokens)
