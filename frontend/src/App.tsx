@@ -37,12 +37,12 @@ const BlogPost = lazy(() => import('./pages/BlogPost'));
 const FAQ = lazy(() => import('./pages/FAQ'));
 const Teams = lazy(() => import('./pages/Teams'));
 
-const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
+import { EASE_FN } from './constants';
 
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easeFn } },
-  exit: { opacity: 0, y: -12, transition: { duration: 0.3, ease: easeFn } },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_FN } },
+  exit: { opacity: 0, y: -12, transition: { duration: 0.3, ease: EASE_FN } },
 };
 
 function AnimatedPage({ children }: { children: React.ReactNode }) {

@@ -11,20 +11,20 @@ const featureList = [
   { title: 'Live Dashboard', icon: BarChart3, description: 'Provides deep visibility into your organization\'s LLM usage, cost savings, and emissions avoided.' },
 ];
 
-const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
+import { EASE_FN } from '../constants';
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.6, ease: easeFn },
+  transition: { duration: 0.6, ease: EASE_FN },
 };
 
 const cardVariant = {
   initial: { opacity: 0, y: 40, scale: 0.95 },
   whileInView: { opacity: 1, y: 0, scale: 1 },
   viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.5, ease: easeFn },
+  transition: { duration: 0.5, ease: EASE_FN },
 };
 
 const Features = () => {

@@ -41,18 +41,19 @@ const getStoredUser = (): User | null => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(getToken);
   const [user, setUser] = useState<User | null>(getStoredUser);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const t = getToken();
-    if (!t) { setUser(null); return; }
+    if (!t) { setUser(null); setIsLoading(false); return; }
     fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${t}` } })
       .then(r => r.ok ? r.json() : null)
       .then(u => {
         if (u) { setUser(u); localStorage.setItem('user', JSON.stringify(u)); }
         else { localStorage.removeItem('token'); localStorage.removeItem('user'); setToken(null); setUser(null); }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
   }, []);
 
   useEffect(() => {

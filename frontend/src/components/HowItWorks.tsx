@@ -46,13 +46,13 @@ const regionData = [
   { name: 'Virginia', intensity: 380, source: 'Gas/Coal', pct: 80 },
 ];
 
-const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
+import { EASE_FN } from '../constants';
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.6, ease: easeFn },
+  transition: { duration: 0.6, ease: EASE_FN },
 };
 
 const HowItWorks = () => {
