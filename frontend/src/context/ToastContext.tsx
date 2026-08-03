@@ -38,22 +38,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const borderColors = {
     success: 'var(--accent)',
-    error: '#ff5555',
+    error: 'var(--color-error)',
     warning: '#f1fa8c',
-    info: '#8be9fd',
+    info: 'var(--color-info)',
   };
 
   const iconColors = {
     success: 'var(--accent)',
-    error: '#ff5555',
+    error: 'var(--color-error)',
     warning: '#f1fa8c',
-    info: '#8be9fd',
+    info: 'var(--color-info)',
   };
 
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div style={{
+      <div role="status" aria-live="polite" style={{
         position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999,
         display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: '400px',
       }}>

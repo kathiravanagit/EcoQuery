@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Shield, Users, BarChart3, Leaf, Search, Building2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './Pages.css';
@@ -8,6 +9,7 @@ const PAGE_SIZE = 10;
 
 const Admin = () => {
   const { user, token } = useAuth();
+  const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [tab, setTab] = useState<'users' | 'stats'>('stats');
@@ -22,7 +24,7 @@ const Admin = () => {
     Promise.all([
       fetch(`${API}/api/admin/stats`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
       fetch(`${API}/api/admin/users?limit=200`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-    ]).then(([s, u]) => { setStats(s); setUsers(u.users || []); }).catch(() => {}).finally(() => setLoading(false));
+    ]).then(([s, u]) => { setStats(s); setUsers(u.users || []); }).catch(() => { toast.error('Failed to load admin data'); }).finally(() => setLoading(false));
   }, [token]);
 
   const toggleRole = async (email: string, current: string) => {

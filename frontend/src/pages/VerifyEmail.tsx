@@ -65,7 +65,7 @@ export default function VerifyEmail() {
         {status === 'success' && (
           <>
             <img src="/logo.png" alt="EcoQuery" width={48} height={48} style={{ borderRadius: 8, marginBottom: 16 }} />
-            <div style={{ fontSize: 48, color: '#00d46a', marginBottom: 8 }}>&#10003;</div>
+            <div style={{ fontSize: 48, color: 'var(--color-success)', marginBottom: 8 }}>&#10003;</div>
             <h2 className="auth-title">Email Verified!</h2>
             <p className="auth-subtitle">{message}</p>
             <p className="auth-subtitle" style={{ color: '#888', fontSize: 14 }}>Redirecting to home page in 3 seconds...</p>
@@ -75,7 +75,7 @@ export default function VerifyEmail() {
         {status === 'error' && (
           <>
             <img src="/logo.png" alt="EcoQuery" width={48} height={48} style={{ borderRadius: 8, marginBottom: 16 }} />
-            <div style={{ fontSize: 48, color: '#ef4444', marginBottom: 8 }}>&#10007;</div>
+            <div style={{ fontSize: 48, color: 'var(--color-error)', marginBottom: 8 }}>&#10007;</div>
             <h2 className="auth-title">Verification Failed</h2>
             <p className="auth-subtitle">{message}</p>
             <button className="auth-btn" onClick={() => navigate('/')}>

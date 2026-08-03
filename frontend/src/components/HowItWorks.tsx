@@ -129,11 +129,11 @@ const HowItWorks = () => {
                     transition={{ duration: 0.8, delay: i * 0.08 }}
                     style={{ 
                       height: '100%', borderRadius: 4,
-                      background: r.intensity < 100 ? '#00d46a' : r.intensity < 250 ? '#f59e0b' : '#ef4444',
+                      background: r.intensity < 100 ? 'var(--color-success)' : r.intensity < 250 ? 'var(--color-warning)' : 'var(--color-error)',
                     }}
                   />
                 </div>
-                <span style={{ width: 40, textAlign: 'right', fontWeight: 600, color: r.intensity < 100 ? '#00d46a' : r.intensity < 250 ? '#f59e0b' : '#ef4444' }}>
+                <span style={{ width: 40, textAlign: 'right', fontWeight: 600, color: r.intensity < 100 ? 'var(--color-success)' : r.intensity < 250 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                   {r.intensity}
                 </span>
                 <span style={{ width: 80, color: 'var(--text-secondary)', fontSize: '0.7rem' }}>{r.source}</span>
