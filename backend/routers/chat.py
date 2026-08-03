@@ -156,9 +156,9 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                 "type": "image_url",
                 "image_url": {"url": f"data:image/jpeg;base64,{img}"}
             })
-        messages = [{"role": "user", "content": content}]
+        messages.append({"role": "user", "content": content})
     else:
-        messages = [{"role": "user", "content": req.message}]
+        messages.append({"role": "user", "content": req.message})
 
     try:
         result = await provider_router.chat_completion(
@@ -416,9 +416,9 @@ async def chat_stream(req: ChatRequest, request: Request):
                         "type": "image_url",
                         "image_url": {"url": f"data:image/jpeg;base64,{img}"}
                     })
-                messages = [{"role": "user", "content": content}]
+                messages.append({"role": "user", "content": content})
             else:
-                messages = [{"role": "user", "content": req.message}]
+                messages.append({"role": "user", "content": req.message})
 
             async for token in provider_router.stream_completion(
                 model_id=target_model,
