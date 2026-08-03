@@ -26,7 +26,7 @@ const DashboardExport = React.memo(({ token }: Props) => {
         const a = document.createElement('a'); a.href = url; a.download = 'ecoquery-export.json'; a.click();
         URL.revokeObjectURL(url);
       }
-    } catch (e) { toast.error('Export failed. Please try again.'); }
+    } catch (e) { toast("error", 'Export failed. Please try again.'); }
   };
 
   const downloadReport = async () => {
@@ -37,7 +37,7 @@ const DashboardExport = React.memo(({ token }: Props) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = 'ecoquery-sustainability-report.txt'; a.click();
       URL.revokeObjectURL(url);
-    } catch (e) { toast.error('Failed to download report'); }
+    } catch (e) { toast("error", 'Failed to download report'); }
   };
 
   return (

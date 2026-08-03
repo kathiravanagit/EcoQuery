@@ -24,7 +24,7 @@ const Admin = () => {
     Promise.all([
       fetch(`${API}/api/admin/stats`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
       fetch(`${API}/api/admin/users?limit=200`, { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-    ]).then(([s, u]) => { setStats(s); setUsers(u.users || []); }).catch(() => { toast.error('Failed to load admin data'); }).finally(() => setLoading(false));
+    ]).then(([s, u]) => { setStats(s); setUsers(u.users || []); }).catch(() => { toast("error", 'Failed to load admin data'); }).finally(() => setLoading(false));
   }, [token]);
 
   const toggleRole = async (email: string, current: string) => {
