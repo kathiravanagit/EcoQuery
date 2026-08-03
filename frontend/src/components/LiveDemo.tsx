@@ -41,18 +41,18 @@ interface Message {
   images?: string[]
 }
 
-const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
+import { EASE_FN } from '../constants';
 
 const msgVariants = {
   initial: { opacity: 0, y: 16, scale: 0.97 },
-  animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: easeFn } },
+  animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: EASE_FN } },
 };
 
 const fadeUp = {
   initial: { opacity: 0, y: 20 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true },
-  transition: { duration: 0.6, ease: easeFn },
+  transition: { duration: 0.6, ease: EASE_FN },
 };
 
 const LiveDemo = () => {

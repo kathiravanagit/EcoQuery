@@ -51,25 +51,27 @@ const ListSkeleton = () => (
 
 interface Stats {
   total_queries?: number; total_co2_saved_g?: number; total_api_cost?: number;
-  latest_queries?: any[]; green_query_percent?: number;
+  latest_queries?: Record<string, unknown>[]; green_query_percent?: number;
   avg_latency_s?: number; flagged_queries?: number;
-  queries_by_tier?: Record<string, number>; queries_by_model?: Record<string, any>;
+  queries_by_tier?: Record<string, number>; queries_by_model?: Record<string, number>;
 }
 interface Model { id: string; provider: string; tier: string; carbon_score: number; description: string; }
 interface Cert { display_name?: string; user?: string; total_queries?: number; total_co2_saved_g?: number; green_query_percent?: number; }
 interface Badge { id: string; name: string; description: string; icon: string; earned_at: string; }
+interface AnalyticsPoint { date: string; queries: number; co2_g: number; }
+interface RealtimeEvent { query: string; tier: string; model: string; region: string; co2_g: number; co2_saved_g: number; api_cost: number; time: string; }
 
 const Dashboard = () => {
   const { token } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [models, setModels] = useState<Model[]>([]);
   const [cert, setCert] = useState<Cert | null>(null);
-  const [analytics, setAnalytics] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsPoint[]>([]);
   const [analyticsPeriod, setAnalyticsPeriod] = useState('day');
   const [loading, setLoading] = useState(true);
   const [wsStatus, setWsStatus] = useState('disconnected');
-  const [realtimeEvents, setRealtimeEvents] = useState<any[]>([]);
-  const [loadedQueries, setLoadedQueries] = useState<any[]>([]);
+  const [realtimeEvents, setRealtimeEvents] = useState<RealtimeEvent[]>([]);
+  const [loadedQueries, setLoadedQueries] = useState<Record<string, unknown>[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [carbonAlert, setCarbonAlert] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -114,7 +116,7 @@ const Dashboard = () => {
     return () => ws.close();
   }, [token]);
 
-  const downloadBadge = (data: any) => {
+  const downloadBadge = (data: Cert) => {
     const c = document.createElement('canvas');
     c.width = 500; c.height = 620;
     const ctx = c.getContext('2d');
@@ -134,8 +136,8 @@ const Dashboard = () => {
     ctx.fillText('Celebrates You!', 250, 155);
     ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(100, 185); ctx.lineTo(400, 185); ctx.stroke();
     ctx.font = 'bold 36px sans-serif'; ctx.fillStyle = '#ffffff';
-    ctx.fillText(data.display_name || data.user, 250, 250); ctx.font = '18px sans-serif'; ctx.fillStyle = text;
-    ctx.fillText(data.user, 250, 285); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 32px sans-serif';
+    ctx.fillText(data.display_name || data.user || '', 250, 250); ctx.font = '18px sans-serif'; ctx.fillStyle = text;
+    ctx.fillText(data.user || '', 250, 285); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 32px sans-serif';
     ctx.fillText(`${data.total_queries}`, 250, 355); ctx.font = '16px sans-serif'; ctx.fillStyle = accent;
     ctx.fillText('Queries Routed', 250, 385); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 32px sans-serif';
     ctx.fillText(`${data.total_co2_saved_g}g`, 250, 445); ctx.font = '16px sans-serif'; ctx.fillStyle = accent;

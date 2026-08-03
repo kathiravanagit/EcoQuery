@@ -3,20 +3,20 @@ import { motion } from 'framer-motion';
 import { BookOpen, ExternalLink } from 'lucide-react';
 import './Research.css';
 
-const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
+import { EASE_FN } from '../constants';
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.6, ease: easeFn },
+  transition: { duration: 0.6, ease: EASE_FN },
 };
 
 const cardVariants = {
   initial: { opacity: 0, x: -30, scale: 0.97 },
   whileInView: { opacity: 1, x: 0, scale: 1 },
   viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.6, ease: easeFn },
+  transition: { duration: 0.6, ease: EASE_FN },
 };
 
 const Research = () => {

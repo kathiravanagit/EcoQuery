@@ -2,16 +2,16 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Calendar, Clock, Copy, Check } from 'lucide-react';
-import { blogData } from './Blog';
+import { blogPosts } from '../data/blogPosts';
 import './Pages.css';
 
-const easeFn = [0.25, 0.46, 0.45, 0.94] as const;
+import { EASE_FN } from '../constants';
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.6, ease: easeFn },
+  transition: { duration: 0.6, ease: EASE_FN },
 };
 
 const CodeBlock = ({ code, language }: { code: string; language: string }) => {
@@ -58,7 +58,7 @@ const CodeBlock = ({ code, language }: { code: string; language: string }) => {
 
 const BlogPost = () => {
   const { id } = useParams<{ id: string }>();
-  const post = blogData.find(p => p.id === id);
+  const post = blogPosts.find(p => p.id === id);
 
   if (!post) {
     return (
