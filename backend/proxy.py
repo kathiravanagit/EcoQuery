@@ -269,12 +269,12 @@ class CarbonAwareProxy:
         """Fallback to OpenRouter (no region pinning)."""
         import openai
 
-        client = openai.OpenAI(
+        client = openai.AsyncOpenAI(
             api_key=self.openrouter_key,
             base_url="https://openrouter.ai/api/v1",
         )
 
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model=model_id,
             messages=messages,
             max_tokens=max_tokens,

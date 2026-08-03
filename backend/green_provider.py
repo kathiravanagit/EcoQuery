@@ -204,6 +204,8 @@ class GreenProviderRouter:
                     return {
                         "provider": s["provider"],
                         "region": s["greenest_region"],
+                        "location": s["location"],
+                        "grid": s["grid"],
                         "intensity": s["intensity"],
                         "score": s["score"],
                         "is_green": s["is_green"],
@@ -226,6 +228,8 @@ class GreenProviderRouter:
         return {
             "provider": chosen["provider"],
             "region": chosen["greenest_region"],
+            "location": chosen["location"],
+            "grid": chosen["grid"],
             "intensity": chosen["intensity"],
             "score": chosen["score"],
             "is_green": chosen["is_green"],
