@@ -332,7 +332,7 @@ const Dashboard = () => {
             <ApiKeyManager token={token} API={API} />
             <DashboardExport token={token} />
 
-            {cert && (
+            {cert && cert.total_queries !== 0 && (
               <div className="dashboard-section">
                 <h2><Award size={20} /> EcoQuery Appreciation Badge</h2>
                 <div className="dashboard-badge-wrap">
