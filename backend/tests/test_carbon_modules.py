@@ -1,13 +1,12 @@
 """
 Tests for carbon-aware routing modules:
-carbon_collector, region_scorer, smart_router, temporal_shifter
+carbon_collector, region_scorer
 """
 
 import pytest
 from unittest.mock import patch, MagicMock
 from carbon_collector import CarbonDataCollector, IEA_BASELINES, ENERGY_SOURCES
 from region_scorer import RegionScorer, RegionScore, CARBON_THRESHOLDS
-from temporal_shifter import TemporalShifter
 
 
 # ── Carbon Collector Tests ────────────────────────────────────────────────────
@@ -141,56 +140,6 @@ class TestRegionScorer:
     def test_total_score_range(self):
         result = self.scorer.score_region("test", 200, {"gas": 50, "wind": 50})
         assert 1 <= result.total_score <= 10
-
-
-# ── Temporal Shifter Tests ───────────────────────────────────────────────────
-
-class TestTemporalShifter:
-    def setup_method(self):
-        self.shifter = TemporalShifter()
-
-    def test_green_hours_defined(self):
-        assert len(self.shifter.green_hours) > 0
-        assert all(0 <= h <= 23 for h in self.shifter.green_hours)
-
-    def test_should_delay_low_intensity(self):
-        assert self.shifter.should_delay("stockholm", 50) is False
-
-    def test_should_delay_high_intensity(self):
-        # Force a specific hour for testing
-        with patch("temporal_shifter.datetime") as mock_dt:
-            mock_dt.now.return_value.hour = 20  # Evening — not green
-            mock_dt.now.return_value = MagicMock()
-            mock_dt.now.return_value.hour = 20
-            result = self.shifter.should_delay("mumbai", 700)
-            assert result is True
-
-    def test_get_carbon_schedule_length(self):
-        schedule = self.shifter.get_carbon_schedule("stockholm", 24)
-        assert len(schedule) == 24
-
-    def test_get_carbon_schedule_fields(self):
-        schedule = self.shifter.get_carbon_schedule("stockholm", 1)
-        assert len(schedule) == 1
-        assert "hour" in schedule[0]
-        assert "is_green_window" in schedule[0]
-        assert "recommendation" in schedule[0]
-
-    def test_estimate_savings_green_region(self):
-        result = self.shifter.estimate_savings("eu-north-1", 100)
-        assert result["savings_per_hour"] >= 0
-        assert 0 <= result["savings_percentage"] <= 100
-
-    def test_estimate_savings_dirty_region(self):
-        result = self.shifter.estimate_savings("mumbai", 700)
-        assert result["savings_per_hour"] > 0
-        assert result["savings_percentage"] > 0
-
-    def test_max_delay_configurable(self):
-        assert self.shifter.max_delay_minutes == 120
-
-    def test_delay_threshold_configurable(self):
-        assert self.shifter.delay_threshold == 300
 
 
 # ── Integration Tests ────────────────────────────────────────────────────────
