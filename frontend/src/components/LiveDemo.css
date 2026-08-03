@@ -38,6 +38,9 @@
   width: 8px;
   height: 8px;
   min-width: 8px;
+  max-width: 8px;
+  flex-shrink: 0;
+  flex-grow: 0;
   background-color: var(--accent);
   border-radius: 50%;
   box-shadow: 0 0 8px var(--accent);
