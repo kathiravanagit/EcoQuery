@@ -146,6 +146,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     )
     # Try API key first (starts with eq_)
     if token.startswith("eq_"):
+        if not auth_db.available or auth_db.collection is None:
+            raise credentials_exception
         user = await auth_db.collection.find_one({"api_key": token})
         if user is None:
             raise credentials_exception
