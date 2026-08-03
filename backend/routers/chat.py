@@ -71,7 +71,8 @@ async def _resolve_user_email(request: Request) -> str:
     token = auth_header[7:]
     if token.startswith("eq_"):
         try:
-            user = await auth_db.collection.find_one({"api_key": token})
+            if auth_db.available and auth_db.collection is not None:
+                user = await auth_db.collection.find_one({"api_key": token})
             if user:
                 return user.get("email", "")
         except Exception:

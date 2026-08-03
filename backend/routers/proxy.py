@@ -106,7 +106,8 @@ async def proxy_chat(req: ChatRequest, request: Request):
         if token.startswith("eq_"):
             try:
                 from auth import auth_db
-                user = await auth_db.collection.find_one({"api_key": token})
+                if auth_db.available and auth_db.collection is not None:
+                    user = await auth_db.collection.find_one({"api_key": token})
                 if user:
                     user_email = user.get("email", "")
             except Exception:
