@@ -12,7 +12,7 @@ const DashboardCatalog = ({ models }: Props) => {
       <div className="dashboard-model-grid">
         {['green', 'balanced', 'performance'].map(tier => (
           <div key={tier} className="dashboard-model-tier">
-            <h3 style={{ color: tier === 'green' ? '#00d46a' : tier === 'balanced' ? '#f59e0b' : '#ef4444' }}>
+            <h3 style={{ color: tier === 'green' ? 'var(--color-success)' : tier === 'balanced' ? 'var(--color-warning)' : 'var(--color-error)' }}>
               {tier.charAt(0).toUpperCase() + tier.slice(1)}
             </h3>
             {models.filter(m => m.tier === tier).map(m => (

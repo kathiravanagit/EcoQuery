@@ -115,7 +115,7 @@ const Contact = () => {
                     <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      style={{ color: '#ff5555', fontSize: '0.8rem', fontFamily: 'var(--font-mono)', marginTop: '0.5rem' }}
+                      style={{ color: 'var(--color-error)', fontSize: '0.8rem', fontFamily: 'var(--font-mono)', marginTop: '0.5rem' }}
                     >
                       // error: failed to send message
                     </motion.p>

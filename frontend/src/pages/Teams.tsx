@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Building2, Users, Key, Plus, Copy, Check, AlertCircle, LogOut, UserPlus } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './Pages.css';
 
 const Teams = () => {
   const { user, token } = useAuth();
+  const { toast } = useToast();
   const [orgs, setOrgs] = useState<any[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<any>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -25,7 +27,7 @@ const Teams = () => {
       const r = await fetch(`${API}/api/orgs`, { headers });
       const d = await r.json();
       setOrgs(d.orgs || []);
-    } catch (e) { console.error('Failed to fetch orgs', e); }
+    } catch (e) { toast.error('Failed to fetch organizations'); }
     finally { setLoading(false); }
   };
 
@@ -49,7 +51,7 @@ const Teams = () => {
       const r = await fetch(`${API}/api/orgs/${org.id}`, { headers });
       const d = await r.json();
       if (d.org) setSelectedOrg(d.org);
-    } catch (e) { console.error('Failed to select org', e); }
+    } catch (e) { toast.error('Failed to load organization details'); }
     setMessage({ type: '', text: '' });
   };
 
@@ -67,7 +69,7 @@ const Teams = () => {
     try {
       const r = await fetch(`${API}/api/orgs/${selectedOrg.id}/members/${email}`, { method: 'DELETE', headers });
       if (r.ok) { setSelectedOrg({ ...selectedOrg, members: selectedOrg.members.filter((m: string) => m !== email) }); }
-    } catch (e) { console.error('Failed to remove member', e); }
+    } catch (e) { toast.error('Failed to remove member'); }
   };
 
   const genOrgKey = async () => {
@@ -75,7 +77,7 @@ const Teams = () => {
       const r = await fetch(`${API}/api/orgs/${selectedOrg.id}/api-key`, { method: 'POST', headers });
       const d = await r.json();
       if (r.ok) { setOrgKeys([...orgKeys, d.api_key]); setCopied(d.api_key); setTimeout(() => setCopied(''), 2000); }
-    } catch (e) { console.error('Failed to generate org key', e); }
+    } catch (e) { toast.error('Failed to generate API key'); }
   };
 
   const copyToClipboard = async (text: string) => {
@@ -83,7 +85,7 @@ const Teams = () => {
       await navigator.clipboard.writeText(text);
       setCopied(text);
       setTimeout(() => setCopied(''), 2000);
-    } catch { console.error('Clipboard write failed'); }
+    } catch { toast.error('Failed to copy to clipboard'); }
   };
 
   if (loading) return <div className="page"><section className="section"><div className="container" style={{ textAlign: 'center', padding: '4rem 0' }}>Loading...</div></section></div>;

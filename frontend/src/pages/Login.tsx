@@ -50,20 +50,20 @@ const Login = () => {
 
               <form onSubmit={handleSubmit} className="auth-form">
                 <label htmlFor="login-email" style={{ display: 'none' }}>Email</label>
-                <div className="input-group" style={{ borderColor: errors.email ? '#ef4444' : undefined }}>
+                <div className="input-group" style={{ borderColor: errors.email ? 'var(--color-error)' : undefined }}>
                   <Mail size={18} />
                   <input id="login-email" type="email" placeholder="Email" value={email} onChange={e => { setEmail(e.target.value); setErrors(prev => ({ ...prev, email: '' })); }} required />
                 </div>
-                {errors.email && <span style={{ color: '#ef4444', fontSize: 12, display: 'block', marginTop: -12, marginBottom: 8 }}>{errors.email}</span>}
+                {errors.email && <span style={{ color: 'var(--color-error)', fontSize: 12, display: 'block', marginTop: -12, marginBottom: 8 }}>{errors.email}</span>}
                 <label htmlFor="login-password" style={{ display: 'none' }}>Password</label>
-                <div className="input-group" style={{ borderColor: errors.password ? '#ef4444' : undefined }}>
+                <div className="input-group" style={{ borderColor: errors.password ? 'var(--color-error)' : undefined }}>
                   <Lock size={18} />
                   <input id="login-password" type={showPassword ? 'text' : 'password'} placeholder="Password" value={password} onChange={e => { setPassword(e.target.value); setErrors(prev => ({ ...prev, password: '' })); }} required />
-                  <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
+                  <button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)}>
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-                {errors.password && <span style={{ color: '#ef4444', fontSize: 12, display: 'block', marginTop: -12, marginBottom: 8 }}>{errors.password}</span>}
+                {errors.password && <span style={{ color: 'var(--color-error)', fontSize: 12, display: 'block', marginTop: -12, marginBottom: 8 }}>{errors.password}</span>}
                 <label className="remember-me">
                   <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
                   <span>Remember me</span>

@@ -114,6 +114,7 @@ const FAQAccordion = ({ item }: { item: FAQItem }) => {
   return (
     <div className="faq-item" style={{ borderBottom: '1px solid var(--border)' }}>
       <button
+        aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
         style={{
           width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',

@@ -5,7 +5,7 @@ interface Props {
   events: any[];
 }
 
-const DashboardRealtime = ({ events }: Props) => {
+const DashboardRealtime = React.memo(({ events }: Props) => {
   return (
     <div className="dashboard-section">
       <h2><Zap size={20} /> Real-time Query Events</h2>
@@ -25,6 +25,6 @@ const DashboardRealtime = ({ events }: Props) => {
       )}
     </div>
   );
-};
+});
 
 export default DashboardRealtime;

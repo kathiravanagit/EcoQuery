@@ -235,7 +235,7 @@ const LiveDemo = () => {
                   {attachedImages.map((img, i) => (
                     <div key={`img-${i}`} className="attached-file">
                       <img src={`data:image/jpeg;base64,${img}`} alt={`Attached ${i}`} className="attached-image" />
-                      <button type="button" className="remove-file" onClick={() => removeFile(i, 'image')}>
+                      <button type="button" className="remove-file" aria-label="Remove file" onClick={() => removeFile(i, 'image')}>
                         <X size={14} />
                       </button>
                     </div>
@@ -244,7 +244,7 @@ const LiveDemo = () => {
                     <div key={`file-${i}`} className="attached-file">
                       <FileText size={20} />
                       <span>{file.name}</span>
-                      <button type="button" className="remove-file" onClick={() => removeFile(i, 'file')}>
+                      <button type="button" className="remove-file" aria-label="Remove file" onClick={() => removeFile(i, 'file')}>
                         <X size={14} />
                       </button>
                     </div>
@@ -266,12 +266,13 @@ const LiveDemo = () => {
                   onClick={() => fileInputRef.current?.click()}
                   className="attach-btn"
                   title="Attach file or image"
+                  aria-label="Attach file"
                 >
                   <Paperclip size={16} />
                 </button>
                 <input type="text" placeholder="Ask something to test the routing..." value={input} onChange={(e) => setInput(e.target.value)} aria-label="Chat message" />
               </div>
-              <motion.button type="submit" disabled={(!input.trim() && attachedImages.length === 0 && attachedFiles.length === 0) || isTyping} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <motion.button type="submit" aria-label="Send message" disabled={(!input.trim() && attachedImages.length === 0 && attachedFiles.length === 0) || isTyping} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Send size={18} />
               </motion.button>
             </form>

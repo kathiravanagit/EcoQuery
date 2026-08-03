@@ -1,12 +1,14 @@
 import React from 'react';
 import { FileText, Download } from 'lucide-react';
 import { API_URL as API } from '../../config';
+import { useToast } from '../../context/ToastContext';
 
 interface Props {
   token: string | null;
 }
 
-const DashboardExport = ({ token }: Props) => {
+const DashboardExport = React.memo(({ token }: Props) => {
+  const { toast } = useToast();
   const headers = { Authorization: `Bearer ${token}` };
 
   const exportQueries = async (format: string) => {
@@ -24,7 +26,7 @@ const DashboardExport = ({ token }: Props) => {
         const a = document.createElement('a'); a.href = url; a.download = 'ecoquery-export.json'; a.click();
         URL.revokeObjectURL(url);
       }
-    } catch (e) { console.error('Export failed', e); }
+    } catch (e) { toast.error('Export failed. Please try again.'); }
   };
 
   const downloadReport = async () => {
@@ -35,7 +37,7 @@ const DashboardExport = ({ token }: Props) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = 'ecoquery-sustainability-report.txt'; a.click();
       URL.revokeObjectURL(url);
-    } catch (e) { console.error('Report download failed', e); }
+    } catch (e) { toast.error('Failed to download report'); }
   };
 
   return (
@@ -49,6 +51,6 @@ const DashboardExport = ({ token }: Props) => {
       </div>
     </div>
   );
-};
+});
 
 export default DashboardExport;

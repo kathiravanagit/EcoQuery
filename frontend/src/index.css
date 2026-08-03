@@ -19,6 +19,11 @@
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   --font-sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Semantic colors */
+  --color-error: #ef4444;
+  --color-success: #00d46a;
+  --color-warning: #f59e0b;
+  --color-info: #8be9fd;
 }
 
 [data-theme='light'] {
@@ -38,6 +43,11 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  /* Semantic colors */
+  --color-error: #dc2626;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-info: #0284c7;
 }
 
 * {

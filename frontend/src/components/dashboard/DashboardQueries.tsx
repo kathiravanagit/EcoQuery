@@ -51,7 +51,7 @@ const DashboardQueries = ({ stats, loadedQueries, setLoadedQueries, token }: Pro
                 <span className="meta-tag">{q.tier}</span>
                 {q.latency_seconds ? <span className="meta-tag">{q.latency_seconds}s</span> : null}
                 {q.verification_status && (
-                  <span className="meta-tag" style={{ borderColor: q.verification_status === 'flagged_substitution' ? '#ef4444' : '#00d46a', color: q.verification_status === 'flagged_substitution' ? '#ef4444' : '#00d46a' }}>
+                  <span className="meta-tag" style={{ borderColor: q.verification_status === 'flagged_substitution' ? 'var(--color-error)' : 'var(--color-success)', color: q.verification_status === 'flagged_substitution' ? 'var(--color-error)' : 'var(--color-success)' }}>
                     {q.verification_status === 'flagged_substitution' ? '⚠️' : '🛡️'}
                   </span>
                 )}

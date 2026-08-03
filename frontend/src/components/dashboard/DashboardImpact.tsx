@@ -13,13 +13,13 @@ const CO2_EQUIVALENTS = {
   phones: (g: number) => (g / 8.0).toFixed(1),
 };
 
-const DashboardImpact = ({ co2Saved }: Props) => {
+const DashboardImpact = React.memo(({ co2Saved }: Props) => {
   if (!co2Saved) return null;
 
   const equivalents = [
-    { icon: <span style={{ fontSize: '1.5rem' }}>🌳</span>, value: CO2_EQUIVALENTS.trees(co2Saved), unit: 'trees absorbed CO₂', color: '#00d46a' },
+    { icon: <span style={{ fontSize: '1.5rem' }}>🌳</span>, value: CO2_EQUIVALENTS.trees(co2Saved), unit: 'trees absorbed CO₂', color: 'var(--color-success)' },
     { icon: <span style={{ fontSize: '1.5rem' }}>🚗</span>, value: CO2_EQUIVALENTS.driving(co2Saved), unit: 'km driving saved', color: '#3b82f6' },
-    { icon: <span style={{ fontSize: '1.5rem' }}>💡</span>, value: CO2_EQUIVALENTS.ledHours(co2Saved), unit: 'hours LED bulb', color: '#f59e0b' },
+    { icon: <span style={{ fontSize: '1.5rem' }}>💡</span>, value: CO2_EQUIVALENTS.ledHours(co2Saved), unit: 'hours LED bulb', color: 'var(--color-warning)' },
     { icon: <span style={{ fontSize: '1.5rem' }}>📱</span>, value: CO2_EQUIVALENTS.phones(co2Saved), unit: 'phone charges', color: '#8b5cf6' },
   ];
 
@@ -38,6 +38,6 @@ const DashboardImpact = ({ co2Saved }: Props) => {
       </div>
     </div>
   );
-};
+});
 
 export default DashboardImpact;

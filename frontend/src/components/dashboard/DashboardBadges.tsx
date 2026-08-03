@@ -6,7 +6,7 @@ interface Props {
   badges: any[];
 }
 
-const DashboardBadges = ({ badges }: Props) => {
+const DashboardBadges = React.memo(({ badges }: Props) => {
   if (!badges.length) return null;
 
   return (
@@ -26,6 +26,6 @@ const DashboardBadges = ({ badges }: Props) => {
       </div>
     </div>
   );
-};
+});
 
 export default DashboardBadges;

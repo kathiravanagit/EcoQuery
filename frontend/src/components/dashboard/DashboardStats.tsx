@@ -6,7 +6,7 @@ interface Props {
   cert: any;
 }
 
-const DashboardStats = ({ stats, cert }: Props) => {
+const DashboardStats = React.memo(({ stats, cert }: Props) => {
   return (
     <div className="dashboard-cards">
       <div className="dashboard-card">
@@ -30,17 +30,17 @@ const DashboardStats = ({ stats, cert }: Props) => {
         <div className="dashboard-card-label">Green Queries</div>
       </div>
       <div className="dashboard-card">
-        <Clock size={24} style={{ color: '#f59e0b' }} />
+        <Clock size={24} style={{ color: 'var(--color-warning)' }} />
         <div className="dashboard-card-value">{stats?.avg_latency_s || 0}s</div>
         <div className="dashboard-card-label">Avg Latency</div>
       </div>
       <div className="dashboard-card">
-        <Shield size={24} style={{ color: stats?.flagged_queries ? '#ef4444' : '#00d46a' }} />
+        <Shield size={24} style={{ color: stats?.flagged_queries ? 'var(--color-error)' : 'var(--color-success)' }} />
         <div className="dashboard-card-value">{stats?.flagged_queries || 0}</div>
         <div className="dashboard-card-label">Flagged Queries</div>
       </div>
     </div>
   );
-};
+});
 
 export default DashboardStats;
