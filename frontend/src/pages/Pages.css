@@ -808,83 +808,135 @@
 
 .dashboard-badge {
   width: 100%;
-  max-width: 440px;
+  max-width: 480px;
   background: var(--bg-secondary);
   border: 2px solid var(--accent);
-  padding: 2rem;
+  padding: 2.5rem 2rem;
   text-align: center;
-  box-shadow: 0 0 40px rgba(0, 255, 65, 0.1);
+  box-shadow: 0 0 60px rgba(0, 255, 65, 0.08), inset 0 0 30px rgba(0, 255, 65, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-badge::before {
+  content: '';
+  position: absolute;
+  top: 8px; left: 8px; right: 8px; bottom: 8px;
+  border: 1px solid var(--accent);
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.dashboard-badge::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
 }
 
 .dashboard-badge-icon {
   color: var(--accent);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.4));
 }
 
 .dashboard-badge-title {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 800;
   font-family: var(--font-mono);
   color: var(--accent);
   letter-spacing: -1px;
+  text-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
 }
 
 .dashboard-badge-sub {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-family: var(--font-mono);
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
 }
 
 .dashboard-badge-divider {
   height: 1px;
-  width: 60%;
+  width: 50%;
   margin: 1rem auto;
-  background: var(--accent);
-  opacity: 0.3;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.4;
 }
 
 .dashboard-badge-name {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   font-weight: 700;
   font-family: var(--font-mono);
-  color: #fff;
-  margin-bottom: 1rem;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.dashboard-badge-email {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
 }
 
 .dashboard-badge-stats {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
 }
 
-.dashboard-badge-stats .dot {
+.dashboard-badge-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dashboard-badge-stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
   color: var(--accent);
-  opacity: 0.6;
+  text-shadow: 0 0 12px rgba(0, 255, 65, 0.3);
+}
+
+.dashboard-badge-stat-label {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .dashboard-badge-footer {
-  margin-top: 1.25rem;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-family: var(--font-mono);
   color: var(--accent);
-  opacity: 0.8;
+  opacity: 0.6;
+  letter-spacing: 0.5px;
 }
 
-@media (max-width: 480px) {
-  .dashboard-cards { grid-template-columns: 1fr; }
-  .stats-grid { flex-direction: column; }
-  .dashboard-model-grid { grid-template-columns: 1fr; }
-  .dashboard-section { padding: 1rem; }
-  .dashboard-section h2 { font-size: 0.875rem; }
-  .stats-container { padding: 1.5rem; }
-  .stat-number { font-size: 2.5rem; }
-  .stat-label { font-size: 0.9rem; }
-  .dashboard-badge { padding: 1.25rem; }
-  .dashboard-badge-title { font-size: 1.4rem; }
+.dashboard-badge-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: var(--accent);
+  opacity: 0.3;
 }
+
+.dashboard-badge-corner.tl { top: 14px; left: 14px; border-top: 2px solid; border-left: 2px solid; }
+.dashboard-badge-corner.tr { top: 14px; right: 14px; border-top: 2px solid; border-right: 2px solid; }
+.dashboard-badge-corner.bl { bottom: 14px; left: 14px; border-bottom: 2px solid; border-left: 2px solid; }
+.dashboard-badge-corner.br { bottom: 14px; right: 14px; border-bottom: 2px solid; border-right: 2px solid; }
+
+@media (max-width: 480px) {
+  .dashboard-badge { padding: 1.5rem 1.25rem; }
+  .dashboard-badge-title { font-size: 1.4rem; }
+  .dashboard-badge-stat-value { font-size: 1.1rem; }
+  .dashboard-badge-stats { grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+}
+

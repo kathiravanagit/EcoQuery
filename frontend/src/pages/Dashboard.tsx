@@ -118,35 +118,154 @@ const Dashboard = () => {
 
   const downloadBadge = (data: Cert) => {
     const c = document.createElement('canvas');
-    c.width = 500; c.height = 620;
+    c.width = 600; c.height = 750;
     const ctx = c.getContext('2d');
     if (!ctx) return;
-    const accent = '#00d46a'; const dark = '#0a0a1a'; const card = '#111128'; const text = '#e0e0e0';
-    ctx.fillStyle = dark; ctx.fillRect(0, 0, 500, 620);
-    ctx.shadowColor = 'rgba(0,212,106,0.3)'; ctx.shadowBlur = 30;
+
+    const accent = '#00ff41';
+    const accentDim = 'rgba(0, 255, 65, 0.15)';
+    const dark = '#0a0a0a';
+    const card = '#111118';
+    const text = '#e0e0e0';
+    const muted = '#888888';
+    const w = 600, h = 750;
+
+    ctx.fillStyle = dark;
+    ctx.fillRect(0, 0, w, h);
+
+    // Outer glow
+    ctx.shadowColor = 'rgba(0, 255, 65, 0.2)';
+    ctx.shadowBlur = 40;
     ctx.fillStyle = card;
-    if (typeof ctx.roundRect === 'function') {
-      ctx.beginPath(); ctx.roundRect(25, 25, 450, 570, 24); ctx.fill();
-    } else {
-      ctx.fillRect(25, 25, 450, 570);
-    }
+    ctx.beginPath();
+    ctx.roundRect(30, 30, w - 60, h - 60, 16);
+    ctx.fill();
     ctx.shadowBlur = 0;
-    ctx.fillStyle = accent; ctx.font = 'bold 48px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('EcoQuery', 250, 115); ctx.font = '22px sans-serif'; ctx.fillStyle = text;
-    ctx.fillText('Celebrates You!', 250, 155);
-    ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(100, 185); ctx.lineTo(400, 185); ctx.stroke();
-    ctx.font = 'bold 36px sans-serif'; ctx.fillStyle = '#ffffff';
-    ctx.fillText(data.display_name || data.user || '', 250, 250); ctx.font = '18px sans-serif'; ctx.fillStyle = text;
-    ctx.fillText(data.user || '', 250, 285); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 32px sans-serif';
-    ctx.fillText(`${data.total_queries}`, 250, 355); ctx.font = '16px sans-serif'; ctx.fillStyle = accent;
-    ctx.fillText('Queries Routed', 250, 385); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 32px sans-serif';
-    ctx.fillText(`${data.total_co2_saved_g}g`, 250, 445); ctx.font = '16px sans-serif'; ctx.fillStyle = accent;
-    ctx.fillText('CO₂ Saved', 250, 475); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 32px sans-serif';
-    ctx.fillText(`${data.green_query_percent}%`, 250, 535); ctx.font = '16px sans-serif'; ctx.fillStyle = accent;
-    ctx.fillText('Green Queries', 250, 565); ctx.font = '14px sans-serif'; ctx.fillStyle = '#888';
-    ctx.fillText('Every query makes a difference. Thank you!', 250, 610);
-    const link = document.createElement('a'); link.download = 'ecoquery-badge.png';
-    link.href = c.toDataURL('image/png'); link.click();
+
+    // Inner border
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.2;
+    ctx.beginPath();
+    ctx.roundRect(42, 42, w - 84, h - 84, 10);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Corner accents
+    const cornerSize = 24;
+    const corners = [
+      [42, 42], [w - 42 - cornerSize, 42],
+      [42, h - 42 - cornerSize], [w - 42 - cornerSize, h - 42 - cornerSize]
+    ];
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.35;
+    corners.forEach(([x, y], i) => {
+      ctx.beginPath();
+      if (i === 0) { ctx.moveTo(x, y + cornerSize); ctx.lineTo(x, y); ctx.lineTo(x + cornerSize, y); }
+      else if (i === 1) { ctx.moveTo(x, y); ctx.lineTo(x + cornerSize, y); ctx.lineTo(x + cornerSize, y + cornerSize); }
+      else if (i === 2) { ctx.moveTo(x, y); ctx.lineTo(x, y + cornerSize); ctx.lineTo(x + cornerSize, y + cornerSize); }
+      else { ctx.moveTo(x + cornerSize, y); ctx.lineTo(x + cornerSize, y + cornerSize); ctx.lineTo(x, y + cornerSize); }
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+
+    // Top accent line
+    ctx.fillStyle = accent;
+    ctx.fillRect(w / 2 - 60, 30, 120, 3);
+
+    // Leaf icon (simple circle with accent)
+    ctx.fillStyle = accentDim;
+    ctx.beginPath();
+    ctx.arc(w / 2, 110, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = accent;
+    ctx.font = '28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🍃', w / 2, 120);
+
+    // Title
+    ctx.fillStyle = accent;
+    ctx.font = 'bold 42px monospace';
+    ctx.fillText('EcoQuery', w / 2, 175);
+
+    // Subtitle
+    ctx.fillStyle = muted;
+    ctx.font = '13px monospace';
+    ctx.letterSpacing = '4px';
+    ctx.fillText('CERTIFICATE OF IMPACT', w / 2, 200);
+
+    // Divider
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.moveTo(w / 2 - 80, 225);
+    ctx.lineTo(w / 2 + 80, 225);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Name
+    ctx.fillStyle = text;
+    ctx.font = 'bold 28px monospace';
+    ctx.fillText(data.display_name || data.user || '', w / 2, 275);
+
+    // Email
+    ctx.fillStyle = muted;
+    ctx.font = '14px monospace';
+    ctx.fillText(data.user || '', w / 2, 300);
+
+    // Stats section background
+    ctx.fillStyle = 'rgba(0, 255, 65, 0.04)';
+    ctx.beginPath();
+    ctx.roundRect(60, 330, w - 120, 140, 8);
+    ctx.fill();
+
+    // Stats
+    const stats = [
+      { value: `${data.total_queries}`, label: 'QUERIES', x: w / 2 - 150 },
+      { value: `${data.total_co2_saved_g}g`, label: 'CO₂ SAVED', x: w / 2 },
+      { value: `${data.green_query_percent}%`, label: 'GREEN', x: w / 2 + 150 },
+    ];
+    stats.forEach(s => {
+      ctx.fillStyle = accent;
+      ctx.font = 'bold 32px monospace';
+      ctx.fillText(s.value, s.x, 385);
+      ctx.fillStyle = muted;
+      ctx.font = '11px monospace';
+      ctx.fillText(s.label, s.x, 415);
+    });
+
+    // Divider 2
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.moveTo(w / 2 - 80, 495);
+    ctx.lineTo(w / 2 + 80, 495);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Footer text
+    ctx.fillStyle = accent;
+    ctx.font = '12px monospace';
+    ctx.globalAlpha = 0.6;
+    ctx.fillText('Every query makes a difference', w / 2, 530);
+    ctx.globalAlpha = 1;
+
+    // Bottom accent line
+    ctx.fillStyle = accent;
+    ctx.fillRect(w / 2 - 60, h - 33, 120, 3);
+
+    // Date
+    ctx.fillStyle = muted;
+    ctx.font = '11px monospace';
+    ctx.fillText(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), w / 2, h - 55);
+
+    const link = document.createElement('a');
+    link.download = 'ecoquery-certificate.png';
+    link.href = c.toDataURL('image/png');
+    link.click();
   };
 
   if (loading) return (
@@ -218,19 +337,31 @@ const Dashboard = () => {
                 <h2><Award size={20} /> EcoQuery Appreciation Badge</h2>
                 <div className="dashboard-badge-wrap">
                   <div className="dashboard-badge" id="ecoquery-badge">
-                    <div className="dashboard-badge-icon"><Leaf size={40} /></div>
+                    <div className="dashboard-badge-corner tl"></div>
+                    <div className="dashboard-badge-corner tr"></div>
+                    <div className="dashboard-badge-corner bl"></div>
+                    <div className="dashboard-badge-corner br"></div>
+                    <div className="dashboard-badge-icon"><Leaf size={36} /></div>
                     <div className="dashboard-badge-title">EcoQuery</div>
-                    <div className="dashboard-badge-sub">Celebrates You!</div>
+                    <div className="dashboard-badge-sub">Certificate of Impact</div>
                     <div className="dashboard-badge-divider"></div>
                     <div className="dashboard-badge-name">{cert.display_name || cert.user}</div>
+                    <div className="dashboard-badge-email">{cert.user}</div>
                     <div className="dashboard-badge-stats">
-                      <span>{cert.total_queries} queries</span>
-                      <span className="dot">·</span>
-                      <span>{cert.total_co2_saved_g}g CO₂ saved</span>
-                      <span className="dot">·</span>
-                      <span>{cert.green_query_percent}% green</span>
+                      <div className="dashboard-badge-stat">
+                        <span className="dashboard-badge-stat-value">{cert.total_queries}</span>
+                        <span className="dashboard-badge-stat-label">Queries</span>
+                      </div>
+                      <div className="dashboard-badge-stat">
+                        <span className="dashboard-badge-stat-value">{cert.total_co2_saved_g}g</span>
+                        <span className="dashboard-badge-stat-label">CO₂ Saved</span>
+                      </div>
+                      <div className="dashboard-badge-stat">
+                        <span className="dashboard-badge-stat-value">{cert.green_query_percent}%</span>
+                        <span className="dashboard-badge-stat-label">Green</span>
+                      </div>
                     </div>
-                    <div className="dashboard-badge-footer">Every query makes a difference. Thank you!</div>
+                    <div className="dashboard-badge-footer">Every query makes a difference</div>
                   </div>
                   <button className="btn btn-primary" onClick={() => downloadBadge(cert)} style={{ marginTop: '1rem' }}>
                     <Award size={16} /> Download Badge
