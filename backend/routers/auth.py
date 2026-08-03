@@ -15,6 +15,7 @@ from auth import (
     auth_db, hash_password, verify_password, create_access_token,
     SECRET_KEY, ALGORITHM, get_current_user, UserInDB
 )
+from email_service import email_service, otp_store
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
