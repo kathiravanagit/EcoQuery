@@ -139,8 +139,36 @@ async def google_callback(code: str, state: str = ""):
             )
             await auth_db.create_user(user)
     token = create_access_token({"sub": email})
+    # Store token as short-lived auth code (5 min TTL)
+    import secrets
+    code = secrets.token_urlsafe(32)
+    from auth import auth_db
+    if auth_db.available and auth_db.oauth_codes_collection is not None:
+        await auth_db.oauth_codes_collection.insert_one({
+            "code": code,
+            "token": token,
+            "created_at": datetime.now(timezone.utc),
+        })
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    return RedirectResponse(url=f"{frontend_url}/auth/callback?token={token}&email={email}&name={name}")
+    return RedirectResponse(url=f"{frontend_url}/auth/callback?code={code}")
+
+
+@router.get("/exchange")
+async def exchange_code(code: str):
+    """Exchange a short-lived auth code for a JWT token."""
+    from auth import auth_db
+    if not auth_db.available or auth_db.oauth_codes_collection is None:
+        raise HTTPException(status_code=503, detail="Auth service unavailable")
+    doc = await auth_db.oauth_codes_collection.find_one({"code": code})
+    if not doc:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    # Delete the code (one-time use)
+    await auth_db.oauth_codes_collection.delete_one({"code": code})
+    # Check if code is expired (5 min)
+    created = doc.get("created_at")
+    if created and (datetime.now(timezone.utc) - created).total_seconds() > 300:
+        raise HTTPException(status_code=400, detail="Code expired")
+    return {"access_token": doc["token"], "token_type": "bearer"}
 
 
 @router.get("/me")
@@ -157,31 +185,47 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 @router.patch("/profile")
 async def update_name(req: UpdateNameRequest, current_user: dict = Depends(get_current_user)):
     if not auth_db.available or auth_db.collection is None:
-        raise HTTPException(status_code=500, detail="Database unavailable")
-    await auth_db.collection.update_one({"email": current_user["email"]}, {"$set": {"display_name": req.display_name}})
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    try:
+        await auth_db.collection.update_one({"email": current_user["email"]}, {"$set": {"display_name": req.display_name}})
+    except Exception as e:
+        logger.error(f"Failed to update profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update profile")
     return {"status": "ok", "display_name": req.display_name}
 
 
 @router.patch("/password")
 async def update_password(req: UpdatePasswordRequest, current_user: dict = Depends(get_current_user)):
     if not auth_db.available or auth_db.collection is None:
-        raise HTTPException(status_code=500, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail="Database unavailable")
     if not verify_password(req.current_password, current_user["hashed_password"]):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     new_hashed = hash_password(req.new_password)
-    await auth_db.collection.update_one({"email": current_user["email"]}, {"$set": {"hashed_password": new_hashed}})
+    try:
+        await auth_db.collection.update_one({"email": current_user["email"]}, {"$set": {"hashed_password": new_hashed}})
+    except Exception as e:
+        logger.error(f"Failed to update password: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update password")
     return {"status": "ok"}
 
 
 @router.delete("/account")
 async def delete_account(req: DeleteAccountRequest, current_user: dict = Depends(get_current_user)):
     if not auth_db.available or auth_db.collection is None:
-        raise HTTPException(status_code=500, detail="Database unavailable")
+        raise HTTPException(status_code=503, detail="Database unavailable")
     if current_user.get("auth_provider") == "email" and not verify_password(req.password, current_user["hashed_password"]):
         raise HTTPException(status_code=400, detail="Password is incorrect")
-    await auth_db.collection.delete_one({"email": current_user["email"]})
+    try:
+        await auth_db.collection.delete_one({"email": current_user["email"]})
+    except Exception as e:
+        logger.error(f"Failed to delete user account: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete account")
     from ledger import ledger
-    await ledger.collection.delete_many({"user_email": current_user["email"]})
+    try:
+        if ledger.available and ledger.collection is not None:
+            await ledger.collection.delete_many({"user_email": current_user["email"]})
+    except Exception as e:
+        logger.warning(f"Failed to delete user ledger data: {e}")
     return {"status": "ok"}
 
 

@@ -37,6 +37,45 @@ REGIONS = {
     "sa-east-1": {"name": "São Paulo", "zone": "BR-SOUTH", "country": "Brazil"},
 }
 
+# Map provider-specific region names to standard region codes
+REGION_ALIASES = {
+    # AWS -> standard
+    "us-east-1": "us-east-1", "us-east-2": "us-east-1",
+    "us-west-1": "us-west-1", "us-west-2": "us-west-2",
+    "eu-west-1": "eu-west-1", "eu-west-2": "eu-west-2", "eu-west-3": "eu-west-3",
+    "eu-central-1": "eu-central-1", "eu-north-1": "eu-north-1",
+    "ap-south-1": "ap-south-1", "ap-northeast-1": "ap-northeast-1", "ap-southeast-1": "ap-southeast-1",
+    "ca-central-1": "ca-central-1", "sa-east-1": "sa-east-1",
+    # GCP -> standard
+    "us-east1": "us-east-1", "us-east4": "us-east-1",
+    "us-central1": "us-west-2", "us-west1": "us-west-1", "us-west2": "us-west-2",
+    "europe-west1": "eu-west-1", "europe-west2": "eu-west-2", "europe-west3": "eu-west-3",
+    "europe-west4": "eu-central-1", "europe-north1": "eu-north-1",
+    "asia-south1": "ap-south-1", "asia-east1": "ap-northeast-1", "asia-southeast1": "ap-southeast-1",
+    "northamerica-northeast1": "ca-central-1", "southamerica-east1": "sa-east-1",
+    # Azure -> standard
+    "westeurope": "eu-west-1", "northeurope": "eu-west-1",
+    "uksouth": "eu-west-2", "francecentral": "eu-west-3",
+    "germanywestcentral": "eu-central-1", "swedencentral": "eu-north-1",
+    "eastus": "us-east-1", "eastus2": "us-east-1",
+    "westus2": "us-west-2", "westus3": "us-west-2",
+    "centralus": "us-west-2",
+    "japaneast": "ap-northeast-1", "southeastasia": "ap-southeast-1",
+    "centralindia": "ap-south-1",
+    "canadacentral": "ca-central-1", "brazilsouth": "sa-east-1",
+    # City/friendly names
+    "london": "eu-west-2", "paris": "eu-west-3", "frankfurt": "eu-central-1",
+    "stockholm": "eu-north-1", "dublin": "eu-west-1", "ireland": "eu-west-1",
+    "tokyo": "ap-northeast-1", "mumbai": "ap-south-1", "singapore": "ap-southeast-1",
+    "oregon": "us-west-2", "virginia": "us-east-1", "california": "us-west-1",
+    "montreal": "ca-central-1", "sao-paulo": "sa-east-1", "brazil": "sa-east-1",
+}
+
+
+def normalize_region(region: str) -> str:
+    """Normalize any provider region name to a standard region code."""
+    return REGION_ALIASES.get(region.lower().strip(), region)
+
 # IEA 2024 static baselines (g CO2/kWh) — annual averages by country
 STATIC_REGIONAL_INTENSITY = {
     "eu-west-1": 316.0,

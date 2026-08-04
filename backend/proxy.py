@@ -95,9 +95,8 @@ class CarbonAwareProxy:
                     best_endpoint = ep
 
             if best_endpoint:
-                # Get real-time intensity if available
-                region_info = await get_carbon_optimal_region()
-                carbon_intensity = region_info.get("carbon_intensity_g_kwh", best_intensity)
+                # Use the VPS's own region intensity, not the global optimal
+                carbon_intensity = STATIC_REGIONAL_INTENSITY.get(best_endpoint["region"], best_intensity)
 
                 return await self._call_ollama(
                     best_endpoint["url"], model_id, messages, max_tokens,

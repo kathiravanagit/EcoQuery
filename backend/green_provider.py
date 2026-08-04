@@ -212,18 +212,8 @@ class GreenProviderRouter:
                         "alternatives": [x for x in scores if x["provider"] != preferred_provider][:2],
                     }
 
-        # Pick from top 5 greenest providers, varying by query content
-        # Ensures different queries route to different providers/models
-        top_green = scores[:5]
-        if not top_green:
-            top_green = scores[:3]
-
-        if query and len(top_green) > 1:
-            query_hash = int(hashlib.md5(query.encode()).hexdigest()[:8], 16)
-            idx = query_hash % len(top_green)
-            chosen = top_green[idx]
-        else:
-            chosen = top_green[0]
+        # Always pick the absolute #1 greenest provider
+        chosen = scores[0]
 
         return {
             "provider": chosen["provider"],
