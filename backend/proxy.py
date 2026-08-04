@@ -24,7 +24,7 @@ class CarbonAwareProxy:
     """Routes LLM requests to the greenest available provider/region."""
 
     def __init__(self):
-        self.openrouter_key = os.getenv("OPENAI_API_KEY", "")
+        self.openrouter_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY", "")
         self.aws_key = os.getenv("AWS_ACCESS_KEY_ID", "")
         self.aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY", "")
         self.vertex_key = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")

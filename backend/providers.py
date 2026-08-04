@@ -11,7 +11,7 @@ logger = logging.getLogger("EcoQuery.providers")
 
 class ProviderRouter:
     def __init__(self):
-        self.openrouter_key = os.getenv("OPENAI_API_KEY", "")
+        self.openrouter_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY", "")
         self.anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
         self.gemini_key = os.getenv("GEMINI_API_KEY", "")
         self.openai_key = os.getenv("OPENAI_DIRECT_KEY", "")
@@ -36,6 +36,8 @@ class ProviderRouter:
             "openrouter",
         )
 
+    FALLBACK_MODELS = ["google/gemma-4-31b-it:free", "openai/gpt-oss-20b:free", "nvidia/nemotron-3-super-120b-a12b:free"]
+
     async def chat_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024
     ) -> dict:
@@ -46,11 +48,25 @@ class ProviderRouter:
         client_kwargs, target_model, provider = self.get_target(model_id)
 
         if provider == "anthropic":
-            return await self._anthropic_call(target_model, messages, max_tokens)
+            result = await self._anthropic_call(target_model, messages, max_tokens)
         elif provider == "gemini":
-            return await self._gemini_call(target_model, messages, max_tokens)
+            result = await self._gemini_call(target_model, messages, max_tokens)
         else:
-            return await self._openrouter_call(client_kwargs, target_model, messages, max_tokens)
+            result = await self._openrouter_call(client_kwargs, target_model, messages, max_tokens)
+
+        if not result.get("content") and provider == "openrouter":
+            for fb in self.FALLBACK_MODELS:
+                if fb == target_model:
+                    continue
+                try:
+                    result = await self._openrouter_call(client_kwargs, fb, messages, max_tokens)
+                    if result.get("content"):
+                        logger.info(f"Fallback to {fb} succeeded")
+                        break
+                except Exception:
+                    continue
+
+        return result
 
     async def _openrouter_call(self, client_kwargs, target_model, messages, max_tokens):
         from openai import AsyncOpenAI
@@ -62,6 +78,8 @@ class ProviderRouter:
                 max_tokens=max_tokens,
             )
             content = response.choices[0].message.content
+            finish = response.choices[0].finish_reason
+            logger.info(f"OpenRouter response: model={target_model}, finish={finish}, content_len={len(content) if content else 0}, content_preview={repr(content[:100]) if content else 'None'}")
             if not content:
                 content = "The model did not generate a response. Please try again."
             prompt_tokens = 0
