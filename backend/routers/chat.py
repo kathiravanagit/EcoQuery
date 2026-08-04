@@ -28,6 +28,7 @@ SYSTEM_PROMPT = (
     "- Total response: MAX 80 words, MAX 4 sentences\n"
     "- NO headers, NO bullet points, NO tables, NO lists, NO markdown formatting\n"
     "- NO intro filler like Sure or Great question or Here is\n"
+    "- NO thinking, NO reasoning, NO step-by-step analysis, NO chain of thought\n"
     "- Start DIRECTLY with the definition\n"
     "- Write as ONE clean paragraph\n"
     "- If asked to compare, use max 3 short bullet points\n"
@@ -46,6 +47,10 @@ def clean_response(text: str, max_words: int = 60) -> str:
     """Post-process LLM response to ensure short, clean output."""
     if not text:
         return text
+    # Strip thinking/reasoning blocks
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    # Strip leaked chain-of-thought (model reasoning before actual answer)
+    text = re.sub(r'^(Hmm|Let me think|Okay,?|So,?|The user wants|I need to|I should|Let me).*?(?=\n[A-Z*]|\n\n|\*\*)', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'^(Sure|Great question|Here is|Certainly|Of course|Absolutely)[!.]*\s*', '', text, flags=re.IGNORECASE)
     text = re.sub(r'^#{1,6}\s+.*$', '', text, flags=re.MULTILINE)
     text = re.sub(r'^\|.*\|.*$', '', text, flags=re.MULTILINE)
