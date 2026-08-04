@@ -242,14 +242,14 @@ class GreenProviderRouter:
         provider = route["provider"]
 
         GREEN_MODELS = {
-            "google": "google/gemma-4-31b-it:free",
+            "google": "nvidia/nemotron-3-super-120b-a12b:free",
             "meta": "nvidia/nemotron-3-super-120b-a12b:free",
-            "mistral": "cohere/north-mini-code:free",
+            "mistral": "nvidia/nemotron-3-super-120b-a12b:free",
             "nvidia": "nvidia/nemotron-3-ultra-550b-a55b:free",
-            "cohere": "cohere/north-mini-code:free",
-            "anthropic": "anthropic/claude-3-haiku",
-            "microsoft": "openai/gpt-oss-20b:free",
-            "amazon": "amazon/nova-micro-v1",
+            "cohere": "nvidia/nemotron-3-super-120b-a12b:free",
+            "anthropic": "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "microsoft": "nvidia/nemotron-3-super-120b-a12b:free",
+            "amazon": "nvidia/nemotron-3-super-120b-a12b:free",
             "deepseek": "nvidia/nemotron-3-ultra-550b-a55b:free",
             "xiaomi": "nvidia/nemotron-3-super-120b-a12b:free",
         }
