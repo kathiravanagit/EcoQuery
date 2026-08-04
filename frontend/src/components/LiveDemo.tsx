@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, X, FileText } from 'lucide-react';
+import { Send, Paperclip, X } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
 
@@ -63,7 +63,6 @@ const LiveDemo = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [overrideModel, setOverrideModel] = useState('');
   const [models, setModels] = useState<any[]>([]);
-  const [attachedFiles, setAttachedFiles] = useState<{name: string; type: string; data: string}[]>([]);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
@@ -85,20 +84,15 @@ const LiveDemo = () => {
     if (!files) return;
 
     Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        alert('Only image files are supported. PDFs and other documents are not yet supported.');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
         const base64Data = base64.split(',')[1];
-
-        if (file.type.startsWith('image/')) {
-          setAttachedImages(prev => [...prev, base64Data]);
-        } else {
-          setAttachedFiles(prev => [...prev, {
-            name: file.name,
-            type: file.type,
-            data: base64Data
-          }]);
-        }
+        setAttachedImages(prev => [...prev, base64Data]);
       };
       reader.readAsDataURL(file);
     });
@@ -108,18 +102,14 @@ const LiveDemo = () => {
     }
   };
 
-  const removeFile = (index: number, type: 'image' | 'file') => {
-    if (type === 'image') {
-      setAttachedImages(prev => prev.filter((_, i) => i !== index));
-    } else {
-      setAttachedFiles(prev => prev.filter((_, i) => i !== index));
-    }
+  const removeFile = (index: number) => {
+    setAttachedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() && attachedImages.length === 0 && attachedFiles.length === 0) return;
-    const userMsg = input || (attachedImages.length > 0 ? 'Describe this image' : 'Analyze this file');
+    if (!input.trim() && attachedImages.length === 0) return;
+    const userMsg = input || (attachedImages.length > 0 ? 'Describe this image' : '');
     setMessages(prev => [...prev, { role: 'user', content: userMsg, images: attachedImages.length > 0 ? attachedImages : undefined }]);
     setInput('');
     setIsTyping(true);
@@ -130,7 +120,6 @@ const LiveDemo = () => {
           message: userMsg,
           ...(overrideModel ? { model_id: overrideModel } : {}),
           ...(attachedImages.length > 0 ? { images: attachedImages } : {}),
-          ...(attachedFiles.length > 0 ? { files: attachedFiles } : {}),
         })
       });
       const data = await response.json();
@@ -230,21 +219,12 @@ const LiveDemo = () => {
             </div>
             
             <form className="chat-input-form" onSubmit={handleSend}>
-              {(attachedImages.length > 0 || attachedFiles.length > 0) && (
+              {attachedImages.length > 0 && (
                 <div className="attached-files">
                   {attachedImages.map((img, i) => (
                     <div key={`img-${i}`} className="attached-file">
                       <img src={`data:image/jpeg;base64,${img}`} alt={`Attached ${i}`} className="attached-image" />
-                      <button type="button" className="remove-file" aria-label="Remove file" onClick={() => removeFile(i, 'image')}>
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                  {attachedFiles.map((file, i) => (
-                    <div key={`file-${i}`} className="attached-file">
-                      <FileText size={20} />
-                      <span>{file.name}</span>
-                      <button type="button" className="remove-file" aria-label="Remove file" onClick={() => removeFile(i, 'file')}>
+                      <button type="button" className="remove-file" aria-label="Remove file" onClick={() => removeFile(i)}>
                         <X size={14} />
                       </button>
                     </div>
@@ -257,7 +237,7 @@ const LiveDemo = () => {
                   ref={fileInputRef}
                   onChange={handleFileSelect}
                   multiple
-                  accept="image/*,.pdf,.txt,.csv,.json,.md"
+                  accept="image/*"
                   style={{ display: 'none' }}
                   aria-label="Upload file"
                 />
@@ -272,7 +252,7 @@ const LiveDemo = () => {
                 </button>
                 <input type="text" placeholder="Ask something to test the routing..." value={input} onChange={(e) => setInput(e.target.value)} aria-label="Chat message" />
               </div>
-              <motion.button type="submit" aria-label="Send message" disabled={(!input.trim() && attachedImages.length === 0 && attachedFiles.length === 0) || isTyping} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <motion.button type="submit" aria-label="Send message" disabled={(!input.trim() && attachedImages.length === 0) || isTyping} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Send size={18} />
               </motion.button>
             </form>
