@@ -76,7 +76,6 @@ class ProviderRouter:
                 model=target_model,
                 messages=messages,
                 max_tokens=max_tokens,
-                transforms=["middle-out"],
             )
             content = response.choices[0].message.content
             finish = response.choices[0].finish_reason
