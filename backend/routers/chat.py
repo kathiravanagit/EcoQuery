@@ -36,8 +36,6 @@ SYSTEM_PROMPT = (
 
 MODEL_COST_MAP = {
     "nemotron-3-ultra-550b-a55b": 0.0, "nemotron-3-super-120b-a12b": 0.0,
-    "gemma-4-31b-it": 0.0, "gpt-oss-20b": 0.0,
-    "north-mini-code": 0.0, "ling-3.0-flash": 0.0,
 }
 
 WORST_MODEL = {"model": "ling-3.0-flash", "carbon_score": 5, "provider": "InclusionAI"}

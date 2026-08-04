@@ -36,7 +36,7 @@ class ProviderRouter:
             "openrouter",
         )
 
-    FALLBACK_MODELS = ["google/gemma-4-31b-it:free", "openai/gpt-oss-20b:free", "nvidia/nemotron-3-super-120b-a12b:free"]
+    FALLBACK_MODELS = ["nvidia/nemotron-3-super-120b-a12b:free", "nvidia/nemotron-3-ultra-550b-a55b:free"]
 
     async def chat_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024

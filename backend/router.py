@@ -5,35 +5,24 @@ Always routes with carbon-first priority.
 
 import logging
 from carbon import get_carbon_optimal_region
-from models import CARBON_MODELS, REGION_MODEL_AFFINITY
+from models import CARBON_MODELS
 
 logger = logging.getLogger("EcoQuery.router")
 
 MODEL_LATENCY = {
     "nemotron-3-ultra-550b-a55b:free": 2.0,
     "nemotron-3-super-120b-a12b:free": 1.5,
-    "gemma-4-31b-it:free": 1.0,
-    "gpt-oss-20b:free": 1.2,
-    "north-mini-code:free": 0.8,
-    "ling-3.0-flash:free": 0.6,
 }
 
 
 def select_model(tier: str, region_code: str, carbon_intensity: float) -> dict:
-    available = REGION_MODEL_AFFINITY.get(region_code, [])
-    candidates = [m for m in CARBON_MODELS if m["id"] in available]
-
-    if not candidates:
-        candidates = [m for m in CARBON_MODELS if m["tier"] == "green"]
+    candidates = list(CARBON_MODELS)
 
     if tier == "simple":
         candidates = [c for c in candidates if c["carbon_score"] <= 3] or candidates
     elif tier == "medium":
         candidates = [c for c in candidates if c["carbon_score"] <= 6] or candidates
 
-    green_threshold = 100
-    if carbon_intensity < green_threshold and tier != "simple":
-        candidates = [c for c in candidates if c["tier"] in ("green", "balanced")] or candidates
     candidates.sort(key=lambda m: m["carbon_score"])
 
     chosen = candidates[0]
