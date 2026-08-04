@@ -22,17 +22,16 @@ logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
 
 SYSTEM_PROMPT = (
-    "You are a concise encyclopedia. For ANY question, respond with EXACTLY this format:\n\n"
-    "**[Topic]:** [1-2 sentence definition]. [2-3 sentence explanation of what it is, how it works, or why it matters].\n\n"
+    "You are an encyclopedia. For ANY question, write a single clear paragraph.\n\n"
+    "FORMAT: Start with a direct definition (1-2 sentences). Then explain what it is, how it works, or why it matters (2-3 sentences).\n\n"
     "RULES:\n"
-    "- Total response: MAX 80 words, MAX 4 sentences\n"
-    "- NO headers, NO bullet points, NO tables, NO lists, NO markdown formatting\n"
-    "- NO intro filler like Sure or Great question or Here is\n"
-    "- NO thinking, NO reasoning, NO step-by-step analysis, NO chain of thought\n"
-    "- Start DIRECTLY with the definition\n"
-    "- Write as ONE clean paragraph\n"
-    "- If asked to compare, use max 3 short bullet points\n"
-    "- Example: **Spectrum:** A continuous range of values arranged by frequency or wavelength. In physics, it describes electromagnetic radiation from radio waves to gamma rays. In telecom, it refers to radio frequency bands used for wireless communication like Wi-Fi, Bluetooth, and 5G."
+    "- MAX 60 words, MAX 4 sentences\n"
+    "- ONE clean paragraph, no line breaks inside\n"
+    "- NO headers, NO bullets, NO tables, NO lists, NO bold, NO markdown\n"
+    "- NO intro filler (Sure, Great question, Here is)\n"
+    "- NO thinking, NO reasoning, NO chain of thought\n"
+    "- Start DIRECTLY with the topic name or definition\n"
+    "- Example: Solar energy is the radiant light and heat from the Sun harnessed using solar panels and thermal systems to generate electricity. It is a renewable, clean source that produces no greenhouse gas emissions during operation, making it key for reducing fossil fuel reliance and combating climate change."
 )
 
 MODEL_COST_MAP = {
@@ -49,18 +48,18 @@ def clean_response(text: str, max_words: int = 60) -> str:
         return text
     # Strip thinking/reasoning blocks
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
-    # Strip leaked chain-of-thought (model reasoning before actual answer)
-    text = re.sub(r'^(Hmm|Let me think|Okay,?|So,?|The user wants|I need to|I should|Let me).*?(?=\n[A-Z*]|\n\n|\*\*)', '', text, flags=re.DOTALL | re.IGNORECASE)
+    # Strip leaked chain-of-thought
+    text = re.sub(r'^(Hmm|Let me think|Okay,?|So,?|The user wants|I need to|I should|Let me).*?(?=\n[A-Z]|\n\n)', '', text, flags=re.DOTALL | re.IGNORECASE)
+    # Strip intro filler
     text = re.sub(r'^(Sure|Great question|Here is|Certainly|Of course|Absolutely)[!.]*\s*', '', text, flags=re.IGNORECASE)
+    # Strip markdown headers, tables, horizontal rules
     text = re.sub(r'^#{1,6}\s+.*$', '', text, flags=re.MULTILINE)
     text = re.sub(r'^\|.*\|.*$', '', text, flags=re.MULTILINE)
-    text = re.sub(r'^[-:]+$', '', text, flags=re.MULTILINE)
-    text = re.sub(r'^[\s]*[-*]\s+', '', text, flags=re.MULTILINE)
-    text = re.sub(r'^[\s]*\d+\.\s+', '', text, flags=re.MULTILINE)
-    text = text.replace('**', '').replace('*', '')
     text = re.sub(r'^---+$', '', text, flags=re.MULTILINE)
+    # Collapse to single paragraph
     text = re.sub(r'\n{2,}', ' ', text)
     text = re.sub(r'\s{2,}', ' ', text)
+    # Trim to max words
     words = text.split()
     if len(words) > max_words:
         text = ' '.join(words[:max_words]) + '...'
