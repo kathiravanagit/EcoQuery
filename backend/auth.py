@@ -47,6 +47,7 @@ class AuthDB:
         self.db = None
         self.collection = None
         self.reset_collection = None
+        self.oauth_codes_collection = None
         self.available = False
 
     async def connect(self):
@@ -56,6 +57,7 @@ class AuthDB:
             self.db = self.client.get_default_database()
             self.collection = self.db["users"]
             self.reset_collection = self.db["reset_tokens"]
+            self.oauth_codes_collection = self.db["oauth_codes"]
             await self.client.admin.command("ping")
             self.available = True
             logger.info("Connected to MongoDB for auth")
