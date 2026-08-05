@@ -181,12 +181,12 @@ const LiveDemo = () => {
                     {msg.metadata && (
                       <motion.div className="message-metadata" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                          <span className="meta-tag">
-                            {msg.metadata.model_id}
-                          </span>
-                          <span className="meta-tag">
-                            auto picked by query heavy
-                          </span>
+                      <span className="meta-tag">
+                        {msg.metadata.model_id}
+                      </span>
+                      <span className="meta-tag">
+                        {msg.metadata.model_used?.split(' via ')[0] || 'auto-routed'}
+                      </span>
                           {msg.metadata.co2_saved_g > 0 && (
                             <span className="meta-tag savings">
                               -{msg.metadata.co2_saved_g}g CO₂ saved
