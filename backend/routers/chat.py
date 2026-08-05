@@ -16,7 +16,7 @@ from ledger import ledger
 from verifier import verifier
 from websocket_manager import ws_manager
 from providers import provider_router
-from green_provider import green_router
+from green_provider import green_router, PROVIDER_REGIONS
 
 logger = logging.getLogger("EcoQuery.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -137,7 +137,27 @@ async def _build_routing(req: ChatRequest):
                     "estimated_latency_s": model_sel.get("estimated_latency_s", 2.0),
                     "reason": m["description"]
                 }
-                intensity = region_info.get("carbon_intensity_g_kwh", 200.0)
+                # Look up overridden model's actual provider region intensity
+                provider_key = m["provider"].lower()
+                provider_info = PROVIDER_REGIONS.get(provider_key)
+                if provider_info:
+                    greenest = provider_info["greenest_region"]
+                    region_data = provider_info["regions"].get(greenest, {})
+                    grid_type = region_data.get("grid", "Mixed")
+                    GRID_ESTIMATES = {
+                        "Hydro/Nuclear": 15, "Hydro": 30, "Nuclear": 50, "Wind": 100,
+                        "Wind/Nuclear": 80, "Wind/Gas": 180, "Gas/Wind": 200, "Gas": 350,
+                        "Mixed": 300, "Wind/Coal": 350, "Coal/Gas": 500, "Coal": 650,
+                    }
+                    intensity = GRID_ESTIMATES.get(grid_type, 350)
+                    region_info = {
+                        "region": greenest,
+                        "energy_source": grid_type,
+                        "carbon_intensity_g_kwh": intensity,
+                        "method": "model-override-provider-region",
+                    }
+                else:
+                    intensity = region_info.get("carbon_intensity_g_kwh", 200.0)
                 savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
                 break
 
@@ -323,14 +343,7 @@ async def chat_stream(req: ChatRequest, request: Request):
         except Exception as e:
             logger.warning(f"LLM streaming failed: {e}")
             is_mocked = True
-            full_reply = (
-                f"Error: {e}\n\nRouting info:\n"
-                f"Classification: {classification['tier']} (confidence: {classification['confidence']:.1%}, method: {classification['method']})\n"
-                f"Routed to: {model_sel['provider']} {model_sel['model']} via {region_info['region']} ({region_info['energy_source']})\n"
-                f"Model tier: {model_sel['tier']} (carbon score: {model_sel['carbon_score']}/10)\n"
-                f"Region carbon intensity: {region_info.get('carbon_intensity_g_kwh', 'N/A')} g/kWh\n"
-                f"CO\u2082 estimate: {savings['estimated_co2_g']}g (saved {savings['saved_vs_baseline_g']}g vs baseline)"
-            )
+            full_reply = "I'm sorry, I encountered an error processing your request. Please try again or contact support if the issue persists."
             yield f"data: {json.dumps({'token': full_reply})}\n\n"
 
         latency_seconds = round(time.time() - start_time, 3)
