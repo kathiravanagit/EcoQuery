@@ -273,9 +273,9 @@ async def get_api_key_stats(current_user: dict = Depends(get_current_user)):
     co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
     cost = sum(r.get("api_cost", 0) for r in records)
     return {
-        "total_queries": total,
-        "total_co2_saved_g": round(co2, 3),
-        "total_api_cost": round(cost, 6),
+        "queries": total,
+        "co2_saved_g": round(co2, 3),
+        "cost": round(cost, 6),
     }
 
 
