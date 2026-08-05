@@ -38,7 +38,6 @@ const Navbar = ({ theme, toggleTheme }: NavbarProps) => {
     { name: 'Contact', to: '/contact' },
     ...(user ? [{ name: 'Dashboard', to: '/dashboard' }] : []),
     ...(user ? [{ name: 'Teams', to: '/teams' }] : []),
-    ...(user && user.role === 'admin' ? [{ name: 'Admin', to: '/admin' }] : []),
   ];
 
   return (
