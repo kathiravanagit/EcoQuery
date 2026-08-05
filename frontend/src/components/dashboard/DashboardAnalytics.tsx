@@ -1,6 +1,6 @@
 import React from 'react';
-import { TrendingUp, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { TrendingUp } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 interface Props {
   analytics: any[];
@@ -16,13 +16,14 @@ const CustomTooltip = ({ active, payload, label, period }: any) => {
   if (!active || !payload?.length) return null;
   let displayLabel = label;
   if (period === 'day' && label) {
-    const d = new Date(label);
+    const d = new Date(label + 'T00:00:00');
     displayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   } else if (period === 'week' && label) {
-    displayLabel = `Week ${label.split('-')[1]?.replace('W', '') || ''}`;
+    const parts = label.split('-');
+    displayLabel = parts[1] ? `Week ${parts[1].replace('W', '')}` : label;
   } else if (period === 'month' && label) {
     const parts = label.split('-');
-    displayLabel = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    displayLabel = parts.length >= 2 ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : label;
   }
   return (
     <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.75rem 1rem', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
@@ -41,9 +42,25 @@ const CustomTooltip = ({ active, payload, label, period }: any) => {
 };
 
 const DashboardAnalytics = ({ analytics, analyticsPeriod, setAnalyticsPeriod, tierData }: Props) => {
-  const totalQueries = analytics.reduce((s, d) => s + (d.count || 0), 0);
-  const totalCo2 = analytics.reduce((s, d) => s + (d.co2_saved || 0), 0);
-  const avgLatency = analytics.length ? (analytics.reduce((s, d) => s + (d.avg_latency || 0), 0) / analytics.length).toFixed(1) : '0';
+  // Only show dates that have actual data (no empty gaps)
+  const chartData = analytics.filter(d => d.count > 0);
+  const totalQueries = chartData.reduce((s, d) => s + (d.count || 0), 0);
+  const totalCo2 = chartData.reduce((s, d) => s + (d.co2_saved || 0), 0);
+  const avgLatency = chartData.length ? (chartData.reduce((s, d) => s + (d.avg_latency || 0), 0) / chartData.length).toFixed(1) : '0';
+
+  const formatXAxis = (val: string) => {
+    if (!val) return '';
+    if (analyticsPeriod === 'day') {
+      const d = new Date(val + 'T00:00:00');
+      return d.toLocaleDateString('en-US', { weekday: 'short' });
+    }
+    if (analyticsPeriod === 'week') {
+      const parts = val.split('-');
+      return parts[1] ? `W${parts[1].replace('W', '')}` : val;
+    }
+    const parts = val.split('-');
+    return parts.length >= 2 ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleDateString('en-US', { month: 'short' }) : val;
+  };
 
   return (
     <div className="dashboard-section">
@@ -58,7 +75,6 @@ const DashboardAnalytics = ({ analytics, analyticsPeriod, setAnalyticsPeriod, ti
         </div>
       </div>
 
-      {/* Summary row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
         {[
           { label: 'Total Queries', value: totalQueries, color: 'var(--accent)' },
@@ -73,46 +89,28 @@ const DashboardAnalytics = ({ analytics, analyticsPeriod, setAnalyticsPeriod, ti
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-        {/* Line chart */}
         <div style={{ flex: 1, minWidth: 300, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem' }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Query Volume & CO2 Over Time</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={analytics} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-              <XAxis
-                dataKey="date"
-                stroke="var(--text-secondary)"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val: string) => {
-                  if (!val) return '';
-                  if (analyticsPeriod === 'day') {
-                    const d = new Date(val);
-                    return d.toLocaleDateString('en-US', { weekday: 'short' });
-                  }
-                  if (analyticsPeriod === 'week') {
-                    const parts = val.split('-');
-                    return `W${parts[1]?.replace('W', '') || ''}`;
-                  }
-                  const parts = val.split('-');
-                  return parts[1] ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleDateString('en-US', { month: 'short' }) : val;
-                }}
-                interval={analyticsPeriod === 'month' ? 0 : analyticsPeriod === 'week' ? 3 : 0}
-              />
-              <YAxis stroke="var(--text-secondary)" fontSize={11} tickLine={false} axisLine={false} />
-              <Tooltip content={<CustomTooltip period={analyticsPeriod} />} />
-              <Line type="monotone" dataKey="count" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: '#16a34a' }} activeDot={{ r: 5 }} name="Queries" />
-              <Line type="monotone" dataKey="co2_saved" stroke="#ca8a04" strokeWidth={2} dot={{ r: 3, fill: '#ca8a04' }} activeDot={{ r: 5 }} name="CO2 Saved (g)" />
-            </LineChart>
-          </ResponsiveContainer>
+          {chartData.length === 0 ? (
+            <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>No data for this period</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={formatXAxis} />
+                <YAxis stroke="var(--text-secondary)" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip content={<CustomTooltip period={analyticsPeriod} />} />
+                <Line type="monotone" dataKey="count" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: '#16a34a' }} activeDot={{ r: 5 }} name="Queries" />
+                <Line type="monotone" dataKey="co2_saved" stroke="#ca8a04" strokeWidth={2} dot={{ r: 3, fill: '#ca8a04' }} activeDot={{ r: 5 }} name="CO2 Saved (g)" />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '0.5rem' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.7rem', color: 'var(--text-secondary)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />Queries</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.7rem', color: 'var(--text-secondary)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ca8a04', display: 'inline-block' }} />CO2 Saved</span>
           </div>
         </div>
 
-        {/* Pie chart */}
         {tierData.length > 0 && (
           <div style={{ width: 220, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Query Distribution</div>
