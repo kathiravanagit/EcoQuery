@@ -12,11 +12,21 @@ interface Props {
 const PIE_COLORS = ['#16a34a', '#ca8a04', '#dc2626', '#2563eb'];
 const PIE_LABELS: Record<string, string> = { green: 'Green', balanced: 'Balanced', performance: 'Performance' };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, period }: any) => {
   if (!active || !payload?.length) return null;
+  let displayLabel = label;
+  if (period === 'day' && label) {
+    const d = new Date(label);
+    displayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } else if (period === 'week' && label) {
+    displayLabel = `Week ${label.split('-')[1]?.replace('W', '') || ''}`;
+  } else if (period === 'month' && label) {
+    const parts = label.split('-');
+    displayLabel = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
   return (
     <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.75rem 1rem', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-      <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 500 }}>{displayLabel}</div>
       {payload.map((p: any, i: number) => (
         <div key={i} style={{ fontSize: '0.8rem', color: '#374151', display: 'flex', justifyContent: 'space-between', gap: '1.5rem' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -69,9 +79,29 @@ const DashboardAnalytics = ({ analytics, analyticsPeriod, setAnalyticsPeriod, ti
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={analytics} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-              <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={11} tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="date"
+                stroke="var(--text-secondary)"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(val: string) => {
+                  if (!val) return '';
+                  if (analyticsPeriod === 'day') {
+                    const d = new Date(val);
+                    return d.toLocaleDateString('en-US', { weekday: 'short' });
+                  }
+                  if (analyticsPeriod === 'week') {
+                    const parts = val.split('-');
+                    return `W${parts[1]?.replace('W', '') || ''}`;
+                  }
+                  const parts = val.split('-');
+                  return parts[1] ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleDateString('en-US', { month: 'short' }) : val;
+                }}
+                interval={analyticsPeriod === 'month' ? 0 : analyticsPeriod === 'week' ? 3 : 0}
+              />
               <YAxis stroke="var(--text-secondary)" fontSize={11} tickLine={false} axisLine={false} />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CustomTooltip period={analyticsPeriod} />} />
               <Line type="monotone" dataKey="count" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: '#16a34a' }} activeDot={{ r: 5 }} name="Queries" />
               <Line type="monotone" dataKey="co2_saved" stroke="#ca8a04" strokeWidth={2} dot={{ r: 3, fill: '#ca8a04' }} activeDot={{ r: 5 }} name="CO2 Saved (g)" />
             </LineChart>
