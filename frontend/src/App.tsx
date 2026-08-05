@@ -31,7 +31,6 @@ const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Admin = lazy(() => import('./pages/Admin'));
 const Blog = lazy(() => import('./pages/Blog'));
 const BlogPost = lazy(() => import('./pages/BlogPost'));
 const FAQ = lazy(() => import('./pages/FAQ'));
@@ -102,7 +101,6 @@ function AppContent() {
           <Route path="/contact" element={<AnimatedPage><Contact /></AnimatedPage>} />
           <Route path="/profile" element={<ProtectedRoute><AnimatedPage><Profile /></AnimatedPage></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><AnimatedPage><Dashboard /></AnimatedPage></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AnimatedPage><Admin /></AnimatedPage></ProtectedRoute>} />
           <Route path="/teams" element={<ProtectedRoute><AnimatedPage><Teams /></AnimatedPage></ProtectedRoute>} />
           <Route path="/privacy" element={<AnimatedPage><Privacy /></AnimatedPage>} />
           <Route path="/login" element={<AnimatedPage><Login /></AnimatedPage>} />
