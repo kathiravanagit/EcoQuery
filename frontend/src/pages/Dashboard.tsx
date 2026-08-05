@@ -98,22 +98,37 @@ const Dashboard = () => {
   useEffect(() => {
     const t = token;
     if (!t) return;
-    const wsUrl = API.replace(/^http/, 'ws') + '/ws?token=' + t;
-    const ws = new WebSocket(wsUrl);
-    ws.onopen = () => { setWsStatus('connected'); };
-    ws.onclose = () => { setWsStatus('disconnected'); };
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.event === 'query.routed') {
-          setRealtimeEvents(prev => [{ ...msg.data, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 20));
-        } else if (msg.event === 'carbon.alert') {
-          setCarbonAlert(msg.data.message);
+    let ws: WebSocket;
+    let retryDelay = 1000;
+    let retryTimer: ReturnType<typeof setTimeout>;
+    let unmounted = false;
+
+    const connect = () => {
+      if (unmounted) return;
+      const wsUrl = API.replace(/^http/, 'ws') + '/ws?token=' + t;
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => { setWsStatus('connected'); retryDelay = 1000; };
+      ws.onclose = () => {
+        setWsStatus('disconnected');
+        if (!unmounted) {
+          retryTimer = setTimeout(() => { retryDelay = Math.min(retryDelay * 2, 30000); connect(); }, retryDelay);
         }
-      } catch {}
+      };
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.event === 'query.routed') {
+            setRealtimeEvents(prev => [{ ...msg.data, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 20));
+          } else if (msg.event === 'carbon.alert') {
+            setCarbonAlert(msg.data.message);
+          }
+        } catch {}
+      };
+      wsRef.current = ws;
     };
-    wsRef.current = ws;
-    return () => ws.close();
+
+    connect();
+    return () => { unmounted = true; clearTimeout(retryTimer); ws?.close(); };
   }, [token]);
 
   const downloadBadge = (data: Cert) => {
