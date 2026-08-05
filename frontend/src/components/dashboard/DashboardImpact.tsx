@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Leaf } from 'lucide-react';
+import { Leaf, TreePine, Car, Lightbulb, Smartphone } from 'lucide-react';
 
 interface Props {
   co2Saved: number;
@@ -17,10 +17,10 @@ const DashboardImpact = React.memo(({ co2Saved }: Props) => {
   if (!co2Saved) return null;
 
   const equivalents = [
-    { icon: <span style={{ fontSize: '1.5rem' }}>🌳</span>, value: CO2_EQUIVALENTS.trees(co2Saved), unit: 'trees absorbed CO₂', color: 'var(--color-success)' },
-    { icon: <span style={{ fontSize: '1.5rem' }}>🚗</span>, value: CO2_EQUIVALENTS.driving(co2Saved), unit: 'km driving saved', color: '#3b82f6' },
-    { icon: <span style={{ fontSize: '1.5rem' }}>💡</span>, value: CO2_EQUIVALENTS.ledHours(co2Saved), unit: 'hours LED bulb', color: 'var(--color-warning)' },
-    { icon: <span style={{ fontSize: '1.5rem' }}>📱</span>, value: CO2_EQUIVALENTS.phones(co2Saved), unit: 'phone charges', color: '#8b5cf6' },
+    { icon: <TreePine size={20} />, value: CO2_EQUIVALENTS.trees(co2Saved), unit: 'trees absorbed CO2', color: 'var(--color-success)' },
+    { icon: <Car size={20} />, value: CO2_EQUIVALENTS.driving(co2Saved), unit: 'km driving saved', color: '#3b82f6' },
+    { icon: <Lightbulb size={20} />, value: CO2_EQUIVALENTS.ledHours(co2Saved), unit: 'hours LED bulb', color: 'var(--color-warning)' },
+    { icon: <Smartphone size={20} />, value: CO2_EQUIVALENTS.phones(co2Saved), unit: 'phone charges', color: '#8b5cf6' },
   ];
 
   return (

@@ -126,29 +126,6 @@ h1, h2, h3, h4, h5, h6 {
     linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
 }
 
-/* Scanline effect */
-.scanlines {
-  position: relative;
-}
-
-.scanlines::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.03) 0px,
-    rgba(0, 0, 0, 0.03) 1px,
-    transparent 1px,
-    transparent 2px
-  );
-  pointer-events: none;
-  z-index: 100;
-}
-
 /* Glitch text effect */
 @keyframes glitch {
   0% { transform: translate(0); }
@@ -264,7 +241,7 @@ h1, h2, h3, h4, h5, h6 {
 .btn-primary:hover {
   background-color: transparent;
   color: var(--accent);
-  box-shadow: 0 0 20px var(--accent-glow);
+  box-shadow: 0 2px 8px rgba(0, 255, 65, 0.08);
 }
 
 .btn-primary:active {
@@ -327,7 +304,7 @@ h1, h2, h3, h4, h5, h6 {
 .terminal-input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow);
+  border: 1px solid var(--border-color);
 }
 
 /* Code syntax colors */
