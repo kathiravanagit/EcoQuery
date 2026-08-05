@@ -43,7 +43,7 @@
   flex-grow: 0;
   background-color: var(--accent);
   border-radius: 50%;
-  box-shadow: 0 0 8px var(--accent);
+  box-shadow: none;
 }
 
 .chat-messages {
@@ -109,7 +109,7 @@
   background: var(--accent);
   color: white;
   border-bottom-right-radius: 0.25rem;
-  box-shadow: 0 4px 10px var(--accent-glow);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .message-metadata {
@@ -133,8 +133,8 @@
 
 .meta-tag.savings {
   color: var(--accent);
-  border-color: var(--accent-glow);
-  background: var(--accent-glow);
+  border-color: var(--border-color);
+  background: rgba(0, 255, 65, 0.05);
 }
 
 .typing-indicator {
@@ -219,7 +219,7 @@
 
 .chat-input-form button[type="submit"]:hover:not(:disabled) {
   transform: scale(1.05);
-  box-shadow: 0 0 15px var(--accent-glow);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .chat-input-form button[type="submit"]:disabled {

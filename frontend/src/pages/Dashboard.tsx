@@ -197,7 +197,7 @@ const Dashboard = () => {
     ctx.fillStyle = accent;
     ctx.font = '28px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('🍃', w / 2, 120);
+    ctx.fillText('CO2', w / 2, 120);
 
     // Title
     ctx.fillStyle = accent;

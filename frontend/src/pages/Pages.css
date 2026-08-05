@@ -847,7 +847,7 @@
   font-family: var(--font-mono);
   color: var(--accent);
   letter-spacing: -1px;
-  text-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+  text-shadow: none;
 }
 
 .dashboard-badge-sub {
@@ -901,7 +901,7 @@
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--accent);
-  text-shadow: 0 0 12px rgba(0, 255, 65, 0.3);
+  text-shadow: none;
 }
 
 .dashboard-badge-stat-label {

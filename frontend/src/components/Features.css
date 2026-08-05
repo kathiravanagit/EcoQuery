@@ -27,7 +27,7 @@
 .feature-card:hover .feature-icon {
   background: var(--accent);
   color: #FFFFFF;
-  box-shadow: 0 10px 20px var(--accent-glow);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   transform: translateY(-5px);
 }
 

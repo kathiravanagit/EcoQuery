@@ -98,7 +98,7 @@
 
 .text-gradient {
   color: var(--accent);
-  text-shadow: 0 0 30px var(--accent-glow);
+  text-shadow: none;
   position: relative;
 }
 
