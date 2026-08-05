@@ -608,6 +608,7 @@
 .dashboard-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
+  border-radius: 10px;
   padding: 1.25rem;
   text-align: center;
 }
@@ -630,6 +631,7 @@
 .dashboard-section {
   background: var(--bg-card);
   border: 1px solid var(--border);
+  border-radius: 10px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
 }
