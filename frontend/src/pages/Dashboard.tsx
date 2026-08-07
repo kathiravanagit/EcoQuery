@@ -83,14 +83,14 @@ const Dashboard = () => {
   const fetchAll = useCallback(async () => {
     try {
       const [s, m, c, a, b] = await Promise.all([
-        fetch(`${API}/api/user/stats`, { headers }).then(r => r.json()),
-        fetch(`${API}/api/models`, { headers }).then(r => r.json()),
-        fetch(`${API}/api/user/certificate`, { headers }).then(r => r.json()),
-        fetch(`${API}/api/analytics?days=${analyticsPeriod === 'day' ? 7 : analyticsPeriod === 'week' ? 30 : 90}`, { headers }).then(r => r.json()),
-        fetch(`${API}/api/user/badges`, { headers }).then(r => r.json()),
+        fetch(`${API}/api/user/stats`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API}/api/models`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API}/api/user/certificate`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API}/api/analytics?days=${analyticsPeriod === 'day' ? 7 : analyticsPeriod === 'week' ? 30 : 90}`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API}/api/user/badges`, { headers }).then(r => r.ok ? r.json() : null),
       ]);
-      setStats(s); setModels(m.models || []);
-      setCert(c); setAnalytics(a.queries_by_day || []); setBadges(b.badges || []);
+      setStats(s); setModels(m?.models || []);
+      setCert(c); setAnalytics(a?.queries_by_day || []); setBadges(b?.badges || []);
     } catch (e) { console.error('Failed to fetch dashboard data', e); }
     finally { setLoading(false); }
   }, [analyticsPeriod, token]);
@@ -191,7 +191,6 @@ const Dashboard = () => {
     ctx.fillStyle = '#1a3a2a';
     ctx.font = '13px Georgia, serif';
     ctx.textAlign = 'center';
-    ctx.letterSpacing = '3px';
     ctx.fillText('CERTIFICATE OF IMPACT', w / 2, 80);
 
     // Gold line under header
@@ -243,9 +242,9 @@ const Dashboard = () => {
     // Stats row
     const statsY = 375;
     const stats = [
-      { value: `${data.total_queries}`, label: 'Total Queries', x: w / 2 - 180 },
-      { value: `${data.total_co2_saved_g}g`, label: 'CO2 Saved', x: w / 2 },
-      { value: `${data.green_query_percent}%`, label: 'Green Queries', x: w / 2 + 180 },
+      { value: `${data.total_queries ?? 0}`, label: 'Total Queries', x: w / 2 - 180 },
+      { value: `${data.total_co2_saved_g ?? 0}g`, label: 'CO2 Saved', x: w / 2 },
+      { value: `${data.green_query_percent ?? 0}%`, label: 'Green Queries', x: w / 2 + 180 },
     ];
 
     // Stats background
@@ -405,7 +404,7 @@ const Dashboard = () => {
               <DashboardExport token={token} />
             </ErrorBoundary>
 
-            {cert && cert.total_queries !== 0 && (
+            {cert && cert.total_queries != null && cert.total_queries !== 0 && (
               <div className="dashboard-section">
                 <h2><Award size={20} /> Certificate of Impact</h2>
                 <div className="dashboard-badge-wrap">
