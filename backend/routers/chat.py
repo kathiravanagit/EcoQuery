@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 
 from schemas import ChatRequest, ChatResponse
 from auth import SECRET_KEY, ALGORITHM, auth_db
-from models import CARBON_MODELS
+from models import CARBON_MODELS, FALLBACK_MODELS
 from classifier import classifier
 from router import route_query, compute_savings
 from ledger import ledger
@@ -36,6 +36,8 @@ SYSTEM_PROMPT = (
 
 MODEL_COST_MAP = {
     "nemotron-3-ultra-550b-a55b": 0.0, "nemotron-3-super-120b-a12b": 0.0,
+    "llama-4-scout": 0.0, "deepseek-chat-v3-0324": 0.0,
+    "gpt-oss-120b": 0.0, "gpt-oss-20b": 0.0, "gemma-4-31b": 0.0,
 }
 
 WORST_MODEL = {"model": "ling-3.0-flash", "carbon_score": 5, "provider": "InclusionAI"}
@@ -282,7 +284,30 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             messages=_build_messages(req),
             max_tokens=150,
         )
-        reply_content = clean_response(result.get("content") or "") or "No response generated."
+        reply_content = clean_response(result.get("content") or "") or ""
+
+        # Fallback chain: if primary returns empty, try next models
+        if not reply_content:
+            for fallback_id in FALLBACK_MODELS:
+                if fallback_id == target_model:
+                    continue
+                try:
+                    logger.info(f"Primary empty, trying fallback: {fallback_id}")
+                    result = await provider_router.chat_completion(
+                        model_id=fallback_id,
+                        messages=_build_messages(req),
+                        max_tokens=150,
+                    )
+                    reply_content = clean_response(result.get("content") or "") or ""
+                    if reply_content:
+                        target_model = fallback_id
+                        break
+                except Exception:
+                    continue
+
+        if not reply_content:
+            reply_content = "No response generated."
+
         usage = result.get("usage", {})
         prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
         output_tokens = usage.get("completion_tokens", output_tokens)

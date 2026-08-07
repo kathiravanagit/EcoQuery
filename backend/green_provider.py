@@ -233,14 +233,14 @@ class GreenProviderRouter:
 
         GREEN_MODELS = {
             "google": "nvidia/nemotron-3-super-120b-a12b:free",
-            "meta": "nvidia/nemotron-3-super-120b-a12b:free",
+            "meta": "meta-llama/llama-4-scout:free",
             "mistral": "nvidia/nemotron-3-super-120b-a12b:free",
             "nvidia": "nvidia/nemotron-3-ultra-550b-a55b:free",
             "cohere": "nvidia/nemotron-3-super-120b-a12b:free",
             "anthropic": "nvidia/nemotron-3-ultra-550b-a55b:free",
             "microsoft": "nvidia/nemotron-3-super-120b-a12b:free",
             "amazon": "nvidia/nemotron-3-super-120b-a12b:free",
-            "deepseek": "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "deepseek": "deepseek/deepseek-chat-v3-0324:free",
             "xiaomi": "nvidia/nemotron-3-super-120b-a12b:free",
         }
 
