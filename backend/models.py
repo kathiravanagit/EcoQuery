@@ -22,4 +22,60 @@ CARBON_MODELS = [
         "openrouter_id": "nvidia/nemotron-3-super-120b-a12b:free",
         "description": "120B MoE, balanced performance and efficiency"
     },
+    {
+        "id": "llama-4-scout:free",
+        "provider": "Meta",
+        "tier": "green",
+        "carbon_score": 3,
+        "capability": "high",
+        "openrouter_id": "meta-llama/llama-4-scout:free",
+        "description": "Fast multimodal, 10M context, high-volume tasks"
+    },
+    {
+        "id": "deepseek-chat-v3-0324:free",
+        "provider": "DeepSeek",
+        "tier": "balanced",
+        "carbon_score": 5,
+        "capability": "high",
+        "openrouter_id": "deepseek/deepseek-chat-v3-0324:free",
+        "description": "General writing, summarizing, Q&A, 64K context"
+    },
+    {
+        "id": "gpt-oss-120b:free",
+        "provider": "OpenAI",
+        "tier": "balanced",
+        "carbon_score": 4,
+        "capability": "high",
+        "openrouter_id": "openai/gpt-oss-120b:free",
+        "description": "Open-source GPT, strong coding and reasoning"
+    },
+    {
+        "id": "gpt-oss-20b:free",
+        "provider": "OpenAI",
+        "tier": "green",
+        "carbon_score": 2,
+        "capability": "medium",
+        "openrouter_id": "openai/gpt-oss-20b:free",
+        "description": "Fast lighter GPT, quick tasks, low latency"
+    },
+    {
+        "id": "gemma-4-31b:free",
+        "provider": "Google",
+        "tier": "green",
+        "carbon_score": 3,
+        "capability": "medium",
+        "openrouter_id": "google/gemma-4-31b:free",
+        "description": "Multilingual, 262K context, general use"
+    },
+]
+
+# Ordered fallback chain — try these in order if primary fails
+FALLBACK_MODELS = [
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "meta-llama/llama-4-scout:free",
+    "openai/gpt-oss-120b:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+    "openai/gpt-oss-20b:free",
+    "google/gemma-4-31b:free",
 ]
