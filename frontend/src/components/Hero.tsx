@@ -6,13 +6,19 @@ import { API_URL as API } from '../config';
 
 import { EASE_FN } from '../constants';
 
+interface HeroStats {
+  total_queries: number;
+  total_co2_saved_g: number;
+  green_query_pct: number;
+}
+
 const fadeUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_FN } },
 };
 
 const Hero = () => {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<HeroStats | null>(null);
   const [typedText, setTypedText] = useState('');
   const fullText = 'ecoquery --route --greenest';
 

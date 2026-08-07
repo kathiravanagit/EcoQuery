@@ -1,8 +1,16 @@
 import React from 'react';
 import { Server } from 'lucide-react';
 
+interface Model {
+  id: string;
+  provider: string;
+  tier: string;
+  carbon_score: number;
+  description: string;
+}
+
 interface Props {
-  models: any[];
+  models: Model[];
 }
 
 const DashboardCatalog = ({ models }: Props) => {

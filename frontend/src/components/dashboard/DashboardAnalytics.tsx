@@ -2,33 +2,51 @@ import React from 'react';
 import { TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
+interface AnalyticsDataPoint {
+  date: string;
+  count: number;
+  co2_saved: number;
+  avg_latency: number;
+}
+
+interface TierDataPoint {
+  name: string;
+  value: number;
+}
+
+interface TooltipPayloadItem {
+  color: string;
+  name: string;
+  value: number;
+}
+
 interface Props {
-  analytics: any[];
+  analytics: AnalyticsDataPoint[];
   analyticsPeriod: string;
   setAnalyticsPeriod: (p: string) => void;
-  tierData: any[];
+  tierData: TierDataPoint[];
 }
 
 const PIE_COLORS = ['#16a34a', '#ca8a04', '#dc2626', '#2563eb'];
 const PIE_LABELS: Record<string, string> = { green: 'Green', balanced: 'Balanced', performance: 'Performance' };
 
-const CustomTooltip = ({ active, payload, label, period }: any) => {
+const CustomTooltip = ({ active, payload, label, period }: { active?: boolean; payload?: TooltipPayloadItem[]; label?: string | number; period?: string }) => {
   if (!active || !payload?.length) return null;
-  let displayLabel = label;
+  let displayLabel = String(label ?? '');
   if (period === 'day' && label) {
-    const d = new Date(label + 'T00:00:00');
+    const d = new Date(String(label) + 'T00:00:00');
     displayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   } else if (period === 'week' && label) {
-    const parts = label.split('-');
-    displayLabel = parts[1] ? `Week ${parts[1].replace('W', '')}` : label;
+    const parts = String(label).split('-');
+    displayLabel = parts[1] ? `Week ${parts[1].replace('W', '')}` : String(label);
   } else if (period === 'month' && label) {
-    const parts = label.split('-');
-    displayLabel = parts.length >= 2 ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : label;
+    const parts = String(label).split('-');
+    displayLabel = parts.length >= 2 ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : String(label);
   }
   return (
     <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.75rem 1rem', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
       <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 500 }}>{displayLabel}</div>
-      {payload.map((p: any, i: number) => (
+      {payload.map((p: TooltipPayloadItem, i: number) => (
         <div key={i} style={{ fontSize: '0.8rem', color: '#374151', display: 'flex', justifyContent: 'space-between', gap: '1.5rem' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block' }} />
@@ -119,7 +137,7 @@ const DashboardAnalytics = ({ analytics, analyticsPeriod, setAnalyticsPeriod, ti
                 <Pie data={tierData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none">
                   {tierData.map((entry, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
-                <Tooltip formatter={(value: any, name: any) => [`${value} queries`, PIE_LABELS[name] || name]} contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '0.8rem' }} />
+                <Tooltip formatter={(value, name) => [`${value} queries`, (typeof name === 'string' && PIE_LABELS[name]) || name || '']} contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '0.8rem' }} />
               </PieChart>
             </ResponsiveContainer>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
