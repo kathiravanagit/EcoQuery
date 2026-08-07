@@ -14,6 +14,7 @@ const DashboardExport = React.memo(({ token }: Props) => {
   const exportQueries = async (format: string) => {
     try {
       const r = await fetch(`${API}/api/user/export?format=${format}`, { headers });
+      if (!r.ok) { toast("error", 'Export failed. Please try again.'); return; }
       if (format === 'csv') {
         const blob = await r.blob();
         const url = URL.createObjectURL(blob);
@@ -32,6 +33,7 @@ const DashboardExport = React.memo(({ token }: Props) => {
   const downloadReport = async () => {
     try {
       const r = await fetch(`${API}/api/user/sustainability-report`, { headers });
+      if (!r.ok) { toast("error", 'Failed to download report'); return; }
       const d = await r.json();
       const blob = new Blob([d.text_report || JSON.stringify(d, null, 2)], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);

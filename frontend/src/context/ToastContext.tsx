@@ -81,7 +81,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 {icons[t.type]}
               </span>
               <span style={{ flex: 1 }}>{t.message}</span>
-              <button style={{
+              <button onClick={() => remove(t.id)} style={{
                 flexShrink: 0, display: 'flex', color: 'var(--text-secondary)',
                 cursor: 'pointer', background: 'none', border: 'none', padding: '2px',
               }}>

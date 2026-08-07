@@ -77,7 +77,7 @@ const Teams = () => {
     if (!selectedOrg) return;
     try {
       const r = await fetch(`${API}/api/orgs/${selectedOrg.id}/members/${email}`, { method: 'DELETE', headers });
-      if (r.ok) { setSelectedOrg({ ...selectedOrg, members: selectedOrg.members.filter((m: string) => m !== email) } as Org); }
+      if (r.ok) { setSelectedOrg({ ...selectedOrg, members: (selectedOrg.members || []).filter((m: string) => m !== email) } as Org); }
     } catch (e) { toast("error", 'Failed to remove member'); }
   };
 
