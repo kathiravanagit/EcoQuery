@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Award, Leaf, ArrowRight } from 'lucide-react';
 import { Skeleton, PageSkeleton } from '../components/Skeleton';
 import ApiKeyManager from '../components/ApiKeyManager';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
 import './Pages.css';
@@ -372,23 +373,37 @@ const Dashboard = () => {
               </motion.div>
             )}
 
-            <Suspense fallback={<StatsSkeleton />}>
-              <DashboardStats stats={stats} cert={cert} />
-            </Suspense>
-            <Suspense fallback={<ListSkeleton />}>
-              <DashboardBadges badges={badges} />
-            </Suspense>
-            <Suspense fallback={<ChartSkeleton />}>
-              <DashboardImpact co2Saved={stats?.total_co2_saved_g || 0} />
-            </Suspense>
-            <Suspense fallback={<ListSkeleton />}>
-              <DashboardRealtime events={realtimeEvents} />
-            </Suspense>
-            <Suspense fallback={<ChartSkeleton />}>
-              <DashboardAnalytics analytics={analytics} analyticsPeriod={analyticsPeriod} setAnalyticsPeriod={setAnalyticsPeriod} tierData={tierData} />
-            </Suspense>
-            <ApiKeyManager token={token} API={API} />
-            <DashboardExport token={token} />
+            <ErrorBoundary>
+              <Suspense fallback={<StatsSkeleton />}>
+                <DashboardStats stats={stats} cert={cert} />
+              </Suspense>
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <Suspense fallback={<ListSkeleton />}>
+                <DashboardBadges badges={badges} />
+              </Suspense>
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <Suspense fallback={<ChartSkeleton />}>
+                <DashboardImpact co2Saved={stats?.total_co2_saved_g || 0} />
+              </Suspense>
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <Suspense fallback={<ListSkeleton />}>
+                <DashboardRealtime events={realtimeEvents} />
+              </Suspense>
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <Suspense fallback={<ChartSkeleton />}>
+                <DashboardAnalytics analytics={analytics} analyticsPeriod={analyticsPeriod} setAnalyticsPeriod={setAnalyticsPeriod} tierData={tierData} />
+              </Suspense>
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <ApiKeyManager token={token} API={API} />
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <DashboardExport token={token} />
+            </ErrorBoundary>
 
             {cert && cert.total_queries !== 0 && (
               <div className="dashboard-section">
@@ -422,8 +437,12 @@ const Dashboard = () => {
               </div>
             )}
 
-            <DashboardCatalog models={models} />
-            <DashboardQueries stats={stats} loadedQueries={loadedQueries} setLoadedQueries={setLoadedQueries} token={token} />
+            <ErrorBoundary>
+              <DashboardCatalog models={models} />
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <DashboardQueries stats={stats} loadedQueries={loadedQueries} setLoadedQueries={setLoadedQueries} token={token} />
+            </ErrorBoundary>
           </motion.div>
         </div>
       </section>
