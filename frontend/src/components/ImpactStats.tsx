@@ -48,8 +48,14 @@ const StatCounter = ({ end, suffix = '', label, detail, decimals }: StatCounterP
   );
 };
 
+interface ImpactStatsData {
+  total_queries?: number;
+  green_query_pct?: number;
+  avg_latency_s?: number;
+}
+
 const ImpactStats = () => {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<ImpactStatsData | null>(null);
 
   useEffect(() => {
     fetch(`${API}/api/stats`)
@@ -59,7 +65,7 @@ const ImpactStats = () => {
   }, []);
 
   const totalQueries = stats?.total_queries || 0;
-  const hasData = stats && stats.total_queries > 0;
+  const hasData = totalQueries > 0;
 
   return (
     <section className="section stats-section">
@@ -79,9 +85,9 @@ const ImpactStats = () => {
           <div className="stats-grid">
             {hasData ? (
               <>
-                <StatCounter end={stats.green_query_pct} suffix="%" label="Queries on Green Tier" />
-                <StatCounter end={stats.avg_latency_s} suffix="s" label="Average Latency" decimals={3} />
-                <StatCounter end={stats.total_queries} label="Total Queries Routed" />
+                <StatCounter end={stats?.green_query_pct || 0} suffix="%" label="Queries on Green Tier" />
+                <StatCounter end={stats?.avg_latency_s || 0} suffix="s" label="Average Latency" decimals={3} />
+                <StatCounter end={stats?.total_queries || 0} label="Total Queries Routed" />
               </>
             ) : (
               <>

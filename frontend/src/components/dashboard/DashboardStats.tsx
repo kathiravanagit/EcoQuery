@@ -1,9 +1,29 @@
 import React from 'react';
 import { BarChart3, Leaf, DollarSign, Server, Clock, Shield } from 'lucide-react';
 
+interface Stats {
+  total_queries?: number;
+  total_co2_saved_g?: number;
+  total_api_cost?: number;
+  latest_queries?: Record<string, unknown>[];
+  green_query_percent?: number;
+  avg_latency_s?: number;
+  flagged_queries?: number;
+  queries_by_tier?: Record<string, number>;
+  queries_by_model?: Record<string, number>;
+}
+
+interface Cert {
+  display_name?: string;
+  user?: string;
+  total_queries?: number;
+  total_co2_saved_g?: number;
+  green_query_percent?: number;
+}
+
 interface Props {
-  stats: any;
-  cert: any;
+  stats: Stats | null;
+  cert: Cert | null;
 }
 
 const DashboardStats = React.memo(({ stats, cert }: Props) => {

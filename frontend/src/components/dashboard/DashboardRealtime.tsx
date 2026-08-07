@@ -1,8 +1,19 @@
 import React from 'react';
 import { Zap } from 'lucide-react';
 
+interface RealtimeEvent {
+  query: string;
+  tier: string;
+  model: string;
+  region: string;
+  co2_g: number;
+  co2_saved_g: number;
+  api_cost: number;
+  time: string;
+}
+
 interface Props {
-  events: any[];
+  events: RealtimeEvent[];
 }
 
 const DashboardRealtime = React.memo(({ events }: Props) => {

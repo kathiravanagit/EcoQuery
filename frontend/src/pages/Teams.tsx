@@ -6,11 +6,19 @@ import { Building2, Users, Key, Plus, Copy, Check, AlertCircle, LogOut, UserPlus
 import { API_URL as API } from '../config';
 import './Pages.css';
 
+interface Org {
+  id: string;
+  name: string;
+  members: string[];
+  owner: string;
+  api_keys: { key: string }[];
+}
+
 const Teams = () => {
   const { user, token } = useAuth();
   const { toast } = useToast();
-  const [orgs, setOrgs] = useState<any[]>([]);
-  const [selectedOrg, setSelectedOrg] = useState<any>(null);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
@@ -43,7 +51,7 @@ const Teams = () => {
     } catch (e) { setMessage({ type: 'error', text: 'Failed to connect to server' }); }
   };
 
-  const selectOrg = async (org: any) => {
+  const selectOrg = async (org: Org) => {
     setSelectedOrg(org);
     setInviteEmail('');
     setOrgKeys([]);
@@ -56,7 +64,7 @@ const Teams = () => {
   };
 
   const inviteMember = async () => {
-    if (!inviteEmail.trim()) return;
+    if (!inviteEmail.trim() || !selectedOrg) return;
     try {
       const r = await fetch(`${API}/api/orgs/${selectedOrg.id}/invite`, { method: 'POST', headers, body: JSON.stringify({ email: inviteEmail }) });
       const d = await r.json();
@@ -66,13 +74,15 @@ const Teams = () => {
   };
 
   const removeMember = async (email: string) => {
+    if (!selectedOrg) return;
     try {
       const r = await fetch(`${API}/api/orgs/${selectedOrg.id}/members/${email}`, { method: 'DELETE', headers });
-      if (r.ok) { setSelectedOrg({ ...selectedOrg, members: selectedOrg.members.filter((m: string) => m !== email) }); }
+      if (r.ok) { setSelectedOrg({ ...selectedOrg, members: selectedOrg.members.filter((m: string) => m !== email) } as Org); }
     } catch (e) { toast("error", 'Failed to remove member'); }
   };
 
   const genOrgKey = async () => {
+    if (!selectedOrg) return;
     try {
       const r = await fetch(`${API}/api/orgs/${selectedOrg.id}/api-key`, { method: 'POST', headers });
       const d = await r.json();
@@ -158,11 +168,11 @@ const Teams = () => {
                   <div className="card" style={{ padding: '1.5rem' }}>
                     <h3 style={{ marginBottom: '0.75rem' }}><Key size={16} /> Shared API Keys</h3>
                     {selectedOrg.api_keys?.length === 0 && orgKeys.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No keys yet.</p>}
-                    {[...(selectedOrg.api_keys || []), ...orgKeys.map(k => ({ key: k }))].map((k: any, i: number) => (
+                    {[...(selectedOrg.api_keys || []), ...orgKeys.map(k => ({ key: k }))].map((k: { key: string }, i: number) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <code style={{ flex: 1, padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '4px', fontSize: '0.8rem' }}>{k.key || k}</code>
-                        <button className="btn-icon" onClick={() => copyToClipboard(k.key || k)} aria-label="Copy key">
-                          {copied === (k.key || k) ? <Check size={16} /> : <Copy size={16} />}
+                        <code style={{ flex: 1, padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '4px', fontSize: '0.8rem' }}>{k.key}</code>
+                        <button className="btn-icon" onClick={() => copyToClipboard(k.key)} aria-label="Copy key">
+                          {copied === k.key ? <Check size={16} /> : <Copy size={16} />}
                         </button>
                       </div>
                     ))}

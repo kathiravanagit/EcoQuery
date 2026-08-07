@@ -2,10 +2,25 @@ import React, { useState } from 'react';
 import { BarChart3, Search, ArrowRight } from 'lucide-react';
 import { API_URL as API } from '../../config';
 
+interface QueryRecord {
+  query?: string;
+  model_used?: string;
+  region?: string;
+  co2_saved_vs_baseline?: number;
+  tier?: string;
+  latency_seconds?: number;
+  verification_status?: string;
+  api_cost?: number;
+}
+
+interface Stats {
+  latest_queries?: QueryRecord[];
+}
+
 interface Props {
-  stats: any;
-  loadedQueries: any[];
-  setLoadedQueries: (q: any[]) => void;
+  stats: Stats | null;
+  loadedQueries: QueryRecord[];
+  setLoadedQueries: (q: QueryRecord[]) => void;
   token: string | null;
 }
 
@@ -43,7 +58,7 @@ const DashboardQueries = ({ stats, loadedQueries, setLoadedQueries, token }: Pro
         <div className="dashboard-query-list">
           {filtered.map((q, i) => (
             <div key={i} className="dashboard-query-item">
-              <div className="dashboard-query-query">{q.query?.substring(0, 80)}{q.query?.length > 80 ? '...' : ''}</div>
+              <div className="dashboard-query-query">{q.query?.substring(0, 80)}{q.query && q.query.length > 80 ? '...' : ''}</div>
               <div className="dashboard-query-meta">
                 <span className="meta-tag">{q.model_used}</span>
                 <span className="meta-tag">{q.region}</span>

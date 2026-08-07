@@ -8,7 +8,7 @@ import { API_URL as API } from '../config';
 import './Pages.css';
 
 interface ProfileUser { email?: string; display_name?: string; auth_provider?: string; }
-interface ApiCallFn { (method: string, path: string, body: object): Promise<any> }
+interface ApiCallFn { (method: string, path: string, body: object): Promise<Record<string, unknown>> }
 interface ToastFn { (type: 'success' | 'error' | 'info', message: string): void }
 
 const Profile = () => {

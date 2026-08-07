@@ -2,8 +2,16 @@ import React from 'react';
 import { Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  earned_at: string;
+}
+
 interface Props {
-  badges: any[];
+  badges: Badge[];
 }
 
 const DashboardBadges = React.memo(({ badges }: Props) => {
