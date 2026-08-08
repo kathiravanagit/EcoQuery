@@ -1,0 +1,113 @@
+{
+  "classifier_accuracy": {
+    "overall": 83.3,
+    "by_tier": {
+      "simple": 100.0,
+      "medium": 60.0,
+      "complex": 90.0
+    }
+  },
+  "routing_comparison": {
+    "Always Largest (Nemotron 550B)": {
+      "total_queries": 30,
+      "total_co2_g": 0.0922,
+      "total_saved_g": 0.3185,
+      "total_baseline_g": 0.4107,
+      "savings_pct": 77.6,
+      "avg_latency_s": 2.0,
+      "avg_carbon_score": 8.0,
+      "by_tier": {
+        "simple": {
+          "count": 10,
+          "co2": 0.0189,
+          "saved": 0.0658,
+          "latency": 20.0,
+          "avg_latency": 2.0
+        },
+        "medium": {
+          "count": 10,
+          "co2": 0.0289,
+          "saved": 0.0993,
+          "latency": 20.0,
+          "avg_latency": 2.0
+        },
+        "complex": {
+          "count": 10,
+          "co2": 0.0444,
+          "saved": 0.1534,
+          "latency": 20.0,
+          "avg_latency": 2.0
+        }
+      }
+    },
+    "Always Smallest (GPT-OSS 20B)": {
+      "total_queries": 30,
+      "total_co2_g": 0.0114,
+      "total_saved_g": 0.3993,
+      "total_baseline_g": 0.4107,
+      "savings_pct": 97.2,
+      "avg_latency_s": 1.0,
+      "avg_carbon_score": 1.0,
+      "by_tier": {
+        "simple": {
+          "count": 10,
+          "co2": 0.0024,
+          "saved": 0.0823,
+          "latency": 10.0,
+          "avg_latency": 1.0
+        },
+        "medium": {
+          "count": 10,
+          "co2": 0.0035,
+          "saved": 0.1247,
+          "latency": 10.0,
+          "avg_latency": 1.0
+        },
+        "complex": {
+          "count": 10,
+          "co2": 0.0055,
+          "saved": 0.1923,
+          "latency": 10.0,
+          "avg_latency": 1.0
+        }
+      }
+    },
+    "EcoQuery (Carbon-Aware)": {
+      "total_queries": 30,
+      "total_co2_g": 0.0409,
+      "total_saved_g": 0.3698,
+      "total_baseline_g": 0.4107,
+      "savings_pct": 90.0,
+      "avg_latency_s": 1.333,
+      "avg_carbon_score": 3.0,
+      "by_tier": {
+        "simple": {
+          "count": 10,
+          "co2": 0.0024,
+          "saved": 0.0823,
+          "latency": 10.0,
+          "avg_latency": 1.0
+        },
+        "medium": {
+          "count": 10,
+          "co2": 0.0107,
+          "saved": 0.1175,
+          "latency": 15.0,
+          "avg_latency": 1.5
+        },
+        "complex": {
+          "count": 10,
+          "co2": 0.0278,
+          "saved": 0.17,
+          "latency": 15.0,
+          "avg_latency": 1.5
+        }
+      }
+    }
+  },
+  "ecoquery_model_selection": {
+    "simple": "gpt-oss-20b:free",
+    "medium": "gemma-4-31b:free",
+    "complex": "nemotron-3-super-120b-a12b:free"
+  }
+}
