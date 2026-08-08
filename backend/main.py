@@ -138,7 +138,7 @@ app.include_router(ollama_router)
 
 @app.get("/")
 async def root():
-    return {"message": "EcoQuery API — see /docs for Swagger UI or visit http://localhost:5173 for the frontend"}
+    return {"message": "EcoQuery API — see /docs for Swagger UI or visit https://eco2query.vercel.app for the frontend"}
 
 
 if __name__ == "__main__":
