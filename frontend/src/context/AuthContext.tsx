@@ -61,6 +61,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const t = getToken();
       if (!t) return;
       setToken(t);
+      fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${t}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(u => {
+          if (u) { setUser(u); localStorage.setItem('user', JSON.stringify(u)); }
+        })
+        .catch(() => {});
     };
     window.addEventListener('auth-callback', handler);
     return () => window.removeEventListener('auth-callback', handler);

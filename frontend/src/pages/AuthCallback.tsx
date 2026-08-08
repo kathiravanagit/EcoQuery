@@ -17,7 +17,11 @@ const AuthCallback = () => {
           if (data.access_token) {
             localStorage.setItem('token', data.access_token);
             localStorage.setItem('remember', 'true');
-            window.dispatchEvent(new Event('auth-callback'));
+            return fetch(`${API}/api/auth/me`, {
+              headers: { Authorization: `Bearer ${data.access_token}` }
+            }).then(r => r.ok ? r.json() : null).then(u => {
+              if (u) localStorage.setItem('user', JSON.stringify(u));
+            });
           }
         })
         .catch(() => {})
