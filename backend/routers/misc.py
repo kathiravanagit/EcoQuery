@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import secrets

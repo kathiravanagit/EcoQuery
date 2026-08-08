@@ -3,7 +3,10 @@ from fastapi.responses import RedirectResponse
 from datetime import datetime, timezone, timedelta
 import os
 import secrets
+import logging
 import httpx
+
+logger = logging.getLogger("EcoQuery.auth.router")
 
 from schemas import (
     SignupRequest, LoginRequest, AuthResponse,

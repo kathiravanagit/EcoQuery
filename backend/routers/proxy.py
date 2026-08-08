@@ -4,13 +4,11 @@ Routes requests to the greenest available datacenter.
 Supports multiple self-hosted VPS instances across green regions.
 """
 
-import os
 import json
 import time
 import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
 
 from schemas import ChatRequest, ChatResponse
 from auth import get_current_user
@@ -106,6 +104,7 @@ async def proxy_chat(req: ChatRequest, request: Request):
         if token.startswith("eq_"):
             try:
                 from auth import auth_db
+                user = None
                 if auth_db.available and auth_db.collection is not None:
                     user = await auth_db.collection.find_one({"api_key": token})
                 if user:
