@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 
 from schemas import ChatRequest, ChatResponse
 from auth import SECRET_KEY, ALGORITHM, auth_db
-from models import CARBON_MODELS, FALLBACK_MODELS
+from models import CARBON_MODELS, FALLBACK_MODELS, VISION_MODEL
 from classifier import classifier
 from router import route_query, compute_savings
 from ledger import ledger
@@ -162,6 +162,21 @@ async def _build_routing(req: ChatRequest):
                     intensity = region_info.get("carbon_intensity_g_kwh", 200.0)
                 savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
                 break
+
+    # If images attached, force vision-capable model
+    if req.images:
+        vision_model = next((m for m in CARBON_MODELS if m["openrouter_id"] == VISION_MODEL), None)
+        if vision_model:
+            model_sel = {
+                "model": vision_model["id"],
+                "provider": vision_model["provider"],
+                "display_name": f"{vision_model['provider']} {vision_model['openrouter_id']} (vision)",
+                "openrouter_id": vision_model["openrouter_id"],
+                "tier": vision_model["tier"],
+                "carbon_score": vision_model["carbon_score"],
+                "estimated_latency_s": model_sel.get("estimated_latency_s", 2.0),
+                "reason": "Vision model selected for image input",
+            }
 
     return classification, prompt_len, region_info, model_sel, savings
 
