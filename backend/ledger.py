@@ -49,15 +49,46 @@ class VerificationLedger:
             return str(result.inserted_id)
         return "no-db-entry"
 
-    async def get_audit_log(self, limit: int = 50, skip: int = 0, user_email: str = "") -> list:
+    async def get_audit_log(self, limit: int = 50, skip: int = 0, user_email: str = "",
+                            q: str = "", model: str = "", tier: str = "",
+                            sort: str = "timestamp", date_from: str = "", date_to: str = "") -> list:
         if self.available and self.collection is not None:
-            query = {"user_email": user_email} if user_email else {}
-            cursor = self.collection.find(query).sort("timestamp", -1).skip(skip).limit(limit)
+            query: dict = {}
+            if user_email:
+                query["user_email"] = user_email
+            if q:
+                query["query"] = {"$regex": q, "$options": "i"}
+            if model:
+                query["model_used"] = model
+            if tier:
+                query["tier"] = tier
+            if date_from or date_to:
+                ts_filter: dict = {}
+                if date_from:
+                    ts_filter["$gte"] = date_from
+                if date_to:
+                    ts_filter["$lte"] = date_to
+                query["timestamp"] = ts_filter
+
+            sort_key = "timestamp"
+            sort_dir = -1
+            if sort == "co2":
+                sort_key = "co2_saved_vs_baseline"
+            elif sort == "cost":
+                sort_key = "api_cost"
+            elif sort == "latency":
+                sort_key = "latency_seconds"
+            elif sort == "oldest":
+                sort_key = "timestamp"
+                sort_dir = 1
+
+            total = await self.collection.count_documents(query)
+            cursor = self.collection.find(query).sort(sort_key, sort_dir).skip(skip).limit(limit)
             records = await cursor.to_list(length=limit)
             for r in records:
                 r["_id"] = str(r["_id"])
-            return records
-        return []
+            return records, total
+        return [], 0
 
     async def get_stats(self) -> dict:
         if self.available and self.collection is not None:
