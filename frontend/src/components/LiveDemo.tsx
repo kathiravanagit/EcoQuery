@@ -79,13 +79,24 @@ const LiveDemo = () => {
 
   useEffect(() => { scrollToBottom(); }, [messages]);
 
+  const MAX_IMAGES = 3;
+  const MAX_FILE_SIZE_MB = 5;
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
     Array.from(files).forEach(file => {
       if (!file.type.startsWith('image/')) {
-        alert('Only image files are supported. PDFs and other documents are not yet supported.');
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Only image files are supported. PDFs and other documents are not accepted.' }]);
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        setMessages(prev => [...prev, { role: 'assistant', content: `File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.` }]);
+        return;
+      }
+      if (attachedImages.length >= MAX_IMAGES) {
+        setMessages(prev => [...prev, { role: 'assistant', content: `Maximum ${MAX_IMAGES} images per message.` }]);
         return;
       }
       const reader = new FileReader();
