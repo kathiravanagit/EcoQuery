@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
-from typing import Optional
 import secrets
 
 from schemas import OrgCreateRequest, OrgInviteRequest

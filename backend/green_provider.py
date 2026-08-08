@@ -3,10 +3,7 @@ Green Provider Router — routes to the greenest cloud provider using real-time 
 Combines provider region knowledge with Electricity Maps zone-based carbon intensity.
 """
 
-import os
 import logging
-import asyncio
-import hashlib
 from typing import Dict, List, Optional
 from carbon_collector import collector
 
@@ -223,7 +220,7 @@ class GreenProviderRouter:
             "intensity": chosen["intensity"],
             "score": chosen["score"],
             "is_green": chosen["is_green"],
-            "alternatives": [x for x in top_green if x["provider"] != chosen["provider"]][:2],
+            "alternatives": [x for x in scores if x["provider"] != chosen["provider"]][:2],
         }
 
     async def get_green_model(self, query: str = "") -> str:
