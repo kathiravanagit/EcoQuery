@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Check, ArrowRight } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import './Pages.css';
 
 const plans = [
@@ -34,12 +35,13 @@ const plans = [
 
 const Pricing = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleClick = (plan: typeof plans[0]) => {
     if (plan.name === 'Starter') {
       navigate('/dashboard');
     } else {
-      alert(`"${plan.name}" plan is still under development. Thank you for your interest!`);
+      toast('info', `"${plan.name}" plan is still under development. Thank you for your interest!`);
     }
   };
 

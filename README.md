@@ -181,6 +181,26 @@ npm run build
 
 ---
 
+## Design Decisions
+
+### Removed Features (Intentional)
+
+| Feature | Reason Removed |
+|---------|---------------|
+| Admin panel | Data accessible via MongoDB Atlas directly. Removed to reduce attack surface. |
+| Smart router (`smart_router.py`) | Redundant with `green_provider.py` which uses real-time Electricity Maps data. Single routing path is simpler and more maintainable. |
+| Temporal shifter (`temporal_shifter.py`) | Time-based routing added complexity without measurable carbon benefit. Green provider already picks the optimal region. |
+| Carbon executor (`carbon_executor.py`) | Functionality merged into `green_provider.py`. Separate module was unnecessary abstraction. |
+| TokenReply provider | Returned 524 Cloudflare timeouts consistently. Unreliable for production use. |
+| PDF/document upload | Free OpenRouter models don't support PDF input. Only image uploads supported via vision models. |
+| Eco/Performance mode toggle | All queries now route carbon-first (eco-only). Performance mode was confusing and undermined the core value proposition. |
+
+### Pinned Dependencies
+
+All backend dependencies are pinned to exact versions in `requirements.txt` to prevent breaking changes from upstream updates.
+
+---
+
 ## Deployment
 
 ### Vercel (Frontend)
