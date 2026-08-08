@@ -2,7 +2,7 @@
 
 **Carbon-Aware AI Query Routing & Integrity Verification**
 
-A consumer-side middleware that routes LLM API requests to the greenest available data center in real-time, while independently verifying that the requested model wasn't silently substituted.
+A consumer-side middleware that selects the greenest available AI model based on real-time carbon intensity data, while independently verifying that the requested model wasn't silently substituted.
 
 **Live:** [eco2query.vercel.app](https://eco2query.vercel.app) · **Backend:** [ecoquery.onrender.com](https://ecoquery.onrender.com)
 

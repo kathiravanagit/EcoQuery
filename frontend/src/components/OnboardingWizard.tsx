@@ -16,7 +16,7 @@ const steps = [
   {
     icon: <Leaf size={32} />,
     title: 'Green Routing',
-    description: 'Every query is automatically routed to the greenest data center based on real-time carbon intensity data.',
+    description: 'Every query selects the greenest AI model based on real-time carbon intensity data.',
     code: '$ ecoquery --route --greenest',
   },
   {
