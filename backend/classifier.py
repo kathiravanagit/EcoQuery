@@ -108,13 +108,19 @@ class QueryClassifier:
             "evaluate", "prove", "derive", "what are the implications",
             "what are the tradeoffs", "contrast", "critique", "design",
             "architect", "implement", "optimize", "debug", "reason about",
+            "write a", "from scratch", "prove", "derive",
         )
         has_reasoning = any(rw in lower for rw in reasoning_words)
 
         has_code = any(c in message for c in ("def ", "class ", "import ", "```", "function ", "const ", "let "))
         has_math = any(c in message for c in ("∑", "∫", "∂", "√", "±", "=", "²", "^"))
+        has_complex_keywords = any(kw in lower for kw in (
+            "thread-safe", "lock-free", "consensus", "from first principles",
+            "compiler", "distributed", "concurrent", "real-time",
+            "multi-region", "failover", "schema for a",
+        ))
 
-        if word_count > 80 or has_code or has_math or (has_reasoning and word_count > 20):
+        if word_count > 80 or has_code or has_math or has_complex_keywords or (has_reasoning and word_count > 12):
             tier = "complex"
             confidence = 0.75 if word_count > 80 else 0.8
         elif has_reasoning or word_count > 25:

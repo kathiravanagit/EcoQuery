@@ -24,11 +24,20 @@ def select_model(tier: str, region_code: str, carbon_intensity: float) -> dict:
     candidates = list(CARBON_MODELS)
 
     if tier == "simple":
-        candidates = [c for c in candidates if c["carbon_score"] <= 3] or candidates
+        candidates = [c for c in candidates if c["carbon_score"] <= 3]
+        candidates.sort(key=lambda m: (m["carbon_score"], MODEL_LATENCY.get(m["id"], 2.0)))
     elif tier == "medium":
-        candidates = [c for c in candidates if c["carbon_score"] <= 6] or candidates
+        candidates = [c for c in candidates if c["capability"] in ("medium", "high") and c["carbon_score"] <= 6]
+        if not candidates:
+            candidates = [c for c in CARBON_MODELS if c["capability"] in ("medium", "high")]
+        candidates.sort(key=lambda m: (m["carbon_score"], MODEL_LATENCY.get(m["id"], 2.0)))
+    else:
+        candidates = [c for c in candidates if c["capability"] == "high"]
+        candidates.sort(key=lambda m: (m["carbon_score"], MODEL_LATENCY.get(m["id"], 2.0)))
 
-    candidates.sort(key=lambda m: m["carbon_score"])
+    if not candidates:
+        candidates = list(CARBON_MODELS)
+        candidates.sort(key=lambda m: m["carbon_score"])
 
     chosen = candidates[0]
     estimated_latency = MODEL_LATENCY.get(chosen["id"], 2.0)
