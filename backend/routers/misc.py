@@ -102,15 +102,29 @@ async def health():
 
 
 @router.get("/api/audit")
-async def get_audit(current_user: dict = Depends(get_current_user), limit: int = 50, skip: int = 0):
+async def get_audit(
+    current_user: dict = Depends(get_current_user),
+    limit: int = 50,
+    skip: int = 0,
+    q: str = "",
+    model: str = "",
+    tier: str = "",
+    sort: str = "timestamp",
+    date_from: str = "",
+    date_to: str = "",
+):
     try:
-        records = await ledger.get_audit_log(limit=limit, skip=skip, user_email=current_user["email"])
-        return {"records": records, "count": len(records)}
+        records, total = await ledger.get_audit_log(
+            limit=limit, skip=skip, user_email=current_user["email"],
+            q=q, model=model, tier=tier, sort=sort,
+            date_from=date_from, date_to=date_to,
+        )
+        return {"records": records, "count": len(records), "total": total}
     except Exception as e:
         import logging
         logger = logging.getLogger("EcoQuery.misc")
         logger.error(f"Audit endpoint error: {e}", exc_info=True)
-        return {"records": [], "count": 0, "error": str(e)}
+        return {"records": [], "count": 0, "total": 0, "error": str(e)}
 
 
 @router.get("/api/stats")
@@ -136,7 +150,7 @@ async def get_user_badges(current_user: dict = Depends(get_current_user)):
 
 @router.get("/api/user/stats")
 async def get_user_stats(current_user: dict = Depends(get_current_user)):
-    records = await ledger.get_audit_log(limit=1000, skip=0, user_email=current_user["email"])
+    records, _ = await ledger.get_audit_log(limit=1000, skip=0, user_email=current_user["email"])
     total = len(records)
     co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
     cost = sum(r.get("api_cost", 0) for r in records)
@@ -166,7 +180,7 @@ async def get_user_stats(current_user: dict = Depends(get_current_user)):
 
 @router.get("/api/user/sustainability-report")
 async def get_sustainability_report(current_user: dict = Depends(get_current_user)):
-    records = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
+    records, _ = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
     total = len(records)
     total_co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
     total_cost = sum(r.get("api_cost", 0) for r in records)
@@ -268,7 +282,7 @@ async def revoke_api_key(current_user: dict = Depends(get_current_user)):
 
 @router.get("/api/user/api-key/stats")
 async def get_api_key_stats(current_user: dict = Depends(get_current_user)):
-    records = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
+    records, _ = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
     total = len(records)
     co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
     cost = sum(r.get("api_cost", 0) for r in records)
@@ -281,7 +295,7 @@ async def get_api_key_stats(current_user: dict = Depends(get_current_user)):
 
 @router.get("/api/user/certificate")
 async def get_certificate(current_user: dict = Depends(get_current_user)):
-    records = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
+    records, _ = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
     total_queries = len(records)
     total_co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
     green_queries = sum(1 for r in records if r.get("model_tier") == "green")

@@ -111,7 +111,7 @@ async def get_org_sustainability(org_id: str, current_user: dict = Depends(get_c
         raise HTTPException(status_code=404, detail="Organization not found")
     
     from ledger import ledger
-    records = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
+    records, _ = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
     
     total = len(records)
     total_co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
@@ -184,7 +184,7 @@ async def get_org_dashboard(org_id: str, current_user: dict = Depends(get_curren
         raise HTTPException(status_code=404, detail="Organization not found")
     
     from ledger import ledger
-    all_records = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
+    all_records, _ = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
     
     total = len(all_records)
     total_co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in all_records)

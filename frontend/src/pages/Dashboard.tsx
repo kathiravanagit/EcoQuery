@@ -73,7 +73,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [realtimeEvents, setRealtimeEvents] = useState<RealtimeEvent[]>([]);
-  const [loadedQueries, setLoadedQueries] = useState<{ query?: string; model_used?: string; region?: string; co2_saved_vs_baseline?: number; tier?: string; latency_seconds?: number; verification_status?: string; api_cost?: number }[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [carbonAlert, setCarbonAlert] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -440,7 +439,7 @@ const Dashboard = () => {
               <DashboardCatalog models={models} />
             </ErrorBoundary>
             <ErrorBoundary>
-              <DashboardQueries stats={stats} loadedQueries={loadedQueries} setLoadedQueries={setLoadedQueries} token={token} />
+              <DashboardQueries token={token} />
             </ErrorBoundary>
           </motion.div>
         </div>
