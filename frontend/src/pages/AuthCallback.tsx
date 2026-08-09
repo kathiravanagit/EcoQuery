@@ -1,12 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Loader } from 'lucide-react';
+import { Loader, AlertCircle } from 'lucide-react';
 import { API_URL as API } from '../config';
 
 const AuthCallback = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const code = params.get('code');
@@ -22,10 +23,12 @@ const AuthCallback = () => {
             }).then(r => r.ok ? r.json() : null).then(u => {
               if (u) localStorage.setItem('user', JSON.stringify(u));
             });
+          } else {
+            setError(data.detail || 'Sign in failed. Please try again.');
           }
         })
-        .catch(() => {})
-        .finally(() => setTimeout(() => navigate('/'), 500));
+        .catch(() => setError('Network error. Please try again.'))
+        .finally(() => { if (!error) setTimeout(() => navigate('/'), 500); });
     } else {
       setTimeout(() => navigate('/'), 500);
     }
@@ -36,8 +39,20 @@ const AuthCallback = () => {
       <section className="section">
         <div className="container" style={{ textAlign: 'center', paddingTop: '4rem' }}>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <Loader size={32} className="spinner" />
-            <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Completing sign in...</p>
+            {error ? (
+              <>
+                <AlertCircle size={32} style={{ color: 'var(--color-error)' }} />
+                <p style={{ marginTop: '1rem', color: 'var(--color-error)' }}>{error}</p>
+                <button className="btn btn-primary" onClick={() => navigate('/login')} style={{ marginTop: '1rem' }}>
+                  Back to Login
+                </button>
+              </>
+            ) : (
+              <>
+                <Loader size={32} className="spinner" />
+                <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Completing sign in...</p>
+              </>
+            )}
           </motion.div>
         </div>
       </section>
