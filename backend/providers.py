@@ -12,6 +12,7 @@ logger = logging.getLogger("EcoQuery.providers")
 class ProviderRouter:
     def __init__(self):
         self.openrouter_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+        self.openrouter_key_2 = os.getenv("OPENROUTER_API_KEY_2", "")
         self.anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
         self.gemini_key = os.getenv("GEMINI_API_KEY", "")
         self.openai_key = os.getenv("OPENAI_DIRECT_KEY", "")
@@ -100,6 +101,27 @@ class ProviderRouter:
                 "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
             }
         except Exception as e:
+            error_str = str(e)
+            if self.openrouter_key_2 and any(code in error_str for code in ("402", "401", "credit", "balance", "quota", "rate")):
+                logger.warning(f"Primary key failed ({error_str[:80]}), retrying with secondary key")
+                try:
+                    fallback_kwargs = {**client_kwargs, "api_key": self.openrouter_key_2}
+                    client = AsyncOpenAI(**fallback_kwargs, timeout=60.0)
+                    response = await client.chat.completions.create(
+                        model=target_model,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                    )
+                    content = response.choices[0].message.content or ""
+                    prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+                    completion_tokens = response.usage.completion_tokens if response.usage else 0
+                    return {
+                        "content": content,
+                        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+                    }
+                except Exception as e2:
+                    logger.error(f"Secondary key also failed: {e2}")
+                    return {"content": f"Provider error: {e2}", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
             logger.error(f"OpenRouter call failed: {e}")
             return {"content": f"Provider error: {e}", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
@@ -192,6 +214,28 @@ class ProviderRouter:
                 if token:
                     yield token
         except Exception as e:
+            error_str = str(e)
+            if self.openrouter_key_2 and any(code in error_str for code in ("402", "401", "credit", "balance", "quota", "rate")):
+                logger.warning(f"Primary key stream failed, retrying with secondary key")
+                try:
+                    fallback_kwargs = {**client_kwargs, "api_key": self.openrouter_key_2}
+                    client = AsyncOpenAI(**fallback_kwargs, timeout=60.0)
+                    stream = await client.chat.completions.create(
+                        model=target_model,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        stream=True,
+                    )
+                    async for chunk in stream:
+                        delta = chunk.choices[0].delta if chunk.choices else None
+                        token = (delta.content or "") if delta else ""
+                        if token:
+                            yield token
+                    return
+                except Exception as e2:
+                    logger.error(f"Secondary key stream also failed: {e2}")
+                    yield f"Stream error: {e2}"
+                    return
             logger.error(f"OpenRouter stream failed: {e}")
             yield f"Stream error: {e}"
 
