@@ -94,11 +94,11 @@ const faqCategories = [
       },
       {
         question: 'Can I upgrade or downgrade my plan anytime?',
-        answer: 'Yes. You can upgrade or downgrade your plan at any time from your Dashboard. Changes take effect immediately, and billing is adjusted pro-rata.'
+        answer: 'Plan management is coming soon. Currently, EcoQuery is free to use with all features included.'
       },
       {
         question: 'Do you offer discounts for startups or open source?',
-        answer: 'Yes. We offer 50% off Pro plans for startups (under 2 years old) and free Pro plans for open source projects with public repos. Contact support@ecoquery.app for details.'
+        answer: 'EcoQuery is currently free for all users. For future premium features, contact kathiravanawork@gmail.com for startup and open source discounts.'
       },
       {
         question: 'How do I delete my account?',
