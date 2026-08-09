@@ -106,31 +106,28 @@ const HowItWorks = () => {
         <motion.div {...fadeUp} style={{ marginTop: '3rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', justifyContent: 'center' }}>
             <Globe size={20} style={{ color: 'var(--accent)' }} />
-            <h3 style={{ margin: 0 }}>Drop-In OpenAI Replacement</h3>
+            <h3 style={{ margin: 0 }}>Try It Now</h3>
           </div>
           <div style={{
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
             padding: '1.5rem', maxWidth: 600, margin: '0 auto',
           }}>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center' }}>
-              Change one line. Your queries are now carbon-aware.
+              Carbon-aware routing via a single API call.
             </p>
             <pre style={{
               background: '#0a0a0a', color: 'var(--accent)', padding: '1rem',
               borderRadius: '8px', fontSize: '0.75rem', overflow: 'auto',
               border: '1px solid var(--border)', lineHeight: 1.6,
             }}>
-{`# Before
-client = OpenAI(api_key="sk-...")
-
-# After — just change the base URL
-client = OpenAI(
-    api_key="eq_your_ecoquery_key",
-    base_url="https://api.ecoquery.ai/v1"
-)
-
-# That's it. Every query is now carbon-optimized.`}
+{`curl -X POST https://ecoquery.onrender.com/api/chat \\
+  -H "Authorization: Bearer eq_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"message": "Explain quantum computing"}'`}
             </pre>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.75rem', textAlign: 'center' }}>
+              Response includes model routing, CO₂ savings, region, and verification status.
+            </p>
           </div>
         </motion.div>
 
