@@ -53,7 +53,7 @@ const Research = () => {
             <div className="card-body">
               <p>EcoQuery bridges this gap by implementing a highly granular, context-aware estimation and routing framework:</p>
               <ol>
-                <li><strong>Complexity Classification:</strong> Using a lightweight <span className="highlight">distil-bert</span> model, we classify user intent to avoid over-provisioning compute for simple tasks.</li>
+                <li><strong>Complexity Classification:</strong> Using a trained <span className="highlight">sklearn</span> classifier with ML fallback and heuristic rules, we classify user intent to avoid over-provisioning compute for simple tasks.</li>
                 <li><strong>Grid-Aware API:</strong> We integrate with <em>Electricity Maps API</em> to determine the live carbon intensity of data center regions.</li>
                 <li><strong>Verification:</strong> An immutable ledger logs the delta between the requested model and the optimally routed model, proving verifiable CSR impact.</li>
               </ol>

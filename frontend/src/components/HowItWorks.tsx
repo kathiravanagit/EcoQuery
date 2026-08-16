@@ -12,7 +12,7 @@ const steps = [
   { 
     id: 2, title: 'Smart Classifier', icon: Activity, 
     desc: 'Determines query complexity and model requirements.',
-    detail: 'GPT-4o-mini powered classifier understands context, not just keywords.',
+    detail: 'Trained classifier with ML fallback and simple heuristic rules for reliability.',
   },
   { 
     id: 3, title: 'Carbon Estimator', icon: Leaf, 

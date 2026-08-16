@@ -1,6 +1,8 @@
+<!-- markdownlint-disable MD022 MD032 MD036 MD040 MD060 -->
+
 # EcoQuery
 
-**Carbon-Aware AI Query Routing & Integrity Verification**
+## Carbon-Aware AI Query Routing & Integrity Verification
 
 A consumer-side middleware that selects the greenest available AI model based on real-time carbon intensity data, while independently verifying that the requested model wasn't silently substituted.
 
@@ -28,7 +30,7 @@ EcoQuery sits between your application and LLM providers:
 
 | Feature | Description |
 |---------|-------------|
-| Query Classification | GPT-4o-mini classifier with heuristic fallback |
+| Query Classification | Trained classifier with ML fallback and heuristic rules |
 | Carbon-Aware Routing | Real-time Electricity Maps API + IEA 2024 baselines |
 | Green Provider Selection | Scores cloud providers by real-time carbon intensity |
 | Integrity Verification | TPS analysis, latency checks, SHA-256 hashing |
@@ -37,13 +39,13 @@ EcoQuery sits between your application and LLM providers:
 | Dashboard & Analytics | Real-time feed, CO₂ equivalents, charts, leaderboard |
 | Gamification | 8 badge types, leaderboards, sustainability reports |
 | Organization Support | Team workspaces with member roles |
-| Multi-Provider Backend | OpenRouter, Anthropic, Gemini, OpenAI, Ollama VPS |
+| Multi-Provider Backend | OpenRouter-backed free-tier catalog, Gemini classifier fallback, Ollama VPS/proxy routes |
 
 ---
 
 ## Architecture
 
-```
+```text
 ┌────────────┐    ┌────────────┐    ┌──────────────────┐
 │   User     │───▶│  Frontend  │───▶│  Backend API     │
 │   Query    │    │  React/Vite│    │  FastAPI          │
@@ -60,10 +62,10 @@ EcoQuery sits between your application and LLM providers:
                                              │
                     ┌────────────────────────┼────────────┐
                     │                        │            │
-              ┌─────▼──────┐  ┌──────────────▼┐  ┌───────▼────┐
-              │Electricity │  │  LLM Providers│  │  MongoDB   │
-              │ Maps API   │  │  (OpenRouter) │  │  Atlas     │
-              └────────────┘  └───────────────┘  └────────────┘
+              ┌─────▼──────┐  ┌──────────────▼────────────────────┐  ┌───────▼────┐
+              │Electricity │  │  LLM Providers                    │  │  MongoDB   │
+              │ Maps API   │  │  (OpenRouter catalog + routes)   │  │  Atlas     │
+              └────────────┘  └────────────────────────────────────┘  └────────────┘
 ```
 
 ---
@@ -75,8 +77,8 @@ EcoQuery sits between your application and LLM providers:
 | Frontend | React 19, Vite 8, TypeScript, Framer Motion, Recharts |
 | Backend | FastAPI, Uvicorn, Python 3.10+ |
 | Database | MongoDB Atlas |
-| AI/ML | GPT-4o-mini classifier, Carbon intensity ML baselines |
-| APIs | Electricity Maps, OpenRouter |
+| AI/ML | Trained classifier, Carbon intensity ML baselines |
+| APIs | Electricity Maps, OpenRouter, Ollama/proxy routes |
 | Auth | JWT + Google OAuth |
 | CI/CD | GitHub Actions |
 | Deploy | Vercel (frontend) + Render (backend) |
@@ -128,7 +130,7 @@ EcoQuery sits between your application and LLM providers:
 - Python 3.10+
 - Node.js 18+
 - MongoDB Atlas (free tier works)
-- OpenRouter API key
+- OpenRouter API key (preferred via `OPENROUTER_API_KEY`; `OPENAI_API_KEY` is accepted as a fallback alias in the current code)
 
 ### Setup
 
@@ -153,7 +155,8 @@ npm run dev
 ```env
 # Backend
 JWT_SECRET=your-random-secret
-OPENAI_API_KEY=sk-or-...              # OpenRouter key
+OPENROUTER_API_KEY=sk-or-...          # OpenRouter key (preferred)
+OPENAI_API_KEY=sk-or-...              # Fallback alias used by the current backend
 ELECTRICITY_MAPS_API_KEY=em_...       # Optional (uses static fallback)
 MONGODB_URL=mongodb+srv://...         # Optional (degrades without)
 ALLOWED_ORIGINS=https://eco2query.vercel.app,http://localhost:5173
@@ -242,3 +245,5 @@ Push to `main` triggers GitHub Actions:
 
 - **Domain**: Artificial Intelligence and Machine Learning
 - **Focus**: Sustainable AI, LLM optimization, model integrity verification
+
+<!-- markdownlint-enable MD022 MD032 MD036 MD040 MD060 -->
