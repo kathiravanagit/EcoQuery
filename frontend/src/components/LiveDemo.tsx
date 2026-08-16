@@ -123,6 +123,7 @@ const LiveDemo = () => {
     const userMsg = input || (attachedImages.length > 0 ? 'Describe this image' : '');
     setMessages(prev => [...prev, { role: 'user', content: userMsg, images: attachedImages.length > 0 ? attachedImages : undefined }]);
     setInput('');
+    setAttachedImages([]);
     setIsTyping(true);
     try {
       const response = await fetch(`${API}/api/chat`, {
