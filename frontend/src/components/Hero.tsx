@@ -62,9 +62,9 @@ const Hero = () => {
             route queries<span className="text-gradient"> greener</span>
           </motion.h1>
           
-          <motion.p className="hero-subtitle" variants={fadeUp}>
+          <p className="hero-subtitle">
             carbon-aware llm routing + independent verification for lower emissions without sacrificing quality.
-          </motion.p>
+          </p>
 
           {stats && stats.total_queries > 0 && (
             <motion.div className="hero-stats-bar" variants={fadeUp}>
