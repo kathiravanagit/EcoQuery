@@ -1,0 +1,19 @@
+# Eco2Query
+
+
+Eco2Query is a carbon-aware LLM routing platform.
+
+
+## Website
+
+
+- https://eco2query.vercel.app/
+
+
+## Features
+
+
+- Carbon-aware LLM routing
+- AI model comparison
+- Environmental impact analysis
+- Model performance information
