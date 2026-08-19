@@ -12,7 +12,7 @@ logger = logging.getLogger("EcoQuery.router")
 MODEL_LATENCY = {
     "nemotron-3-ultra-550b-a55b:free": 2.0,
     "nemotron-3-super-120b-a12b:free": 1.5,
-    "llama-4-scout:free": 1.2,
+    "llama-4-scout": 1.2,
     "deepseek-chat-v3-0324:free": 1.8,
     "gpt-oss-120b:free": 2.5,
     "gpt-oss-20b:free": 1.0,

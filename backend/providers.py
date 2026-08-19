@@ -40,7 +40,7 @@ class ProviderRouter:
     FALLBACK_MODELS = [
         "nvidia/nemotron-3-ultra-550b-a55b:free",
         "nvidia/nemotron-3-super-120b-a12b:free",
-        "meta-llama/llama-4-scout:free",
+        "meta-llama/llama-4-scout",
         "openai/gpt-oss-120b:free",
         "deepseek/deepseek-chat-v3-0324:free",
         "openai/gpt-oss-20b:free",
