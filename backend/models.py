@@ -25,12 +25,12 @@ CARBON_MODELS = [
         "supports_images": False,
     },
     {
-        "id": "llama-4-scout:free",
+        "id": "llama-4-scout",
         "provider": "Meta",
         "tier": "green",
         "carbon_score": 6,
         "capability": "high",
-        "openrouter_id": "meta-llama/llama-4-scout:free",
+        "openrouter_id": "meta-llama/llama-4-scout",
         "description": "Fast multimodal, 10M context, high-volume tasks",
         "supports_images": True,
     },
@@ -76,13 +76,13 @@ CARBON_MODELS = [
     },
 ]
 
-VISION_MODEL = "meta-llama/llama-4-scout:free"
+VISION_MODEL = "meta-llama/llama-4-scout"
 
 # Ordered fallback chain — try these in order if primary fails
 FALLBACK_MODELS = [
     "nvidia/nemotron-3-ultra-550b-a55b:free",
     "nvidia/nemotron-3-super-120b-a12b:free",
-    "meta-llama/llama-4-scout:free",
+    "meta-llama/llama-4-scout",
     "openai/gpt-oss-120b:free",
     "deepseek/deepseek-chat-v3-0324:free",
     "openai/gpt-oss-20b:free",

@@ -230,7 +230,7 @@ class GreenProviderRouter:
 
         GREEN_MODELS = {
             "google": "nvidia/nemotron-3-super-120b-a12b:free",
-            "meta": "meta-llama/llama-4-scout:free",
+            "meta": "meta-llama/llama-4-scout",
             "mistral": "nvidia/nemotron-3-super-120b-a12b:free",
             "nvidia": "nvidia/nemotron-3-ultra-550b-a55b:free",
             "cohere": "nvidia/nemotron-3-super-120b-a12b:free",
