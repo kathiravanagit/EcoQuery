@@ -86,8 +86,16 @@ class ProviderRouter:
                 messages=messages,
                 max_tokens=max_tokens,
             )
-            content = response.choices[0].message.content
-            finish = response.choices[0].finish_reason
+            choices = response.choices or []
+            if not choices:
+                logger.warning(f"OpenRouter returned no choices for model={target_model}")
+                return {
+                    "content": "",
+                    "usage": {"prompt_tokens": 0, "completion_tokens": 0},
+                }
+            choice = choices[0]
+            content = choice.message.content if choice.message else ""
+            finish = choice.finish_reason
             logger.info(f"OpenRouter response: model={target_model}, finish={finish}, content_len={len(content) if content else 0}, content_preview={repr(content[:100]) if content else 'None'}")
             if not content:
                 content = "The model did not generate a response. Please try again."
@@ -112,7 +120,8 @@ class ProviderRouter:
                         messages=messages,
                         max_tokens=max_tokens,
                     )
-                    content = response.choices[0].message.content or ""
+                    choices = response.choices or []
+                    content = choices[0].message.content if choices and choices[0].message else ""
                     prompt_tokens = response.usage.prompt_tokens if response.usage else 0
                     completion_tokens = response.usage.completion_tokens if response.usage else 0
                     return {
