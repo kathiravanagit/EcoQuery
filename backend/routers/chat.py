@@ -59,9 +59,16 @@ def clean_response(text: str, max_words: int = 60) -> str:
     text = re.sub(r'^#{1,6}\s+.*$', '', text, flags=re.MULTILINE)
     text = re.sub(r'^\|.*\|.*$', '', text, flags=re.MULTILINE)
     text = re.sub(r'^---+$', '', text, flags=re.MULTILINE)
+    text = re.sub(r'\*\*|__|~~|`', '', text)
+    text = re.sub(r'^\s*(?:[-*+] |\d+[.)] )', '', text, flags=re.MULTILINE)
     # Collapse to single paragraph
-    text = re.sub(r'\n{2,}', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
     text = re.sub(r'\s{2,}', ' ', text)
+    text = text.strip()
+    # Keep the response within the requested sentence limit.
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    if len(sentences) > 4:
+        text = ' '.join(sentences[:4])
     # Trim to max words
     words = text.split()
     if len(words) > max_words:
@@ -381,12 +388,14 @@ async def chat_stream(req: ChatRequest, request: Request):
             ):
                 if token:
                     full_reply += token
-                    yield f"data: {json.dumps({'token': token})}\n\n"
         except Exception as e:
             logger.warning(f"LLM streaming failed: {e}")
             is_mocked = True
             full_reply = "I'm sorry, I encountered an error processing your request. Please try again or contact support if the issue persists."
-            yield f"data: {json.dumps({'token': full_reply})}\n\n"
+
+        cleaned_reply = clean_response(full_reply)
+        if cleaned_reply:
+            yield f"data: {json.dumps({'token': cleaned_reply})}\n\n"
 
         latency_seconds = round(time.time() - start_time, 3)
         v_result = verifier.verify_completion(
