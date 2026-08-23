@@ -214,9 +214,16 @@ async def exchange_code(code: str):
     await auth_db.oauth_codes_collection.delete_one({"code": code})
     # Check if code is expired (5 min)
     created = doc.get("created_at")
-    if created and (datetime.now(timezone.utc) - created).total_seconds() > 300:
+    if not isinstance(created, datetime):
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    if (datetime.now(timezone.utc) - created).total_seconds() > 300:
         raise HTTPException(status_code=400, detail="Code expired")
-    return {"access_token": doc["token"], "token_type": "bearer"}
+    token = doc.get("token")
+    if not token:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    return {"access_token": token, "token_type": "bearer"}
 
 
 @router.get("/me")
