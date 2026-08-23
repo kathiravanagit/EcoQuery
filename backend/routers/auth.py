@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import RedirectResponse
 from datetime import datetime, timezone, timedelta
 import os
@@ -6,6 +6,7 @@ import secrets
 import logging
 import httpx
 from urllib.parse import urlencode
+from hmac import compare_digest
 
 logger = logging.getLogger("EcoQuery.auth.router")
 
@@ -34,12 +35,12 @@ def _generate_state() -> str:
     return state
 
 
-def _validate_state(state: str) -> bool:
+def _validate_state(state: str, cookie_state: str = "") -> bool:
     """Validate and consume an OAuth state parameter."""
-    if state not in _oauth_states:
-        return False
-    expiry = _oauth_states.pop(state)
-    return datetime.now(timezone.utc) < expiry
+    if state in _oauth_states:
+        expiry = _oauth_states.pop(state)
+        return datetime.now(timezone.utc) < expiry
+    return bool(cookie_state and compare_digest(state, cookie_state))
 
 
 def _cleanup_states():
@@ -103,13 +104,18 @@ async def google_login():
         "scope": "openid email profile",
         "state": state,
     })
-    return RedirectResponse(url=f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+    response = RedirectResponse(url=f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+    response.set_cookie(
+        "oauth_state", state, max_age=600, httponly=True,
+        secure=redirect_uri.startswith("https://"), samesite="lax", path="/api/auth"
+    )
+    return response
 
 
 @router.get("/google/callback")
-async def google_callback(code: str, state: str = ""):
+async def google_callback(request: Request, code: str, state: str = ""):
     # Validate state parameter to prevent CSRF
-    if not state or not _validate_state(state):
+    if not state or not _validate_state(state, request.cookies.get("oauth_state", "")):
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state. Please try again.")
     
     client_id = os.getenv("GOOGLE_CLIENT_ID", "")
@@ -177,7 +183,9 @@ async def google_callback(code: str, state: str = ""):
             "created_at": datetime.now(timezone.utc),
         })
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    return RedirectResponse(url=f"{frontend_url}/auth/callback?code={code}")
+    response = RedirectResponse(url=f"{frontend_url}/auth/callback?code={code}")
+    response.delete_cookie("oauth_state", path="/api/auth")
+    return response
 
 
 @router.get("/exchange")
