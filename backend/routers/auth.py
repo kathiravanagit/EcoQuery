@@ -114,41 +114,58 @@ async def google_callback(code: str, state: str = ""):
     
     client_id = os.getenv("GOOGLE_CLIENT_ID", "")
     client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        logger.error("Google OAuth callback received without complete credentials")
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured on the server.")
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/auth/google/callback")
     token_url = "https://oauth2.googleapis.com/token"
     data = {
         "code": code, "client_id": client_id, "client_secret": client_secret,
         "redirect_uri": redirect_uri, "grant_type": "authorization_code"
     }
-    async with httpx.AsyncClient() as client:
-        token_resp = await client.post(token_url, data=data)
-        if token_resp.status_code != 200:
-            raise HTTPException(status_code=400, detail="Google OAuth failed")
-        tokens = token_resp.json()
-        userinfo_resp = await client.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {tokens['access_token']}"}
-        )
-        if userinfo_resp.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to get user info")
-        google_user = userinfo_resp.json()
-    google_id = google_user["id"]
-    email = google_user["email"]
-    name = google_user.get("name", email)
-    existing = await auth_db.find_user_by_google_id(google_id)
-    if not existing:
-        existing_email = await auth_db.find_user_by_email(email)
-        if existing_email:
-            await auth_db.collection.update_one({"email": email}, {"$set": {"google_id": google_id, "auth_provider": "google", "email_verified": True}})
-        else:
-            user = UserInDB(
-                email=email, hashed_password="", display_name=name,
-                auth_provider="google", google_id=google_id,
-                created_at=datetime.now(timezone.utc).isoformat(),
-                email_verified=True
+    try:
+        async with httpx.AsyncClient() as client:
+            token_resp = await client.post(token_url, data=data)
+            if token_resp.status_code != 200:
+                logger.warning("Google token exchange failed with status %s", token_resp.status_code)
+                raise HTTPException(status_code=400, detail="Google OAuth failed. Please try again.")
+            tokens = token_resp.json()
+            access_token = tokens.get("access_token")
+            if not access_token:
+                raise HTTPException(status_code=400, detail="Google did not return an access token.")
+            userinfo_resp = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
             )
-            await auth_db.create_user(user)
-    token = create_access_token({"sub": email})
+            if userinfo_resp.status_code != 200:
+                logger.warning("Google user info request failed with status %s", userinfo_resp.status_code)
+                raise HTTPException(status_code=400, detail="Failed to get Google user information.")
+            google_user = userinfo_resp.json()
+        google_id = google_user.get("id")
+        email = google_user.get("email")
+        if not google_id or not email:
+            raise HTTPException(status_code=400, detail="Google returned incomplete user information.")
+        name = google_user.get("name", email)
+        existing = await auth_db.find_user_by_google_id(google_id)
+        if not existing:
+            existing_email = await auth_db.find_user_by_email(email)
+            if existing_email:
+                await auth_db.collection.update_one({"email": email}, {"$set": {"google_id": google_id, "auth_provider": "google", "email_verified": True}})
+            else:
+                user = UserInDB(
+                    email=email, hashed_password="", display_name=name,
+                    auth_provider="google", google_id=google_id,
+                    created_at=datetime.now(timezone.utc).isoformat(),
+                    email_verified=True
+                )
+                if not await auth_db.create_user(user):
+                    raise HTTPException(status_code=503, detail="Could not create your account.")
+        token = create_access_token({"sub": email})
+    except HTTPException:
+        raise
+    except (httpx.HTTPError, ValueError, KeyError) as exc:
+        logger.exception("Google OAuth callback failed: %s", exc)
+        raise HTTPException(status_code=400, detail="Google sign-in could not be completed. Please try again.")
     # Store token as short-lived auth code (5 min TTL)
     import secrets
     code = secrets.token_urlsafe(32)
