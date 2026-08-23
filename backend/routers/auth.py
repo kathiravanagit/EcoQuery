@@ -133,7 +133,11 @@ async def google_callback(request: Request, code: str, state: str = ""):
         async with httpx.AsyncClient() as client:
             token_resp = await client.post(token_url, data=data)
             if token_resp.status_code != 200:
-                logger.warning("Google token exchange failed with status %s", token_resp.status_code)
+                try:
+                    google_error = token_resp.json().get("error_description", "unknown error")
+                except ValueError:
+                    google_error = "non-JSON response"
+                logger.warning("Google token exchange failed with status %s: %s", token_resp.status_code, google_error)
                 raise HTTPException(status_code=400, detail="Google OAuth failed. Please try again.")
             tokens = token_resp.json()
             access_token = tokens.get("access_token")
@@ -176,12 +180,17 @@ async def google_callback(request: Request, code: str, state: str = ""):
     import secrets
     code = secrets.token_urlsafe(32)
     from auth import auth_db
-    if auth_db.available and auth_db.oauth_codes_collection is not None:
+    if not auth_db.available or auth_db.oauth_codes_collection is None:
+        raise HTTPException(status_code=503, detail="Authentication service is temporarily unavailable.")
+    try:
         await auth_db.oauth_codes_collection.insert_one({
             "code": code,
             "token": token,
             "created_at": datetime.now(timezone.utc),
         })
+    except Exception as exc:
+        logger.exception("Failed to store Google OAuth exchange code: %s", exc)
+        raise HTTPException(status_code=503, detail="Authentication service is temporarily unavailable.") from exc
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
     response = RedirectResponse(url=f"{frontend_url}/auth/callback?code={code}")
     response.delete_cookie("oauth_state", path="/api/auth")
