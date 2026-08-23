@@ -141,7 +141,7 @@ async def google_callback(request: Request, code: str, state: str = ""):
                 except ValueError:
                     google_error = "non-JSON response"
                 logger.warning("Google token exchange failed with status %s: %s", token_resp.status_code, google_error)
-                raise HTTPException(status_code=400, detail="Google OAuth failed. Please try again.")
+                raise HTTPException(status_code=400, detail=f"Google OAuth failed: {google_error}")
             tokens = token_resp.json()
             access_token = tokens.get("access_token")
             if not access_token:
