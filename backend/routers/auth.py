@@ -5,6 +5,7 @@ import os
 import secrets
 import logging
 import httpx
+from urllib.parse import urlencode
 
 logger = logging.getLogger("EcoQuery.auth.router")
 
@@ -95,7 +96,13 @@ async def google_login():
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/auth/google/callback")
     state = _generate_state()
-    params = f"client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope=openid%20email%20profile&state={state}"
+    params = urlencode({
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+    })
     return RedirectResponse(url=f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
 
 

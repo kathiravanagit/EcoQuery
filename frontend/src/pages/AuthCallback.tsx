@@ -11,27 +11,33 @@ const AuthCallback = () => {
 
   useEffect(() => {
     const code = params.get('code');
-    if (code) {
-      fetch(`${API}/api/auth/exchange?code=${code}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.access_token) {
-            localStorage.setItem('token', data.access_token);
-            localStorage.setItem('remember', 'true');
-            return fetch(`${API}/api/auth/me`, {
-              headers: { Authorization: `Bearer ${data.access_token}` }
-            }).then(r => r.ok ? r.json() : null).then(u => {
-              if (u) localStorage.setItem('user', JSON.stringify(u));
-            });
-          } else {
-            setError(data.detail || 'Sign in failed. Please try again.');
-          }
-        })
-        .catch(() => setError('Network error. Please try again.'))
-        .finally(() => { if (!error) setTimeout(() => navigate('/'), 500); });
-    } else {
-      setTimeout(() => navigate('/'), 500);
+    const oauthError = params.get('error');
+    if (!code) {
+      setError(oauthError || 'Sign in was cancelled. Please try again.');
+      return;
     }
+
+    let cancelled = false;
+    const completeSignIn = async () => {
+      try {
+        const response = await fetch(`${API}/api/auth/exchange?code=${encodeURIComponent(code)}`);
+        const data = await response.json();
+        if (!response.ok || !data.access_token) {
+          throw new Error(data.detail || 'Sign in failed. Please try again.');
+        }
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('remember', 'true');
+        const userResponse = await fetch(`${API}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${data.access_token}` }
+        });
+        if (userResponse.ok) localStorage.setItem('user', JSON.stringify(await userResponse.json()));
+        if (!cancelled) navigate('/');
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Network error. Please try again.');
+      }
+    };
+    completeSignIn();
+    return () => { cancelled = true; };
   }, [params, navigate]);
 
   return (
