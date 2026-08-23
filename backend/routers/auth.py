@@ -6,7 +6,8 @@ import secrets
 import logging
 import httpx
 from urllib.parse import urlencode
-from hmac import compare_digest
+from hashlib import sha256
+from hmac import compare_digest, new as hmac_new
 
 logger = logging.getLogger("EcoQuery.auth.router")
 
@@ -29,21 +30,22 @@ _oauth_states: dict[str, datetime] = {}
 
 
 def _generate_state() -> str:
-    """Generate and store a random OAuth state parameter."""
-    state = secrets.token_urlsafe(32)
-    _oauth_states[state] = datetime.now(timezone.utc) + timedelta(minutes=10)
-    return state
+    """Generate a short-lived signed OAuth state parameter."""
+    payload = f"{int(datetime.now(timezone.utc).timestamp())}.{secrets.token_urlsafe(24)}"
+    signature = hmac_new(SECRET_KEY.encode(), payload.encode(), sha256).hexdigest()
+    return f"{payload}.{signature}"
 
 
 def _validate_state(state: str, cookie_state: str = "") -> bool:
     """Validate and consume an OAuth state parameter."""
-    if cookie_state and compare_digest(state, cookie_state):
-        _oauth_states.pop(state, None)
-        return True
-    if state in _oauth_states:
-        expiry = _oauth_states.pop(state)
-        return datetime.now(timezone.utc) < expiry
-    return False
+    try:
+        timestamp, nonce, signature = state.split(".", 2)
+        payload = f"{timestamp}.{nonce}"
+        expected = hmac_new(SECRET_KEY.encode(), payload.encode(), sha256).hexdigest()
+        age = datetime.now(timezone.utc).timestamp() - int(timestamp)
+        return 0 <= age < 600 and compare_digest(signature, expected)
+    except (ValueError, TypeError):
+        return False
 
 
 def _cleanup_states():
