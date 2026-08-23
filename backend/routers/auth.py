@@ -37,10 +37,13 @@ def _generate_state() -> str:
 
 def _validate_state(state: str, cookie_state: str = "") -> bool:
     """Validate and consume an OAuth state parameter."""
+    if cookie_state and compare_digest(state, cookie_state):
+        _oauth_states.pop(state, None)
+        return True
     if state in _oauth_states:
         expiry = _oauth_states.pop(state)
         return datetime.now(timezone.utc) < expiry
-    return bool(cookie_state and compare_digest(state, cookie_state))
+    return False
 
 
 def _cleanup_states():
