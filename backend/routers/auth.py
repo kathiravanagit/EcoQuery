@@ -169,9 +169,9 @@ async def google_callback(request: Request, code: str, state: str = ""):
         token = create_access_token({"sub": email})
     except HTTPException:
         raise
-    except (httpx.HTTPError, ValueError, KeyError) as exc:
+    except Exception as exc:
         logger.exception("Google OAuth callback failed: %s", exc)
-        raise HTTPException(status_code=400, detail="Google sign-in could not be completed. Please try again.")
+        raise HTTPException(status_code=400, detail="Google sign-in could not be completed. Please try again.") from exc
     # Store token as short-lived auth code (5 min TTL)
     import secrets
     code = secrets.token_urlsafe(32)
