@@ -184,7 +184,6 @@ async def google_callback(request: Request, code: str, state: str = ""):
     # Store token as short-lived auth code (5 min TTL)
     import secrets
     code = secrets.token_urlsafe(32)
-    from auth import auth_db
     if not auth_db.available or auth_db.oauth_codes_collection is None:
         raise HTTPException(status_code=503, detail="Authentication service is temporarily unavailable.")
     try:
