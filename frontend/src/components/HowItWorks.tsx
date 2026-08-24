@@ -137,7 +137,7 @@ const HowItWorks = () => {
             padding: '1.5rem', maxWidth: 600, margin: '0 auto',
           }}>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center' }}>
-              Real-time carbon intensity (g CO₂/kWh) across regions — lower is greener
+              Real-time carbon intensity (g CO₂/kWh) across regions. Lower is greener
             </p>
             {regionData.map((r, i) => (
               <motion.div key={r.name} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }}

@@ -63,13 +63,14 @@ const LiveDemo = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [overrideModel, setOverrideModel] = useState('');
   const [models, setModels] = useState<any[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch(`${API}/api/models`).then(r => r.json()).then(d => setModels(d.models || [])).catch(() => {});
+    fetch(`${API}/api/models`).then(r => r.json()).then(d => setModels(d.models || [])).catch(() => {}).finally(() => setModelsLoading(false));
   }, []);
 
   const scrollToBottom = () => {
@@ -159,8 +160,9 @@ const LiveDemo = () => {
                 <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>
                   Auto Mode
                 </span>
-                <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} className="model-picker" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
+                <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} disabled={modelsLoading} className="model-picker" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
                   <option value="">Auto (Greenest)</option>
+                  {modelsLoading && <option disabled>Loading models...</option>}
                   <option disabled>──────────</option>
                   {['green', 'balanced', 'performance'].map(tier => {
                     const tierModels = models.filter(m => m.tier === tier);
@@ -264,7 +266,7 @@ const LiveDemo = () => {
                 </button>
                 <input type="text" placeholder="Ask something to test the routing..." value={input} onChange={(e) => setInput(e.target.value)} aria-label="Chat message" />
               </div>
-              <motion.button type="submit" aria-label="Send message" disabled={(!input.trim() && attachedImages.length === 0) || isTyping} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <motion.button type="submit" aria-label="Send message" disabled={(!input.trim() && attachedImages.length === 0) || isTyping} whileHover={{ y: -2 }} whileTap={{ y: 0 }}>
                 <Send size={18} />
               </motion.button>
             </form>

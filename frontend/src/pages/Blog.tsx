@@ -27,7 +27,7 @@ const Blog = () => {
       <section className="section">
         <div className="container">
           <motion.div className="section-header" {...fadeUp}>
-            <h1>Blog — <span className="text-gradient">Green AI Insights</span></h1>
+            <h1>Blog: <span className="text-gradient">Green AI Insights</span></h1>
             <p>Research, guides, and insights on sustainable AI and carbon-aware computing.</p>
           </motion.div>
 

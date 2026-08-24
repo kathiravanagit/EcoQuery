@@ -23,14 +23,14 @@ AI inference is projected to consume more energy than training by 2027. Yet most
 
 **How It Works:**
 
-1. **Query Classification** — A lightweight classifier determines query complexity
-2. **Carbon Intensity Check** — Real-time data from Electricity Maps API
-3. **Smart Routing** — Queries are sent to the greenest available data center
-4. **Verification** — Independent audit logs prove the carbon savings
+1. **Query Classification:** A lightweight classifier determines query complexity
+2. **Carbon Intensity Check:** Real-time data from Electricity Maps API
+3. **Smart Routing:** Queries are sent to the greenest available data center
+4. **Verification:** Independent audit logs prove the carbon savings
 
 **The Impact:**
 
-A single GPT-4 query produces approximately 0.8g of CO₂. By routing to green regions (like Sweden or Norway), this drops to 0.05g — a 93% reduction.
+A single GPT-4 query produces approximately 0.8g of CO₂. By routing to green regions (like Sweden or Norway), this drops to 0.05g, a 93% reduction.
 
 **Code Example:**
 
@@ -64,7 +64,7 @@ Companies are under increasing pressure to report and reduce their AI carbon foo
     iconKey: 'cpu',
     tags: ['AI Emissions', 'Energy', 'Sustainability'],
     content: `
-The AI industry has a dirty secret: while training gets all the attention, inference — the act of running queries — is the real energy consumer.
+The AI industry has a dirty secret: while training gets all the attention, inference, the act of running queries, is the real energy consumer.
 
 **The Numbers:**
 
@@ -105,7 +105,7 @@ print(f"Reduction: {((india_co2 - sweden_co2) / india_co2 * 100):.0f}%")
 
 **The Solution:**
 
-Carbon-aware routing doesn't eliminate inference energy use — it makes it cleaner. By sending queries to data centers powered by hydro, wind, or nuclear energy, we can reduce the carbon footprint of every AI interaction.
+Carbon-aware routing doesn't eliminate inference energy use. It makes it cleaner. By sending queries to data centers powered by hydro, wind, or nuclear energy, we can reduce the carbon footprint of every AI interaction.
     `
   },
   {
@@ -146,10 +146,10 @@ $ curl https://api.electricitymap.org/v3/carbon-intensity/se-stockholm
 
 **What to Look For:**
 
-1. **Renewable Energy Percentage** — Look for 100% renewable
-2. **Carbon Intensity** — Below 100 g/kWh is considered green
-3. **Power Usage Effectiveness (PUE)** — Lower is better (1.0 is perfect)
-4. **Cooling Methods** — Free cooling (air/water) vs mechanical cooling
+1. **Renewable Energy Percentage:** Look for 100% renewable
+2. **Carbon Intensity:** Below 100 g/kWh is considered green
+3. **Power Usage Effectiveness (PUE):** Lower is better (1.0 is perfect)
+4. **Cooling Methods:** Free cooling (air/water) vs mechanical cooling
 
 **How EcoQuery Uses This:**
 
@@ -251,7 +251,7 @@ Many companies now need to report AI emissions in their ESG reports. EcoQuery pr
   {
     id: 'future-of-green-ai',
     title: 'The Future of Green AI: What Comes Next',
-    excerpt: 'From carbon credits to neuromorphic computing — the next decade of sustainable AI.',
+    excerpt: 'From carbon credits to neuromorphic computing: the next decade of sustainable AI.',
     date: '2024-12-20',
     readTime: '6 min read',
     iconKey: 'leaf',
@@ -275,7 +275,7 @@ The green AI movement is just beginning. Here is what the next decade looks like
 
 **Long Term (2030+):**
 
-- Neuromorphic computing (brain-inspired chips) — 1000x more efficient
+- Neuromorphic computing (brain-inspired chips): 1000x more efficient
 - Quantum computing for optimization problems
 - AI self-optimizing for energy efficiency
 - Zero-carbon inference possible

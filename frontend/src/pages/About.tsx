@@ -27,7 +27,7 @@ const About = () => {
           <div className="about-story card">
             <h2>Our Mission</h2>
             <p>
-              AI inference is projected to consume more energy than training by 2027. Yet most optimization tools focus only on the training phase. EcoQuery was built to close this gap—intelligently routing queries to the most carbon-efficient model and region in real-time.
+              AI inference is projected to consume more energy than training by 2027. Yet most optimization tools focus only on the training phase. EcoQuery was built to close this gap by intelligently routing queries to the most carbon-efficient model and region in real-time.
             </p>
             <p>
               Founded on peer-reviewed research, we provide the first verifiable, real-time carbon-aware routing layer for LLM inference.

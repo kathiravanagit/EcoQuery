@@ -17,6 +17,14 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --ease-standard: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --type-xs: 0.75rem;
+  --type-sm: 0.875rem;
+  --type-md: 1rem;
+  --type-lg: 1.25rem;
+  --type-xl: 2rem;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   --font-sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   /* Semantic colors */
@@ -69,6 +77,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.2s ease, color 0.2s ease;
   overflow-x: hidden;
+}
+
+p {
+  line-height: 1.65;
+  margin-bottom: 1rem;
 }
 
 ::selection {
@@ -213,23 +226,9 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 500;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  transition: all 0.15s ease;
+  border-radius: var(--radius-sm);
+  transition: transform 0.2s var(--ease-standard), background-color 0.2s var(--ease-standard), border-color 0.2s var(--ease-standard), color 0.2s var(--ease-standard);
   gap: 0.5rem;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(120deg, rgba(255,255,255,0), rgba(255,255,255,0.1), rgba(255,255,255,0));
-  transform: translateX(-100%);
-  transition: transform 0.4s ease;
-}
-
-.btn:hover::after {
-  transform: translateX(100%);
 }
 
 .btn-primary {
@@ -241,7 +240,7 @@ h1, h2, h3, h4, h5, h6 {
 .btn-primary:hover {
   background-color: transparent;
   color: var(--accent);
-  box-shadow: 0 2px 8px rgba(0, 255, 65, 0.08);
+  transform: translateY(-2px);
 }
 
 .btn-primary:active {
@@ -258,6 +257,7 @@ h1, h2, h3, h4, h5, h6 {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--bg-hover);
+  transform: translateY(-2px);
 }
 
 .btn-secondary:active {
@@ -269,12 +269,22 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   padding: 2rem;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-md);
+  transition: transform 0.2s var(--ease-standard), border-color 0.2s var(--ease-standard);
 }
 
 .card:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 30px rgba(0, 255, 65, 0.05);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Glass effect */

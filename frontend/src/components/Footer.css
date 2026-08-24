@@ -72,13 +72,15 @@
   border: 1px solid var(--border-color);
   background: var(--bg-color);
   color: var(--text-secondary);
-  transition: all 0.15s ease;
+  border-radius: var(--radius-sm);
+  transition: transform 0.2s var(--ease-standard), border-color 0.2s var(--ease-standard), color 0.2s var(--ease-standard), background-color 0.2s var(--ease-standard);
 }
 
 .social-links a:hover {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--bg-hover);
+  transform: translateY(-2px);
 }
 
 .footer-links {

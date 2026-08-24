@@ -95,7 +95,6 @@
 
 .pricing-featured {
   border-color: var(--accent);
-  box-shadow: 0 0 30px rgba(0, 255, 65, 0.1);
 }
 
 .pricing-badge {
@@ -230,7 +229,8 @@
 .contact-form textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .contact-form .btn {
@@ -363,7 +363,6 @@
 
 .input-group:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
 }
 
 .input-group input {
@@ -544,7 +543,8 @@
 .profile-field input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.1);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .profile-message {
@@ -815,7 +815,6 @@
   border: 2px solid var(--accent);
   padding: 2.5rem 2rem;
   text-align: center;
-  box-shadow: 0 0 60px rgba(0, 255, 65, 0.08), inset 0 0 30px rgba(0, 255, 65, 0.03);
   position: relative;
   overflow: hidden;
 }
