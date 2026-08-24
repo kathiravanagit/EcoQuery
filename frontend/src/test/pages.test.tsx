@@ -24,8 +24,8 @@ describe('Pricing page', () => {
 describe('Contact page', () => {
   it('renders the contact form', () => {
     render(<MemoryRouter><Contact /></MemoryRouter>);
-    expect(screen.getByPlaceholderText('Your Name')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Your Email')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('$ your name')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('$ your email')).toBeInTheDocument();
   });
 });
 

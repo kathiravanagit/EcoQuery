@@ -13,28 +13,31 @@ interface StatCounterProps {
 }
 
 const StatCounter = ({ end, suffix = '', label, detail, decimals }: StatCounterProps) => {
-  const [count, setCount] = useState(0);
+  const [count, setCount] = useState(end);
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
 
   useEffect(() => {
-    if (isInView) {
-      let start = 0;
-      const duration = 2000;
-      const increment = end / (duration / 16);
-
-      const timer = setInterval(() => {
-        start += increment;
-        if (start >= end) {
-          setCount(end);
-          clearInterval(timer);
-        } else {
-          setCount(decimals !== undefined ? Number(start.toFixed(decimals)) : Math.ceil(start));
-        }
-      }, 16);
-
-      return () => clearInterval(timer);
+    if (!isInView) {
+      setCount(end);
+      return;
     }
+
+    let start = 0;
+    const duration = 1200;
+    const increment = end / (duration / 16);
+
+    const timer = setInterval(() => {
+      start += increment;
+      if (start >= end) {
+        setCount(end);
+        clearInterval(timer);
+      } else {
+        setCount(decimals !== undefined ? Number(start.toFixed(decimals)) : Math.ceil(start));
+      }
+    }, 16);
+
+    return () => clearInterval(timer);
   }, [end, isInView, decimals]);
 
   return (
@@ -56,12 +59,14 @@ interface ImpactStatsData {
 
 const ImpactStats = () => {
   const [stats, setStats] = useState<ImpactStatsData | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${API}/api/stats`)
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(d => setStats(d))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setStatsLoading(false));
   }, []);
 
   const totalQueries = stats?.total_queries || 0;
@@ -78,11 +83,13 @@ const ImpactStats = () => {
           transition={{ duration: 0.6 }}
         >
           <div className="stats-header">
-            <h2>{hasData ? "Live" : "Target"} <span className="text-gradient">Impact</span></h2>
-            <p>{hasData ? "Real aggregate metrics from routed queries." : "Design targets for sustainable AI routing. Real results vary by region and provider."}</p>
+            <h2>{statsLoading ? "Loading" : hasData ? "Live" : "Target"} <span className="text-gradient">Impact</span></h2>
+            <p>{statsLoading ? "Fetching the latest routing metrics." : hasData ? "Real aggregate metrics from routed queries." : "Design targets for sustainable AI routing. Real results vary by region and provider."}</p>
           </div>
           
-          <div className="stats-grid">
+          {statsLoading ? (
+            <div className="stats-loading" role="status">Loading live impact data...</div>
+          ) : <div className="stats-grid">
             {hasData ? (
               <>
                 <StatCounter end={stats?.green_query_pct || 0} suffix="%" label="Queries on Green Tier" />
@@ -96,7 +103,7 @@ const ImpactStats = () => {
                 <StatCounter end={100} suffix="ms" label="Latency Overhead Target (Design Target)" detail="added by routing logic" />
               </>
             )}
-          </div>
+          </div>}
 
           {totalQueries > 0 && (
             <div className="stats-live-note">

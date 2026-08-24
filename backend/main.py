@@ -90,7 +90,14 @@ async def lifespan(app: FastAPI):
     otp_task.cancel()
     logger.info("Shutting down EcoQuery backend...")
 
-app = FastAPI(title="EcoQuery Backend", lifespan=lifespan)
+api_docs_enabled = os.getenv("ENABLE_API_DOCS", "false").lower() == "true"
+app = FastAPI(
+    title="EcoQuery Backend",
+    lifespan=lifespan,
+    docs_url="/docs" if api_docs_enabled else None,
+    redoc_url="/redoc" if api_docs_enabled else None,
+    openapi_url="/openapi.json" if api_docs_enabled else None,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -138,7 +145,8 @@ app.include_router(ollama_router)
 
 @app.get("/")
 async def root():
-    return {"message": "EcoQuery API — see /docs for Swagger UI or visit https://eco2query.vercel.app for the frontend"}
+    docs_message = " Swagger UI: /docs." if api_docs_enabled else " API documentation is disabled in production."
+    return {"message": f"EcoQuery API.{docs_message} Frontend: https://eco2query.vercel.app"}
 
 
 if __name__ == "__main__":

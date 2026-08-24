@@ -61,6 +61,7 @@ const LiveDemo = () => {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isWaking, setIsWaking] = useState(false);
   const [overrideModel, setOverrideModel] = useState('');
   const [models, setModels] = useState<any[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
@@ -126,6 +127,8 @@ const LiveDemo = () => {
     setInput('');
     setAttachedImages([]);
     setIsTyping(true);
+    setIsWaking(false);
+    const wakeTimer = window.setTimeout(() => setIsWaking(true), 1500);
     try {
       const response = await fetch(`${API}/api/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -140,7 +143,11 @@ const LiveDemo = () => {
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply, metadata: meta }]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to the routing backend. Please ensure the backend server is running.' }]);
-    } finally { setIsTyping(false); }
+    } finally {
+      window.clearTimeout(wakeTimer);
+      setIsTyping(false);
+      setIsWaking(false);
+    }
   };
 
   return (
@@ -225,7 +232,7 @@ const LiveDemo = () => {
               <AnimatePresence>
                 {isTyping && (
                   <motion.div className="message assistant typing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <div className="typing-indicator"><span></span><span></span><span></span></div>
+                    <div className="typing-indicator"><span></span><span></span><span></span><em>{isWaking ? 'Router is waking up...' : 'Routing your query...'}</em></div>
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -30,6 +30,15 @@
   gap: 2rem;
 }
 
+.stats-loading {
+  min-height: 5rem;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--type-sm);
+}
+
 .stat-item {
   display: flex;
   flex-direction: column;

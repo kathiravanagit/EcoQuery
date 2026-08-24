@@ -558,7 +558,7 @@
 }
 
 .profile-message-success {
-  background: rgba(0, 255, 65, 0.1);
+  background: var(--bg-secondary);
   color: var(--accent);
 }
 
@@ -839,7 +839,6 @@
 .dashboard-badge-icon {
   color: var(--accent);
   margin-bottom: 0.5rem;
-  filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.4));
 }
 
 .dashboard-badge-title {

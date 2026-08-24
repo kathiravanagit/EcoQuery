@@ -134,7 +134,7 @@
 .meta-tag.savings {
   color: var(--accent);
   border-color: var(--border-color);
-  background: rgba(0, 255, 65, 0.05);
+  background: var(--bg-color);
 }
 
 .typing-indicator {

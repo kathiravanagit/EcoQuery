@@ -2,10 +2,10 @@
   "name": "EcoQuery",
   "short_name": "EcoQuery",
   "description": "Carbon-aware LLM query routing. Reduce AI inference emissions.",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a1a",
-  "theme_color": "#00d46a",
+  "background_color": "#0a0a0a",
+  "theme_color": "#2bb673",
   "orientation": "portrait-primary",
   "icons": [
     {

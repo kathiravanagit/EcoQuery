@@ -13,7 +13,6 @@ import LiveDemo from './components/LiveDemo';
 import Research from './components/Research';
 import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
-import OnboardingWizard from './components/OnboardingWizard';
 import { PageSkeleton } from './components/Skeleton';
 
 const About = lazy(() => import('./pages/About'));
@@ -72,10 +71,6 @@ function HomePage() {
 function AppContent() {
   const location = useLocation();
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    return !localStorage.getItem('ecoquery_onboarded');
-  });
-
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
@@ -84,14 +79,8 @@ function AppContent() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('ecoquery_onboarded', 'true');
-    setShowOnboarding(false);
-  };
-
   return (
     <div className="app-wrapper">
-      {showOnboarding && <OnboardingWizard onComplete={handleOnboardingComplete} />}
       <Navbar theme={theme} toggleTheme={toggleTheme} />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
