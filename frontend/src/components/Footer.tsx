@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Github, Mail } from 'lucide-react';
+import { GitBranch, Mail } from 'lucide-react';
 import './Footer.css';
 
 import { EASE_FN } from '../constants';
@@ -26,9 +26,9 @@ const Footer = () => {
           </p>
           <div className="social-links">
             <motion.a href="https://github.com/kathiravanagit/EcoQuery" target="_blank" rel="noopener noreferrer" aria-label="GitHub" whileHover={{ scale: 1.15, y: -3 }}>
-              <Github size={20} aria-hidden="true" />
+              <GitBranch size={20} aria-hidden="true" />
             </motion.a>
-            <motion.a href="mailto:kathiravanawork@gmail.com" aria-label="Email Support" whileHover={{ scale: 1.15, y: -3 }}>
+            <motion.a href="mailto:kathiravanawork@gmail.com" aria-label="Email Support" whileHover={{ y: -2 }}>
               <Mail size={20} />
             </motion.a>
           </div>
