@@ -11,6 +11,7 @@ from schemas import ChatRequest, ChatResponse
 from auth import SECRET_KEY, ALGORITHM, auth_db
 from models import CARBON_MODELS, FALLBACK_MODELS, VISION_MODEL
 from classifier import classifier
+from knowledge import knowledge_base
 from router import route_query, compute_savings
 from ledger import ledger
 from verifier import verifier
@@ -107,6 +108,13 @@ async def _build_routing(req: ChatRequest):
     model_sel = routing["model"]
     savings = routing["savings"]
 
+    # Check for direct 3,000-question knowledge match only when in EcoQuery Auto mode
+    knowledge_res = {"matched": False, "confidence": 0.0, "answer": None, "stored_question": None, "tier": None}
+    routing_mode = "manual" if req.model_id else "eco"
+
+    if not req.model_id and not req.images:
+        knowledge_res = knowledge_base.match(req.message, tier=classification["tier"])
+
     try:
         green_route = await green_router.route_to_greenest(query=req.message)
         green_model_id = await green_router.get_green_model(req.message)
@@ -187,7 +195,7 @@ async def _build_routing(req: ChatRequest):
                 "reason": "Vision model selected for image input",
             }
 
-    return classification, prompt_len, region_info, model_sel, savings
+    return classification, prompt_len, region_info, model_sel, savings, knowledge_res, routing_mode
 
 
 def _build_messages(req: ChatRequest):
@@ -208,34 +216,50 @@ def _build_messages(req: ChatRequest):
 def _build_metadata(
     classification, prompt_len, region_info, model_sel, savings,
     v_result, api_cost, latency_seconds, is_mocked, output_tokens, prompt_tokens,
+    answer_source: str = "llm",
+    knowledge_match: bool = False,
+    knowledge_confidence: float = 0.0,
+    llm_used: bool = True,
+    routing_mode: str = "eco",
 ):
     worst_savings = compute_savings(WORST_MODEL["carbon_score"], WORST_INTENSITY, prompt_length=prompt_len)
     routed_model_display = f"{model_sel['provider']} {model_sel['model']} via {region_info['region']} ({region_info['energy_source']})"
+    if answer_source == "ecoquery_knowledge":
+        routed_model_display = "EcoQuery Knowledge Base"
+
     return {
-        "model_used": routed_model_display, "model_id": model_sel["model"],
-        "model_tier": model_sel["tier"], "carbon_score": model_sel["carbon_score"],
-        "region": region_info["region"], "energy_source": region_info["energy_source"],
-        "co2_estimated_g": savings["estimated_co2_g"],
-        "co2_saved_g": savings["saved_vs_baseline_g"],
+        "model_used": routed_model_display,
+        "model_id": "ecoquery-knowledge" if not llm_used else model_sel["model"],
+        "model_tier": "knowledge" if not llm_used else model_sel["tier"],
+        "carbon_score": 0.0 if not llm_used else model_sel["carbon_score"],
+        "region": "local-direct" if not llm_used else region_info["region"],
+        "energy_source": "zero-emission" if not llm_used else region_info["energy_source"],
+        "co2_estimated_g": 0.0 if not llm_used else savings["estimated_co2_g"],
+        "co2_saved_g": worst_savings["estimated_co2_g"] if not llm_used else savings["saved_vs_baseline_g"],
         "tier": classification["tier"],
         "confidence": round(classification["confidence"], 3),
-        "is_mocked": is_mocked, "api_cost": api_cost,
+        "is_mocked": is_mocked,
+        "api_cost": api_cost,
         "latency_seconds": latency_seconds,
-        "estimated_latency_s": model_sel.get("estimated_latency_s", 0),
+        "estimated_latency_s": 0.01 if not llm_used else model_sel.get("estimated_latency_s", 0),
         "verification_status": v_result["status"],
         "verification_reason": v_result["reason"],
         "observed_tps": v_result["observed_tps"],
         "integrity_hash": v_result.get("integrity_hash", ""),
-        "routing_mode": "eco",
-        "is_local_inference": (model_sel["provider"] == "Ollama (Local)"),
+        "routing_mode": routing_mode,
+        "answer_source": answer_source,
+        "knowledge_match": knowledge_match,
+        "knowledge_confidence": round(knowledge_confidence, 3),
+        "llm_used": llm_used,
+        "is_local_inference": (model_sel["provider"] == "Ollama (Local)") or not llm_used,
         "what_if": {
             "baseline_model": WORST_MODEL["model"],
             "baseline_region": "ap-south-1 (Mumbai)",
             "baseline_co2_g": worst_savings["estimated_co2_g"],
-            "actual_model": model_sel["model"],
-            "actual_region": region_info["region"],
-            "actual_co2_g": savings["estimated_co2_g"],
-            "co2_saved_g": round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
+            "actual_model": "ecoquery-knowledge" if not llm_used else model_sel["model"],
+            "actual_region": "local-direct" if not llm_used else region_info["region"],
+            "actual_co2_g": 0.0 if not llm_used else savings["estimated_co2_g"],
+            "co2_saved_g": worst_savings["estimated_co2_g"] if not llm_used else round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
             "baseline_cost": 0.0,
             "actual_cost": api_cost,
         },
@@ -245,29 +269,41 @@ def _build_metadata(
 async def _record_and_notify(
     request: Request, req, classification, region_info, model_sel, savings,
     api_cost, latency_seconds, is_mocked, v_result,
+    routing_mode: str = "eco",
+    answer_source: str = "llm",
+    knowledge_match: bool = False,
+    knowledge_confidence: float = 0.0,
+    llm_used: bool = True,
 ):
     user_email = await _resolve_user_email(request)
     await ledger.record_query({
         "query": req.message, "tier": classification["tier"],
-        "model_used": model_sel["model"], "model_provider": model_sel["provider"],
-        "model_tier": model_sel["tier"], "carbon_score": model_sel["carbon_score"],
-        "region": region_info["region"], "energy_source": region_info["energy_source"],
-        "co2_estimated": savings["estimated_co2_g"],
-        "co2_saved_vs_baseline": savings["saved_vs_baseline_g"],
+        "model_used": "ecoquery-knowledge" if not llm_used else model_sel["model"],
+        "model_provider": "EcoQuery Knowledge" if not llm_used else model_sel["provider"],
+        "model_tier": "knowledge" if not llm_used else model_sel["tier"],
+        "carbon_score": 0.0 if not llm_used else model_sel["carbon_score"],
+        "region": "local-direct" if not llm_used else region_info["region"],
+        "energy_source": "zero-emission" if not llm_used else region_info["energy_source"],
+        "co2_estimated": 0.0 if not llm_used else savings["estimated_co2_g"],
+        "co2_saved_vs_baseline": savings["saved_vs_baseline_g"] if llm_used else 0.05,
         "is_mocked": is_mocked, "classifier_method": classification["method"],
         "classifier_confidence": classification["confidence"],
-        "carbon_method": region_info.get("method", "mock-fallback"),
+        "carbon_method": "zero-llm-knowledge" if not llm_used else region_info.get("method", "mock-fallback"),
         "api_cost": api_cost, "latency_seconds": latency_seconds,
         "verification_status": v_result["status"],
         "verification_confidence": v_result["confidence"],
         "observed_tps": v_result["observed_tps"],
         "integrity_hash": v_result.get("integrity_hash", ""),
-        "routing_mode": "eco",
-        "is_local_inference": (model_sel["provider"] == "Ollama (Local)")
+        "routing_mode": routing_mode,
+        "answer_source": answer_source,
+        "knowledge_match": knowledge_match,
+        "knowledge_confidence": knowledge_confidence,
+        "llm_used": llm_used,
+        "is_local_inference": (model_sel["provider"] == "Ollama (Local)") or not llm_used
     }, user_email=user_email)
 
     if user_email:
-        if region_info.get("carbon_intensity_g_kwh", 0) > 400:
+        if region_info.get("carbon_intensity_g_kwh", 0) > 400 and llm_used:
             await ws_manager.broadcast_to_user(user_email, "carbon.alert", {
                 "region": region_info["region"],
                 "carbon_intensity": region_info["carbon_intensity_g_kwh"],
@@ -276,27 +312,60 @@ async def _record_and_notify(
             })
         await ws_manager.broadcast_to_user(user_email, "query.routed", {
             "query": req.message[:100], "tier": classification["tier"],
-            "model": model_sel["model"], "region": region_info["region"],
-            "co2_g": savings["estimated_co2_g"],
-            "co2_saved_g": savings["saved_vs_baseline_g"],
+            "model": "ecoquery-knowledge" if not llm_used else model_sel["model"],
+            "region": "local-direct" if not llm_used else region_info["region"],
+            "co2_g": 0.0 if not llm_used else savings["estimated_co2_g"],
+            "co2_saved_g": savings["saved_vs_baseline_g"] if llm_used else 0.05,
             "api_cost": api_cost,
+            "answer_source": answer_source,
+            "llm_used": llm_used,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
         from routers.webhooks import fire_webhooks
         await fire_webhooks(user_email, "query.routed", {
-            "model": model_sel["model"],
+            "model": "ecoquery-knowledge" if not llm_used else model_sel["model"],
             "tier": classification["tier"],
-            "region": region_info["region"],
-            "co2_estimated_g": savings["estimated_co2_g"],
+            "region": "local-direct" if not llm_used else region_info["region"],
+            "co2_estimated_g": 0.0 if not llm_used else savings["estimated_co2_g"],
+            "answer_source": answer_source,
+            "llm_used": llm_used,
         })
 
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest, request: Request):
     start_time = time.time()
-    classification, prompt_len, region_info, model_sel, savings = await _build_routing(req)
-    target_model = model_sel["openrouter_id"] or model_sel["model"]
+    classification, prompt_len, region_info, model_sel, savings, knowledge_res, routing_mode = await _build_routing(req)
 
+    # ── ZERO-LLM DIRECT ANSWER PATH ──────────────────────────────────────────
+    if knowledge_res["matched"] and knowledge_res["answer"]:
+        latency_seconds = round(time.time() - start_time, 3)
+        v_result = {
+            "status": "verified",
+            "reason": "Direct verified EcoQuery knowledge answer",
+            "confidence": 1.0,
+            "observed_tps": 0.0,
+            "integrity_hash": "knowledge_zero_emission",
+        }
+        await _record_and_notify(
+            request, req, classification, region_info, model_sel, savings,
+            api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False, v_result=v_result,
+            routing_mode=routing_mode, answer_source="ecoquery_knowledge",
+            knowledge_match=True, knowledge_confidence=knowledge_res["confidence"], llm_used=False
+        )
+        return ChatResponse(
+            reply=knowledge_res["answer"],
+            metadata=_build_metadata(
+                classification, prompt_len, region_info, model_sel, savings,
+                v_result, api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False,
+                output_tokens=len(knowledge_res["answer"].split()), prompt_tokens=max(5, int(prompt_len / 4.0)),
+                answer_source="ecoquery_knowledge", knowledge_match=True,
+                knowledge_confidence=knowledge_res["confidence"], llm_used=False, routing_mode=routing_mode
+            )
+        )
+
+    # ── LLM ROUTING PATH ───────────────────────────────────────────────────
+    target_model = model_sel["openrouter_id"] or model_sel["model"]
     api_cost = 0.0
     prompt_tokens = max(5, int(prompt_len / 4.0))
     output_tokens = 40
@@ -356,6 +425,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     await _record_and_notify(
         request, req, classification, region_info, model_sel, savings,
         api_cost, latency_seconds, is_mocked, v_result,
+        routing_mode=routing_mode, answer_source="llm",
+        knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True
     )
 
     return ChatResponse(
@@ -363,13 +434,50 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         metadata=_build_metadata(
             classification, prompt_len, region_info, model_sel, savings,
             v_result, api_cost, latency_seconds, is_mocked, output_tokens, prompt_tokens,
+            answer_source="llm", knowledge_match=False,
+            knowledge_confidence=knowledge_res["confidence"], llm_used=True, routing_mode=routing_mode
         )
     )
 
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
-    classification, prompt_len, region_info, model_sel, savings = await _build_routing(req)
+    classification, prompt_len, region_info, model_sel, savings, knowledge_res, routing_mode = await _build_routing(req)
+
+    # ── ZERO-LLM DIRECT ANSWER STREAMING ───────────────────────────────────
+    if knowledge_res["matched"] and knowledge_res["answer"]:
+        async def generate_knowledge():
+            start_time = time.time()
+            latency_seconds = round(time.time() - start_time, 3)
+            v_result = {
+                "status": "verified",
+                "reason": "Direct verified EcoQuery knowledge answer",
+                "confidence": 1.0,
+                "observed_tps": 0.0,
+                "integrity_hash": "knowledge_zero_emission",
+            }
+            # Directly yield token without simulated delay
+            yield f"data: {json.dumps({'token': knowledge_res['answer']})}\n\n"
+
+            await _record_and_notify(
+                request, req, classification, region_info, model_sel, savings,
+                api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False, v_result=v_result,
+                routing_mode=routing_mode, answer_source="ecoquery_knowledge",
+                knowledge_match=True, knowledge_confidence=knowledge_res["confidence"], llm_used=False
+            )
+
+            metadata = _build_metadata(
+                classification, prompt_len, region_info, model_sel, savings,
+                v_result, api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False,
+                output_tokens=len(knowledge_res["answer"].split()), prompt_tokens=max(5, int(prompt_len / 4.0)),
+                answer_source="ecoquery_knowledge", knowledge_match=True,
+                knowledge_confidence=knowledge_res["confidence"], llm_used=False, routing_mode=routing_mode
+            )
+            yield f"data: {json.dumps({'done': True, 'metadata': metadata})}\n\n"
+
+        return StreamingResponse(generate_knowledge(), media_type="text/event-stream")
+
+    # ── LLM STREAMING PATH ─────────────────────────────────────────────────
     target_model = model_sel["openrouter_id"] or model_sel["model"]
     api_cost = 0.0
     prompt_tokens = max(5, int(prompt_len / 4.0))
@@ -407,11 +515,16 @@ async def chat_stream(req: ChatRequest, request: Request):
         await _record_and_notify(
             request, req, classification, region_info, model_sel, savings,
             api_cost, latency_seconds, is_mocked, v_result,
+            routing_mode=routing_mode, answer_source="llm",
+            knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True
         )
 
         yield f"data: {json.dumps({'done': True, 'metadata': _build_metadata(
             classification, prompt_len, region_info, model_sel, savings,
             v_result, api_cost, latency_seconds, is_mocked, output_tokens, prompt_tokens,
+            answer_source="llm", knowledge_match=False,
+            knowledge_confidence=knowledge_res["confidence"], llm_used=True, routing_mode=routing_mode
         )})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+

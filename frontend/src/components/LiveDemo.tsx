@@ -1,24 +1,30 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, X } from 'lucide-react';
+import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, CheckCircle2, Zap, Cpu } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
 
 interface Metadata {
-  model_used: string
-  model_id: string
-  model_tier: string
-  carbon_score: number
-  region: string
-  energy_source: string
-  co2_estimated_g: number
-  co2_saved_g: number
-  is_mocked: boolean
+  model_used?: string
+  model_id?: string
+  model_tier?: string
+  carbon_score?: number
+  region?: string
+  energy_source?: string
+  co2_estimated_g?: number
+  co2_saved_g?: number
+  is_mocked?: boolean
   verification_status?: string
   verification_reason?: string
   observed_tps?: number
   is_local_inference?: boolean
   routing_mode?: string
+  answer_source?: string
+  knowledge_match?: boolean
+  knowledge_confidence?: number
+  llm_used?: boolean
+  tier?: string
+  confidence?: number
   integrity_hash?: string
   estimated_latency_s?: number
   what_if?: {
@@ -55,13 +61,138 @@ const fadeUp = {
   transition: { duration: 0.6, ease: EASE_FN },
 };
 
+function formatTier(tier?: string): string {
+  if (!tier) return 'Moderate';
+  if (tier.toLowerCase() === 'medium') return 'Moderate';
+  return tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase();
+}
+
+function EcoInsight({ meta }: { meta: Metadata }) {
+  const [expanded, setExpanded] = useState(true);
+
+  const isKnowledgeAnswer = meta.answer_source === 'ecoquery_knowledge' || meta.llm_used === false;
+  const isManual = meta.routing_mode === 'manual';
+  const tierName = formatTier(meta.tier);
+
+  return (
+    <div className="eco-insight-container">
+      <button
+        type="button"
+        className="eco-insight-header"
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+      >
+        <div className="eco-insight-title">
+          <Leaf size={14} className="eco-leaf-icon" />
+          <span>Eco Insight</span>
+          {isKnowledgeAnswer ? (
+            <span className="eco-badge green-badge">Zero LLM • 100% Saved</span>
+          ) : (
+            <span className="eco-badge blue-badge">{tierName} Tier</span>
+          )}
+        </div>
+        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            className="eco-insight-body"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: EASE_FN }}
+          >
+            {isKnowledgeAnswer ? (
+              <div className="eco-insight-grid">
+                <div className="eco-insight-row">
+                  <span className="eco-label">Complexity:</span>
+                  <span className="eco-val">{tierName}</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Source:</span>
+                  <span className="eco-val highlight-green">EcoQuery Knowledge</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">LLM Used:</span>
+                  <span className="eco-val">No</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">LLM Call Avoided:</span>
+                  <span className="eco-val highlight-green">Yes (Zero Emissions)</span>
+                </div>
+              </div>
+            ) : isManual ? (
+              <div className="eco-insight-grid">
+                <div className="eco-insight-row">
+                  <span className="eco-label">Complexity:</span>
+                  <span className="eco-val">{tierName}</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Routing:</span>
+                  <span className="eco-val">User Selected</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Model:</span>
+                  <span className="eco-val">{meta.model_id || meta.model_used}</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Provider:</span>
+                  <span className="eco-val">{meta.model_used?.split(' ')[0] || 'Selected Provider'}</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Region:</span>
+                  <span className="eco-val">{meta.region || 'auto'}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="eco-insight-grid">
+                <div className="eco-insight-row">
+                  <span className="eco-label">Complexity:</span>
+                  <span className="eco-val">{tierName}</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Routing:</span>
+                  <span className="eco-val highlight-blue">EcoQuery Automatic</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Model:</span>
+                  <span className="eco-val">{meta.model_id || meta.model_used}</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Provider:</span>
+                  <span className="eco-val">{meta.model_used?.split(' ')[0] || 'Green Provider'}</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Region:</span>
+                  <span className="eco-val">{meta.region || 'Green Region'}</span>
+                </div>
+                {meta.energy_source && (
+                  <div className="eco-insight-row">
+                    <span className="eco-label">Carbon Intensity:</span>
+                    <span className="eco-val">{meta.energy_source}</span>
+                  </div>
+                )}
+                <div className="eco-insight-row">
+                  <span className="eco-label">Estimated CO₂:</span>
+                  <span className="eco-val">{meta.co2_estimated_g ?? 0}g</span>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 const LiveDemo = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'system', content: 'Welcome to EcoQuery Demo. Try asking a question!' }
+    { role: 'system', content: 'Welcome to EcoQuery. Ask any question to experience carbon-aware routing and zero-LLM knowledge answers!' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isWaking, setIsWaking] = useState(false);
+  const [routingStage, setRoutingStage] = useState<string>('Analyzing question...');
   const [overrideModel, setOverrideModel] = useState('');
   const [models, setModels] = useState<any[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
@@ -71,7 +202,11 @@ const LiveDemo = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch(`${API}/api/models`).then(r => r.json()).then(d => setModels(d.models || [])).catch(() => {}).finally(() => setModelsLoading(false));
+    fetch(`${API}/api/models`)
+      .then(r => r.json())
+      .then(d => setModels(d.models || []))
+      .catch(() => {})
+      .finally(() => setModelsLoading(false));
   }, []);
 
   const scrollToBottom = () => {
@@ -79,7 +214,7 @@ const LiveDemo = () => {
     if (el) el.scrollTop = el.scrollHeight;
   };
 
-  useEffect(() => { scrollToBottom(); }, [messages]);
+  useEffect(() => { scrollToBottom(); }, [messages, routingStage]);
 
   const MAX_IMAGES = 3;
   const MAX_FILE_SIZE_MB = 5;
@@ -119,6 +254,13 @@ const LiveDemo = () => {
     setAttachedImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const estimateQuickTier = (msg: string): string => {
+    const words = msg.trim().split(/\s+/).length;
+    if (words > 40 || msg.includes('```') || msg.includes('def ') || msg.includes('algorithm')) return 'Complex';
+    if (words > 10 || msg.toLowerCase().includes('explain') || msg.toLowerCase().includes('how does')) return 'Moderate';
+    return 'Simple';
+  };
+
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() && attachedImages.length === 0) return;
@@ -127,11 +269,27 @@ const LiveDemo = () => {
     setInput('');
     setAttachedImages([]);
     setIsTyping(true);
-    setIsWaking(false);
-    const wakeTimer = window.setTimeout(() => setIsWaking(true), 1500);
+
+    const isAuto = !overrideModel;
+    const estimated = estimateQuickTier(userMsg);
+
+    // Dynamic staged progression for EcoQuery Auto
+    if (isAuto) {
+      setRoutingStage('Analyzing question...');
+      setTimeout(() => {
+        setRoutingStage(`${estimated} question`);
+        setTimeout(() => {
+          setRoutingStage('Checking EcoQuery knowledge...');
+        }, 400);
+      }, 300);
+    } else {
+      setRoutingStage(`Routing to selected model...`);
+    }
+
     try {
       const response = await fetch(`${API}/api/chat`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMsg,
           ...(overrideModel ? { model_id: overrideModel } : {}),
@@ -144,9 +302,7 @@ const LiveDemo = () => {
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to the routing backend. Please ensure the backend server is running.' }]);
     } finally {
-      window.clearTimeout(wakeTimer);
       setIsTyping(false);
-      setIsWaking(false);
     }
   };
 
@@ -154,8 +310,8 @@ const LiveDemo = () => {
     <section id="demo" className="section demo-section">
       <div className="container">
         <motion.div className="section-header" {...fadeUp}>
-          <h2>Live <span className="text-gradient">Dashboard Demo</span></h2>
-          <p>Experience carbon-aware model routing in real-time.</p>
+          <h2>Live <span className="text-gradient">EcoQuery Router</span></h2>
+          <p>Experience zero-LLM direct knowledge matching and carbon-aware routing in real-time.</p>
         </motion.div>
 
         <motion.div className="demo-container" initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}>
@@ -165,10 +321,17 @@ const LiveDemo = () => {
               <span>EcoQuery Router Active</span>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>
-                  Auto Mode
+                  {!overrideModel ? 'Auto Mode' : 'Manual Mode'}
                 </span>
-                <select aria-label="Model override" value={overrideModel} onChange={e => setOverrideModel(e.target.value)} disabled={modelsLoading} className="model-picker" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
-                  <option value="">Auto (Greenest)</option>
+                <select
+                  aria-label="Model override"
+                  value={overrideModel}
+                  onChange={e => setOverrideModel(e.target.value)}
+                  disabled={modelsLoading}
+                  className="model-picker"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-primary)' }}
+                >
+                  <option value="">EcoQuery Auto</option>
                   {modelsLoading && <option disabled>Loading models...</option>}
                   <option disabled>──────────</option>
                   {['green', 'balanced', 'performance'].map(tier => {
@@ -186,7 +349,7 @@ const LiveDemo = () => {
                 </select>
               </div>
             </div>
-            
+
             <div className="chat-messages" ref={chatMessagesRef}>
               {messages.map((msg, idx) => (
                 <motion.div key={idx} className={`message ${msg.role}`} variants={msgVariants} initial="initial" animate="animate">
@@ -199,46 +362,48 @@ const LiveDemo = () => {
                       </div>
                     )}
                     <p>{msg.content}</p>
+
                     {msg.metadata && (
-                      <motion.div className="message-metadata" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      <span className="meta-tag">
-                        {msg.metadata.model_id}
-                      </span>
-                      <span className="meta-tag">
-                        {msg.metadata.model_used?.split(' via ')[0] || 'auto-routed'}
-                      </span>
-                          {msg.metadata.co2_saved_g > 0 && (
+                      <motion.div className="message-metadata-wrapper" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+                        <div className="meta-tags-row">
+                          <span className={`meta-tag ${msg.metadata.answer_source === 'ecoquery_knowledge' ? 'knowledge-tag' : ''}`}>
+                            {msg.metadata.answer_source === 'ecoquery_knowledge' ? '⚡ Knowledge Direct' : msg.metadata.model_id}
+                          </span>
+                          <span className="meta-tag">
+                            {formatTier(msg.metadata.tier)}
+                          </span>
+                          {msg.metadata.co2_saved_g && msg.metadata.co2_saved_g > 0 ? (
                             <span className="meta-tag savings">
                               -{msg.metadata.co2_saved_g}g CO₂ saved
                             </span>
-                          )}
+                          ) : null}
                           {msg.metadata.region && (
                             <span className="meta-tag">
                               {msg.metadata.region}
                             </span>
                           )}
-                          {msg.metadata.energy_source && (
-                            <span className="meta-tag">
-                              {msg.metadata.energy_source}
-                            </span>
-                          )}
                         </div>
+
+                        <EcoInsight meta={msg.metadata} />
                       </motion.div>
                     )}
                   </div>
                 </motion.div>
               ))}
+
               <AnimatePresence>
                 {isTyping && (
-                  <motion.div className="message assistant typing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <div className="typing-indicator"><span></span><span></span><span></span><em>{isWaking ? 'Router is waking up...' : 'Routing your query...'}</em></div>
+                  <motion.div className="message assistant typing" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                    <div className="typing-indicator">
+                      <span></span><span></span><span></span>
+                      <em className="typing-status">{routingStage}</em>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
               <div ref={messagesEndRef} />
             </div>
-            
+
             <form className="chat-input-form" onSubmit={handleSend}>
               {attachedImages.length > 0 && (
                 <div className="attached-files">
@@ -271,7 +436,13 @@ const LiveDemo = () => {
                 >
                   <Paperclip size={16} />
                 </button>
-                <input type="text" placeholder="Ask something to test the routing..." value={input} onChange={(e) => setInput(e.target.value)} aria-label="Chat message" />
+                <input
+                  type="text"
+                  placeholder="Ask something (e.g. 'What is photosynthesis?')..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  aria-label="Chat message"
+                />
               </div>
               <motion.button type="submit" aria-label="Send message" disabled={(!input.trim() && attachedImages.length === 0) || isTyping} whileHover={{ y: -2 }} whileTap={{ y: 0 }}>
                 <Send size={18} />

@@ -340,3 +340,127 @@
   padding: 0;
   font-size: 0.6rem;
 }
+
+/* Eco Insight & Staged Routing Styles */
+.message-metadata-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.meta-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.meta-tag.knowledge-tag {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(16, 185, 129, 0.1);
+  font-weight: 600;
+}
+
+.typing-status {
+  font-style: normal;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-left: 0.5rem;
+}
+
+.eco-insight-container {
+  margin-top: 0.4rem;
+  border-radius: 8px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.eco-insight-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.eco-insight-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.eco-insight-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+}
+
+.eco-leaf-icon {
+  color: var(--accent);
+}
+
+.eco-badge {
+  font-size: 0.68rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.eco-badge.green-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.eco-badge.blue-badge {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.eco-insight-body {
+  padding: 0.5rem 0.75rem 0.65rem;
+  border-top: 1px dashed var(--border-color);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.eco-insight-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.eco-insight-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.eco-label {
+  color: var(--text-secondary);
+}
+
+.eco-val {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.eco-val.highlight-green {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.eco-val.highlight-blue {
+  color: #60a5fa;
+  font-weight: 600;
+}
+

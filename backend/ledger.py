@@ -43,10 +43,14 @@ class VerificationLedger:
             "ledger_hash": self._compute_ledger_hash(entry, user_email),
         }
         if self.available and self.collection is not None:
-            result = await self.collection.insert_one(record)
-            if user_email:
-                await self._update_badges(user_email)
-            return str(result.inserted_id)
+            try:
+                result = await self.collection.insert_one(record)
+                if user_email:
+                    await self._update_badges(user_email)
+                return str(result.inserted_id)
+            except Exception as e:
+                logger.debug("Ledger insert_one failed: %s", e)
+                return "no-db-entry"
         return "no-db-entry"
 
     async def get_audit_log(self, limit: int = 50, skip: int = 0, user_email: str = "",
