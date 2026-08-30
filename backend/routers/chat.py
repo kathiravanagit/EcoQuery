@@ -12,6 +12,7 @@ from auth import SECRET_KEY, ALGORITHM, auth_db
 from models import CARBON_MODELS, FALLBACK_MODELS, VISION_MODEL
 from classifier import classifier
 from knowledge import knowledge_base
+from response_cache import response_cache
 from router import route_query, compute_savings
 from ledger import ledger
 from verifier import verifier
@@ -117,12 +118,16 @@ async def _build_routing(req: ChatRequest):
     model_sel = routing["model"]
     savings = routing["savings"]
 
-    # Check for direct 3,000-question knowledge match only when in EcoQuery Auto mode
     knowledge_res = {"matched": False, "confidence": 0.0, "answer": None, "stored_question": None, "tier": None}
+    cache_res = {"matched": False, "confidence": 0.0, "answer": None, "stored_question": None, "tier": None}
     routing_mode = "manual" if req.model_id else "eco"
 
     if not req.model_id and not req.images:
+        # Step 1: Check 3000-question knowledge match first
         knowledge_res = knowledge_base.match(req.message, tier=classification["tier"])
+        # Step 2: If no knowledge match, check persistent complex response cache
+        if not knowledge_res["matched"]:
+            cache_res = await response_cache.match(req.message, tier=classification["tier"])
 
     try:
         green_route = await green_router.route_to_greenest(query=req.message)
@@ -204,7 +209,7 @@ async def _build_routing(req: ChatRequest):
                 "reason": "Vision model selected for image input",
             }
 
-    return classification, prompt_len, region_info, model_sel, savings, knowledge_res, routing_mode
+    return classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode
 
 
 def _build_messages(req: ChatRequest):
@@ -230,15 +235,22 @@ def _build_metadata(
     knowledge_confidence: float = 0.0,
     llm_used: bool = True,
     routing_mode: str = "eco",
+    cache_hit: bool = False,
 ):
     worst_savings = compute_savings(WORST_MODEL["carbon_score"], WORST_INTENSITY, prompt_length=prompt_len)
     routed_model_display = f"{model_sel['provider']} {model_sel['model']} via {region_info['region']} ({region_info['energy_source']})"
     if answer_source == "ecoquery_knowledge":
         routed_model_display = "EcoQuery Knowledge Base"
+    elif answer_source == "ecoquery_cache":
+        routed_model_display = "EcoQuery Stored Response"
+
+    actual_model_name = model_sel["model"]
+    if not llm_used:
+        actual_model_name = "ecoquery-knowledge" if answer_source == "ecoquery_knowledge" else "ecoquery-stored-response"
 
     return {
         "model_used": routed_model_display,
-        "model_id": "ecoquery-knowledge" if not llm_used else model_sel["model"],
+        "model_id": actual_model_name,
         "model_tier": "knowledge" if not llm_used else model_sel["tier"],
         "carbon_score": 0.0 if not llm_used else model_sel["carbon_score"],
         "region": "local-direct" if not llm_used else region_info["region"],
@@ -260,12 +272,13 @@ def _build_metadata(
         "knowledge_match": knowledge_match,
         "knowledge_confidence": round(knowledge_confidence, 3),
         "llm_used": llm_used,
+        "cache_hit": cache_hit,
         "is_local_inference": (model_sel["provider"] == "Ollama (Local)") or not llm_used,
         "what_if": {
             "baseline_model": WORST_MODEL["model"],
             "baseline_region": "ap-south-1 (Mumbai)",
             "baseline_co2_g": worst_savings["estimated_co2_g"],
-            "actual_model": "ecoquery-knowledge" if not llm_used else model_sel["model"],
+            "actual_model": actual_model_name,
             "actual_region": "local-direct" if not llm_used else region_info["region"],
             "actual_co2_g": 0.0 if not llm_used else savings["estimated_co2_g"],
             "co2_saved_g": worst_savings["estimated_co2_g"] if not llm_used else round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
@@ -283,12 +296,16 @@ async def _record_and_notify(
     knowledge_match: bool = False,
     knowledge_confidence: float = 0.0,
     llm_used: bool = True,
+    cache_hit: bool = False,
 ):
     user_email = await _resolve_user_email(request)
+    model_name = model_sel["model"] if llm_used else ("ecoquery-knowledge" if answer_source == "ecoquery_knowledge" else "ecoquery-stored-response")
+    provider_name = model_sel["provider"] if llm_used else ("EcoQuery Knowledge" if answer_source == "ecoquery_knowledge" else "EcoQuery Stored Response")
+
     await ledger.record_query({
         "query": req.message, "tier": classification["tier"],
-        "model_used": "ecoquery-knowledge" if not llm_used else model_sel["model"],
-        "model_provider": "EcoQuery Knowledge" if not llm_used else model_sel["provider"],
+        "model_used": model_name,
+        "model_provider": provider_name,
         "model_tier": "knowledge" if not llm_used else model_sel["tier"],
         "carbon_score": 0.0 if not llm_used else model_sel["carbon_score"],
         "region": "local-direct" if not llm_used else region_info["region"],
@@ -297,7 +314,7 @@ async def _record_and_notify(
         "co2_saved_vs_baseline": savings["saved_vs_baseline_g"] if llm_used else 0.05,
         "is_mocked": is_mocked, "classifier_method": classification["method"],
         "classifier_confidence": classification["confidence"],
-        "carbon_method": "zero-llm-knowledge" if not llm_used else region_info.get("method", "mock-fallback"),
+        "carbon_method": "zero-llm-cache" if not llm_used else region_info.get("method", "mock-fallback"),
         "api_cost": api_cost, "latency_seconds": latency_seconds,
         "verification_status": v_result["status"],
         "verification_confidence": v_result["confidence"],
@@ -308,6 +325,7 @@ async def _record_and_notify(
         "knowledge_match": knowledge_match,
         "knowledge_confidence": knowledge_confidence,
         "llm_used": llm_used,
+        "cache_hit": cache_hit,
         "is_local_inference": (model_sel["provider"] == "Ollama (Local)") or not llm_used
     }, user_email=user_email)
 
@@ -321,32 +339,34 @@ async def _record_and_notify(
             })
         await ws_manager.broadcast_to_user(user_email, "query.routed", {
             "query": req.message[:100], "tier": classification["tier"],
-            "model": "ecoquery-knowledge" if not llm_used else model_sel["model"],
+            "model": model_name,
             "region": "local-direct" if not llm_used else region_info["region"],
             "co2_g": 0.0 if not llm_used else savings["estimated_co2_g"],
             "co2_saved_g": savings["saved_vs_baseline_g"] if llm_used else 0.05,
             "api_cost": api_cost,
             "answer_source": answer_source,
             "llm_used": llm_used,
+            "cache_hit": cache_hit,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
         from routers.webhooks import fire_webhooks
         await fire_webhooks(user_email, "query.routed", {
-            "model": "ecoquery-knowledge" if not llm_used else model_sel["model"],
+            "model": model_name,
             "tier": classification["tier"],
             "region": "local-direct" if not llm_used else region_info["region"],
             "co2_estimated_g": 0.0 if not llm_used else savings["estimated_co2_g"],
             "answer_source": answer_source,
             "llm_used": llm_used,
+            "cache_hit": cache_hit,
         })
 
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest, request: Request):
     start_time = time.time()
-    classification, prompt_len, region_info, model_sel, savings, knowledge_res, routing_mode = await _build_routing(req)
+    classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
 
-    # ── ZERO-LLM DIRECT ANSWER PATH ──────────────────────────────────────────
+    # ── STEP 1: ZERO-LLM 3000-Q KNOWLEDGE DIRECT ANSWER ─────────────────────
     if knowledge_res["matched"] and knowledge_res["answer"]:
         latency_seconds = round(time.time() - start_time, 3)
         v_result = {
@@ -360,7 +380,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             request, req, classification, region_info, model_sel, savings,
             api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False, v_result=v_result,
             routing_mode=routing_mode, answer_source="ecoquery_knowledge",
-            knowledge_match=True, knowledge_confidence=knowledge_res["confidence"], llm_used=False
+            knowledge_match=True, knowledge_confidence=knowledge_res["confidence"], llm_used=False,
+            cache_hit=False
         )
         return ChatResponse(
             reply=knowledge_res["answer"],
@@ -369,11 +390,41 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                 v_result, api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False,
                 output_tokens=len(knowledge_res["answer"].split()), prompt_tokens=max(5, int(prompt_len / 4.0)),
                 answer_source="ecoquery_knowledge", knowledge_match=True,
-                knowledge_confidence=knowledge_res["confidence"], llm_used=False, routing_mode=routing_mode
+                knowledge_confidence=knowledge_res["confidence"], llm_used=False, routing_mode=routing_mode,
+                cache_hit=False
             )
         )
 
-    # ── LLM ROUTING PATH ───────────────────────────────────────────────────
+    # ── STEP 2: ZERO-LLM STORED RESPONSE CACHE MATCH ────────────────────────
+    if cache_res["matched"] and cache_res["answer"]:
+        latency_seconds = round(time.time() - start_time, 3)
+        v_result = {
+            "status": "verified",
+            "reason": "Reused verified EcoQuery cached complex response",
+            "confidence": 1.0,
+            "observed_tps": 0.0,
+            "integrity_hash": "cache_zero_emission",
+        }
+        await _record_and_notify(
+            request, req, classification, region_info, model_sel, savings,
+            api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False, v_result=v_result,
+            routing_mode=routing_mode, answer_source="ecoquery_cache",
+            knowledge_match=False, knowledge_confidence=cache_res["confidence"], llm_used=False,
+            cache_hit=True
+        )
+        return ChatResponse(
+            reply=cache_res["answer"],
+            metadata=_build_metadata(
+                classification, prompt_len, region_info, model_sel, savings,
+                v_result, api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False,
+                output_tokens=len(cache_res["answer"].split()), prompt_tokens=max(5, int(prompt_len / 4.0)),
+                answer_source="ecoquery_cache", knowledge_match=False,
+                knowledge_confidence=cache_res["confidence"], llm_used=False, routing_mode=routing_mode,
+                cache_hit=True
+            )
+        )
+
+    # ── STEP 3: LLM ROUTING PATH ───────────────────────────────────────────
     target_model = model_sel["openrouter_id"] or model_sel["model"]
     api_cost = 0.0
     prompt_tokens = max(5, int(prompt_len / 4.0))
@@ -416,6 +467,18 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         if prompt_tokens and output_tokens:
             rate = MODEL_COST_MAP.get(model_sel["model"], 0.001)
             api_cost = round((prompt_tokens * rate / 1000) + (output_tokens * rate / 1000), 6)
+
+        # Store successful response in persistent cache for future queries
+        if reply_content and not reply_content.startswith("I'm sorry") and not req.images:
+            await response_cache.store(
+                question=req.message,
+                answer=reply_content,
+                tier=classification["tier"],
+                model=model_sel["model"],
+                provider=model_sel["provider"],
+                region_info=region_info,
+                savings=savings
+            )
     except Exception as e:
         logger.warning(f"LLM API call failed: {e}")
         reply_content = (
@@ -435,7 +498,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         request, req, classification, region_info, model_sel, savings,
         api_cost, latency_seconds, is_mocked, v_result,
         routing_mode=routing_mode, answer_source="llm",
-        knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True
+        knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True,
+        cache_hit=False
     )
 
     return ChatResponse(
@@ -444,16 +508,17 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             classification, prompt_len, region_info, model_sel, savings,
             v_result, api_cost, latency_seconds, is_mocked, output_tokens, prompt_tokens,
             answer_source="llm", knowledge_match=False,
-            knowledge_confidence=knowledge_res["confidence"], llm_used=True, routing_mode=routing_mode
+            knowledge_confidence=knowledge_res["confidence"], llm_used=True, routing_mode=routing_mode,
+            cache_hit=False
         )
     )
 
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
-    classification, prompt_len, region_info, model_sel, savings, knowledge_res, routing_mode = await _build_routing(req)
+    classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
 
-    # ── ZERO-LLM DIRECT ANSWER STREAMING ───────────────────────────────────
+    # ── STEP 1: ZERO-LLM 3000-Q KNOWLEDGE DIRECT STREAMING ──────────────────
     if knowledge_res["matched"] and knowledge_res["answer"]:
         async def generate_knowledge():
             start_time = time.time()
@@ -465,14 +530,14 @@ async def chat_stream(req: ChatRequest, request: Request):
                 "observed_tps": 0.0,
                 "integrity_hash": "knowledge_zero_emission",
             }
-            # Directly yield token without simulated delay
             yield f"data: {json.dumps({'token': knowledge_res['answer']})}\n\n"
 
             await _record_and_notify(
                 request, req, classification, region_info, model_sel, savings,
                 api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False, v_result=v_result,
                 routing_mode=routing_mode, answer_source="ecoquery_knowledge",
-                knowledge_match=True, knowledge_confidence=knowledge_res["confidence"], llm_used=False
+                knowledge_match=True, knowledge_confidence=knowledge_res["confidence"], llm_used=False,
+                cache_hit=False
             )
 
             metadata = _build_metadata(
@@ -480,13 +545,48 @@ async def chat_stream(req: ChatRequest, request: Request):
                 v_result, api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False,
                 output_tokens=len(knowledge_res["answer"].split()), prompt_tokens=max(5, int(prompt_len / 4.0)),
                 answer_source="ecoquery_knowledge", knowledge_match=True,
-                knowledge_confidence=knowledge_res["confidence"], llm_used=False, routing_mode=routing_mode
+                knowledge_confidence=knowledge_res["confidence"], llm_used=False, routing_mode=routing_mode,
+                cache_hit=False
             )
             yield f"data: {json.dumps({'done': True, 'metadata': metadata})}\n\n"
 
         return StreamingResponse(generate_knowledge(), media_type="text/event-stream")
 
-    # ── LLM STREAMING PATH ─────────────────────────────────────────────────
+    # ── STEP 2: ZERO-LLM STORED RESPONSE CACHE STREAMING ────────────────────
+    if cache_res["matched"] and cache_res["answer"]:
+        async def generate_cache():
+            start_time = time.time()
+            latency_seconds = round(time.time() - start_time, 3)
+            v_result = {
+                "status": "verified",
+                "reason": "Reused verified EcoQuery cached complex response",
+                "confidence": 1.0,
+                "observed_tps": 0.0,
+                "integrity_hash": "cache_zero_emission",
+            }
+            yield f"data: {json.dumps({'token': cache_res['answer']})}\n\n"
+
+            await _record_and_notify(
+                request, req, classification, region_info, model_sel, savings,
+                api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False, v_result=v_result,
+                routing_mode=routing_mode, answer_source="ecoquery_cache",
+                knowledge_match=False, knowledge_confidence=cache_res["confidence"], llm_used=False,
+                cache_hit=True
+            )
+
+            metadata = _build_metadata(
+                classification, prompt_len, region_info, model_sel, savings,
+                v_result, api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False,
+                output_tokens=len(cache_res["answer"].split()), prompt_tokens=max(5, int(prompt_len / 4.0)),
+                answer_source="ecoquery_cache", knowledge_match=False,
+                knowledge_confidence=cache_res["confidence"], llm_used=False, routing_mode=routing_mode,
+                cache_hit=True
+            )
+            yield f"data: {json.dumps({'done': True, 'metadata': metadata})}\n\n"
+
+        return StreamingResponse(generate_cache(), media_type="text/event-stream")
+
+    # ── STEP 3: LLM STREAMING PATH ─────────────────────────────────────────
     target_model = model_sel["openrouter_id"] or model_sel["model"]
     api_cost = 0.0
     prompt_tokens = max(5, int(prompt_len / 4.0))
@@ -521,19 +621,34 @@ async def chat_stream(req: ChatRequest, request: Request):
             reported_co2_g=savings["estimated_co2_g"]
         )
 
+        # Store in cache if successful
+        if cleaned_reply and not cleaned_reply.startswith("I'm sorry") and not req.images:
+            await response_cache.store(
+                question=req.message,
+                answer=cleaned_reply,
+                tier=classification["tier"],
+                model=model_sel["model"],
+                provider=model_sel["provider"],
+                region_info=region_info,
+                savings=savings
+            )
+
         await _record_and_notify(
             request, req, classification, region_info, model_sel, savings,
             api_cost, latency_seconds, is_mocked, v_result,
             routing_mode=routing_mode, answer_source="llm",
-            knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True
+            knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True,
+            cache_hit=False
         )
 
         yield f"data: {json.dumps({'done': True, 'metadata': _build_metadata(
             classification, prompt_len, region_info, model_sel, savings,
             v_result, api_cost, latency_seconds, is_mocked, output_tokens, prompt_tokens,
             answer_source="llm", knowledge_match=False,
-            knowledge_confidence=knowledge_res["confidence"], llm_used=True, routing_mode=routing_mode
+            knowledge_confidence=knowledge_res["confidence"], llm_used=True, routing_mode=routing_mode,
+            cache_hit=False
         )})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
 

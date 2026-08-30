@@ -70,6 +70,8 @@ async def lifespan(app: FastAPI):
 
     await ledger.connect()
     await auth_db.connect()
+    from response_cache import response_cache
+    await response_cache.init_from_db()
 
     em_key = os.getenv("ELECTRICITY_MAPS_API_KEY", "")
     if em_key:

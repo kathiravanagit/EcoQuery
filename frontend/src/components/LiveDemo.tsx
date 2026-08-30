@@ -5,39 +5,39 @@ import { API_URL as API } from '../config';
 import './LiveDemo.css';
 
 interface Metadata {
-  model_used?: string
-  model_id?: string
-  model_tier?: string
-  carbon_score?: number
-  region?: string
-  energy_source?: string
-  co2_estimated_g?: number
-  co2_saved_g?: number
-  is_mocked?: boolean
-  verification_status?: string
-  verification_reason?: string
-  observed_tps?: number
-  is_local_inference?: boolean
-  routing_mode?: string
-  answer_source?: string
-  knowledge_match?: boolean
-  knowledge_confidence?: number
-  llm_used?: boolean
-  tier?: string
-  confidence?: number
-  integrity_hash?: string
-  estimated_latency_s?: number
+  model_used?: string;
+  model_id?: string;
+  model_tier?: string;
+  carbon_score?: number;
+  region?: string;
+  energy_source?: string;
+  co2_estimated_g?: number;
+  co2_saved_g?: number;
+  tier?: string;
+  confidence?: number;
+  api_cost?: number;
+  latency_seconds?: number;
+  estimated_latency_s?: number;
+  verification_status?: string;
+  verification_reason?: string;
+  observed_tps?: number;
+  routing_mode?: string;
+  answer_source?: string;
+  knowledge_match?: boolean;
+  knowledge_confidence?: number;
+  llm_used?: boolean;
+  cache_hit?: boolean;
   what_if?: {
-    baseline_model: string
-    baseline_region: string
-    baseline_co2_g: number
-    actual_model: string
-    actual_region: string
-    actual_co2_g: number
-    co2_saved_g: number
-    baseline_cost: number
-    actual_cost: number
-  }
+    baseline_model: string;
+    baseline_region: string;
+    baseline_co2_g: number;
+    actual_model: string;
+    actual_region: string;
+    actual_co2_g: number;
+    co2_saved_g: number;
+    baseline_cost: number;
+    actual_cost: number;
+  };
 }
 
 interface Message {
@@ -70,7 +70,8 @@ function formatTier(tier?: string): string {
 function EcoInsight({ meta }: { meta: Metadata }) {
   const [expanded, setExpanded] = useState(true);
 
-  const isKnowledgeAnswer = meta.answer_source === 'ecoquery_knowledge' || meta.llm_used === false;
+  const isKnowledgeAnswer = meta.answer_source === 'ecoquery_knowledge';
+  const isCachedAnswer = meta.answer_source === 'ecoquery_cache' || (meta.llm_used === false && !isKnowledgeAnswer);
   const isManual = meta.routing_mode === 'manual';
   const tierName = formatTier(meta.tier);
 
@@ -86,7 +87,9 @@ function EcoInsight({ meta }: { meta: Metadata }) {
           <Leaf size={14} className="eco-leaf-icon" />
           <span>Eco Insight</span>
           {isKnowledgeAnswer ? (
-            <span className="eco-badge green-badge">Zero LLM • 100% Saved</span>
+            <span className="eco-badge green-badge">Knowledge • Zero LLM</span>
+          ) : isCachedAnswer ? (
+            <span className="eco-badge green-badge">Stored Response • Zero LLM</span>
           ) : (
             <span className="eco-badge blue-badge">{tierName} Tier</span>
           )}
@@ -112,6 +115,25 @@ function EcoInsight({ meta }: { meta: Metadata }) {
                 <div className="eco-insight-row">
                   <span className="eco-label">Source:</span>
                   <span className="eco-val highlight-green">EcoQuery Knowledge</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">LLM Used:</span>
+                  <span className="eco-val">No</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">LLM Call Avoided:</span>
+                  <span className="eco-val highlight-green">Yes (Zero Emissions)</span>
+                </div>
+              </div>
+            ) : isCachedAnswer ? (
+              <div className="eco-insight-grid">
+                <div className="eco-insight-row">
+                  <span className="eco-label">Complexity:</span>
+                  <span className="eco-val">{tierName}</span>
+                </div>
+                <div className="eco-insight-row">
+                  <span className="eco-label">Source:</span>
+                  <span className="eco-val highlight-green">EcoQuery Stored Response</span>
                 </div>
                 <div className="eco-insight-row">
                   <span className="eco-label">LLM Used:</span>
@@ -366,8 +388,12 @@ const LiveDemo = () => {
                     {msg.metadata && (
                       <motion.div className="message-metadata-wrapper" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
                         <div className="meta-tags-row">
-                          <span className={`meta-tag ${msg.metadata.answer_source === 'ecoquery_knowledge' ? 'knowledge-tag' : ''}`}>
-                            {msg.metadata.answer_source === 'ecoquery_knowledge' ? '⚡ Knowledge Direct' : msg.metadata.model_id}
+                          <span className={`meta-tag ${(msg.metadata.answer_source === 'ecoquery_knowledge' || msg.metadata.answer_source === 'ecoquery_cache') ? 'knowledge-tag' : ''}`}>
+                            {msg.metadata.answer_source === 'ecoquery_knowledge'
+                              ? '⚡ Knowledge Direct'
+                              : msg.metadata.answer_source === 'ecoquery_cache'
+                              ? '⚡ Stored Response'
+                              : msg.metadata.model_id}
                           </span>
                           <span className="meta-tag">
                             {formatTier(msg.metadata.tier)}
