@@ -17,14 +17,23 @@ def test_system_prompt_answers_topic_instead_of_repeating_user_instructions():
     assert messages[1] == {"role": "user", "content": "explain thermodynamics"}
 
 
-def test_clean_response_enforces_plain_single_paragraph_limits():
+def test_clean_response_enforces_150_words_and_strips_hashes():
     response = clean_response(
-        "**Thermodynamics** is the study of energy.\n"
-        "It examines heat and work. It applies to physical systems. "
-        "It supports engineering. It explains engines. It informs design."
+        "## Thermodynamics\n"
+        "Thermodynamics is the branch of physics that deals with heat, work, and temperature, "
+        "and their relation to energy, radiation, and physical properties of matter."
     )
 
-    assert "**" not in response
-    assert "\n" not in response
-    assert len(response.split()) <= 60
-    assert len(response.split(". ")) <= 4
+    assert "##" not in response
+    assert "Thermodynamics is the branch" in response
+    assert len(response.split()) <= 150
+
+
+def test_clean_response_preserves_code_blocks():
+    code_input = (
+        "Here is the binary search algorithm:\n"
+        "```python\ndef binary_search(arr, target):\n    low, high = 0, len(arr) - 1\n    return -1\n```"
+    )
+    res = clean_response(code_input)
+    assert "```python" in res
+    assert "def binary_search" in res
