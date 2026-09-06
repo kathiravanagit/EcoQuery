@@ -245,21 +245,21 @@ class VerificationLedger:
         badges = []
 
         if stats["total_queries"] >= 1:
-            badges.append({"id": "first_query", "name": "First Step", "description": "Routed your first query", "icon": "🌱", "earned_at": datetime.now(timezone.utc).isoformat()})
+            badges.append({"id": "first_query", "name": "First Step", "description": "Routed your first query", "icon": "sprout", "earned_at": datetime.now(timezone.utc).isoformat()})
         if stats["total_queries"] >= 10:
-            badges.append({"id": "eco_explorer", "name": "Eco Explorer", "description": "Routed 10 queries", "icon": "🌿", "earned_at": datetime.now(timezone.utc).isoformat()})
+            badges.append({"id": "eco_explorer", "name": "Eco Explorer", "description": "Routed 10 queries", "icon": "leaf", "earned_at": datetime.now(timezone.utc).isoformat()})
         if stats["total_queries"] >= 50:
-            badges.append({"id": "green_champion", "name": "Green Champion", "description": "Routed 50 queries", "icon": "🏆", "earned_at": datetime.now(timezone.utc).isoformat()})
+            badges.append({"id": "green_champion", "name": "Green Champion", "description": "Routed 50 queries", "icon": "trophy", "earned_at": datetime.now(timezone.utc).isoformat()})
         if stats["total_queries"] >= 100:
-            badges.append({"id": "carbon_warrior", "name": "Carbon Warrior", "description": "Routed 100 queries", "icon": "⚡", "earned_at": datetime.now(timezone.utc).isoformat()})
+            badges.append({"id": "carbon_warrior", "name": "Carbon Warrior", "description": "Routed 100 queries", "icon": "bolt", "earned_at": datetime.now(timezone.utc).isoformat()})
         if stats["total_co2"] > 0.01:
-            badges.append({"id": "carbon_saver", "name": "Carbon Saver", "description": "Saved over 0.01g CO₂", "icon": "🌍", "earned_at": datetime.now(timezone.utc).isoformat()})
+            badges.append({"id": "carbon_saver", "name": "Carbon Saver", "description": "Saved over 0.01g CO₂", "icon": "globe", "earned_at": datetime.now(timezone.utc).isoformat()})
         if stats["total_co2"] > 0.1:
-            badges.append({"id": "eco_hero", "name": "Eco Hero", "description": "Saved over 0.1g CO₂", "icon": "🦸", "earned_at": datetime.now(timezone.utc).isoformat()})
+            badges.append({"id": "eco_hero", "name": "Eco Hero", "description": "Saved over 0.1g CO₂", "icon": "award", "earned_at": datetime.now(timezone.utc).isoformat()})
         if stats["total_co2"] > 1.0:
-            badges.append({"id": "planet_guardian", "name": "Planet Guardian", "description": "Saved over 1g CO₂", "icon": "🌏", "earned_at": datetime.now(timezone.utc).isoformat()})
+            badges.append({"id": "planet_guardian", "name": "Planet Guardian", "description": "Saved over 1g CO₂", "icon": "shield", "earned_at": datetime.now(timezone.utc).isoformat()})
         if stats["total_queries"] > 0 and (stats["green_count"] / stats["total_queries"]) > 0.8:
-            badges.append({"id": "pure_green", "name": "Pure Green", "description": "80%+ queries on green tier", "icon": "💚", "earned_at": datetime.now(timezone.utc).isoformat()})
+            badges.append({"id": "pure_green", "name": "Pure Green", "description": "80%+ queries on green tier", "icon": "medal", "earned_at": datetime.now(timezone.utc).isoformat()})
 
         badge_ids = [b["id"] for b in badges]
         if self.badges_col is not None:

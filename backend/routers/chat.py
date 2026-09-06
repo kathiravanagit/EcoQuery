@@ -352,7 +352,7 @@ async def _record_and_notify(
                 "region": region_info["region"],
                 "carbon_intensity": region_info["carbon_intensity_g_kwh"],
                 "energy_source": region_info["energy_source"],
-                "message": f"⚠️ {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']})."
+                "message": f"Carbon alert: {region_info['region']} grid is running at {region_info['carbon_intensity_g_kwh']} g/kWh ({region_info['energy_source']})."
             })
         await ws_manager.broadcast_to_user(user_email, "query.routed", {
             "query": req.message[:100], "tier": classification["tier"],

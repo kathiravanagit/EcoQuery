@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, ShieldCheck } from 'lucide-react';
+import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, ShieldCheck, Zap } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
 
@@ -159,7 +159,7 @@ function EcoDecision({ meta }: { meta: Metadata }) {
 
 const LiveDemo = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'system', content: 'Welcome to EcoQuery. Ask any question to experience carbon-aware routing and zero-LLM knowledge answers!' }
+    { role: 'system', content: 'Ask a question. EcoQuery will show the route, model, region, and estimated impact.' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -236,7 +236,7 @@ const LiveDemo = () => {
 
   const handleNewChat = () => {
     setMessages([
-      { role: 'system', content: 'Welcome to EcoQuery. Ask any question to experience carbon-aware routing and zero-LLM knowledge answers!' }
+      { role: 'system', content: 'Ask a question. EcoQuery will show the route, model, region, and estimated impact.' }
     ]);
   };
 
@@ -396,11 +396,11 @@ const LiveDemo = () => {
                       <motion.div className="message-metadata-wrapper" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
                         <div className="meta-tags-row">
                           <span className={`meta-tag ${(msg.metadata.answer_source === 'ecoquery_knowledge' || msg.metadata.answer_source === 'ecoquery_cache') ? 'knowledge-tag' : ''}`}>
-                            {msg.metadata.answer_source === 'ecoquery_knowledge'
-                              ? '⚡ Knowledge Direct'
-                              : msg.metadata.answer_source === 'ecoquery_cache'
-                              ? '⚡ Stored Response'
-                              : msg.metadata.model_id}
+                            {msg.metadata.answer_source === 'ecoquery_knowledge' ? (
+                              <><Zap size={12} /> Knowledge Direct</>
+                            ) : msg.metadata.answer_source === 'ecoquery_cache' ? (
+                              <><Zap size={12} /> Stored Response</>
+                            ) : msg.metadata.model_id}
                           </span>
                           <span className="meta-tag">
                             {formatTier(msg.metadata.tier)}
