@@ -130,9 +130,9 @@ class ProviderRouter:
                     }
                 except Exception as e2:
                     logger.error(f"Secondary key also failed: {e2}")
-                    return {"content": f"Provider error: {e2}", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
+                    return {"content": "I'm sorry, I encountered an error connecting to the model provider.", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
             logger.error(f"OpenRouter call failed: {e}")
-            return {"content": f"Provider error: {e}", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
+            return {"content": "I'm sorry, I encountered an error connecting to the model provider.", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
     async def _anthropic_call(self, model_id, messages, max_tokens):
         try:
@@ -161,7 +161,7 @@ class ProviderRouter:
             }
         except Exception as e:
             logger.error(f"Anthropic call failed: {e}")
-            return {"content": f"Provider error: {e}", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
+            return {"content": "I'm sorry, I encountered an error connecting to the model provider.", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
     async def _gemini_call(self, model_id, messages, max_tokens):
         try:
@@ -186,7 +186,7 @@ class ProviderRouter:
             }
         except Exception as e:
             logger.error(f"Gemini call failed: {e}")
-            return {"content": f"Provider error: {e}", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
+            return {"content": "I'm sorry, I encountered an error connecting to the model provider.", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
     async def stream_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024
@@ -243,10 +243,10 @@ class ProviderRouter:
                     return
                 except Exception as e2:
                     logger.error(f"Secondary key stream also failed: {e2}")
-                    yield f"Stream error: {e2}"
+                    yield "Stream error: Connection to provider failed."
                     return
             logger.error(f"OpenRouter stream failed: {e}")
-            yield f"Stream error: {e}"
+            yield "Stream error: Connection to provider failed."
 
     async def _anthropic_stream(self, model_id, messages, max_tokens):
         try:
@@ -269,7 +269,7 @@ class ProviderRouter:
                     yield text
         except Exception as e:
             logger.error(f"Anthropic stream failed: {e}")
-            yield f"Stream error: {e}"
+            yield "Stream error: Connection to provider failed."
 
     async def _gemini_stream(self, model_id, messages, max_tokens):
         try:
@@ -290,7 +290,7 @@ class ProviderRouter:
                     yield chunk.text
         except Exception as e:
             logger.error(f"Gemini stream failed: {e}")
-            yield f"Stream error: {e}"
+            yield "Stream error: Connection to provider failed."
 
 
 provider_router = ProviderRouter()

@@ -50,8 +50,6 @@ def clean_response(text: str, max_words: int = 150) -> str:
         return text
     # Strip thinking/reasoning blocks
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
-    # Strip leaked chain-of-thought
-    text = re.sub(r'^(Hmm|Let me think|Okay,?|So,?|The user wants|I need to|I should|Let me).*?(?=\n[A-Z]|\n\n)', '', text, flags=re.DOTALL | re.IGNORECASE)
     # Strip intro filler
     text = re.sub(r'^(Sure|Great question|Here is|Certainly|Of course|Absolutely|Hello)[!.]*\s*', '', text, flags=re.IGNORECASE)
     # Strip markdown header characters (##, ###, #) while preserving the text
@@ -214,6 +212,8 @@ async def _build_routing(req: ChatRequest):
 
 def _build_messages(req: ChatRequest):
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if req.conversation:
+        messages.extend(req.conversation)
     if req.images:
         content = [{"type": "text", "text": req.message}]
         for img in req.images:
@@ -431,11 +431,16 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     output_tokens = 40
     is_mocked = False
 
+    user_email = await _resolve_user_email(request)
+    max_tokens = 600
+    if user_email:
+        max_tokens = req.max_output_tokens or 200
+
     try:
         result = await provider_router.chat_completion(
             model_id=target_model,
             messages=_build_messages(req),
-            max_tokens=600,
+            max_tokens=max_tokens,
         )
         reply_content = clean_response(result.get("content") or "") or ""
 
@@ -449,7 +454,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                     result = await provider_router.chat_completion(
                         model_id=fallback_id,
                         messages=_build_messages(req),
-                        max_tokens=600,
+                        max_tokens=max_tokens,
                     )
                     reply_content = clean_response(result.get("content") or "") or ""
                     if reply_content:
@@ -595,24 +600,30 @@ async def chat_stream(req: ChatRequest, request: Request):
     full_reply = ""
     start_time = time.time()
 
+    user_email = await _resolve_user_email(request)
+    max_tokens = 600
+    if user_email:
+        max_tokens = req.max_output_tokens or 200
+
     async def generate():
         nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply
         try:
             async for token in provider_router.stream_completion(
                 model_id=target_model,
                 messages=_build_messages(req),
-                max_tokens=600,
+                max_tokens=max_tokens,
             ):
                 if token:
                     full_reply += token
+                    yield f"data: {json.dumps({'token': token})}\n\n"
         except Exception as e:
             logger.warning(f"LLM streaming failed: {e}")
             is_mocked = True
             full_reply = "I'm sorry, I encountered an error processing your request. Please try again or contact support if the issue persists."
+            yield f"data: {json.dumps({'token': full_reply})}\n\n"
 
         cleaned_reply = clean_response(full_reply)
-        if cleaned_reply:
-            yield f"data: {json.dumps({'token': cleaned_reply})}\n\n"
+        output_tokens = len(cleaned_reply.split())
 
         latency_seconds = round(time.time() - start_time, 3)
         v_result = verifier.verify_completion(

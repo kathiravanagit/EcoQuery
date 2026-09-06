@@ -47,7 +47,7 @@ const Hero = () => {
           </motion.h1>
           
           <p className="hero-subtitle">
-            carbon-aware llm routing + independent verification for lower emissions without sacrificing quality.
+            EcoQuery doesn't just answer your question. It decides whether an AI model is needed, which capability is sufficient, and which available route is greener.
           </p>
 
           <motion.div className="hero-actions" variants={fadeUp}>

@@ -12,6 +12,8 @@ class ChatRequest(BaseModel):
     model_id: Optional[str] = None
     images: Optional[List[str]] = None  # Base64 encoded images
     files: Optional[List[dict]] = None  # [{name, content_type, data}]
+    conversation: Optional[List[dict]] = None
+    max_output_tokens: Optional[int] = None
 
 
 class ChatResponse(BaseModel):

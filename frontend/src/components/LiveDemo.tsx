@@ -67,13 +67,18 @@ function formatTier(tier?: string): string {
   return tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase();
 }
 
-function EcoInsight({ meta }: { meta: Metadata }) {
-  const [expanded, setExpanded] = useState(true);
-
-  const isKnowledgeAnswer = meta.answer_source === 'ecoquery_knowledge';
-  const isCachedAnswer = meta.answer_source === 'ecoquery_cache' || (meta.llm_used === false && !isKnowledgeAnswer);
-  const isManual = meta.routing_mode === 'manual';
+function EcoDecision({ meta }: { meta: Metadata }) {
+  const [expanded, setExpanded] = useState(false);
   const tierName = formatTier(meta.tier);
+  const isKnowledge = meta.answer_source === 'ecoquery_knowledge';
+  const isCache = meta.answer_source === 'ecoquery_cache';
+  const llmRequired = meta.llm_used ? 'Yes' : 'No';
+  const route = meta.model_id || meta.model_used;
+  
+  let reason = 'Suitable capability + lower-carbon route';
+  if (isKnowledge) reason = 'Direct knowledge match (Zero emissions)';
+  else if (isCache) reason = 'Stored complex response (Zero emissions)';
+  else if (meta.routing_mode === 'manual') reason = 'User-selected override';
 
   return (
     <div className="eco-insight-container">
@@ -84,15 +89,8 @@ function EcoInsight({ meta }: { meta: Metadata }) {
         aria-expanded={expanded}
       >
         <div className="eco-insight-title">
-          <Leaf size={14} className="eco-leaf-icon" />
-          <span>Eco Insight</span>
-          {isKnowledgeAnswer ? (
-            <span className="eco-badge green-badge">Knowledge • Zero LLM</span>
-          ) : isCachedAnswer ? (
-            <span className="eco-badge green-badge">Stored Response • Zero LLM</span>
-          ) : (
-            <span className="eco-badge blue-badge">{tierName} Tier</span>
-          )}
+          <Leaf size={14} className="eco-leaf-icon" color="var(--color-success)" />
+          <span>Eco Decision</span>
         </div>
         {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
@@ -106,107 +104,43 @@ function EcoInsight({ meta }: { meta: Metadata }) {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25, ease: EASE_FN }}
           >
-            {isKnowledgeAnswer ? (
-              <div className="eco-insight-grid">
-                <div className="eco-insight-row">
-                  <span className="eco-label">Complexity:</span>
-                  <span className="eco-val">{tierName}</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Source:</span>
-                  <span className="eco-val highlight-green">EcoQuery Knowledge</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">LLM Used:</span>
-                  <span className="eco-val">No</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">LLM Call Avoided:</span>
-                  <span className="eco-val highlight-green">Yes (Zero Emissions)</span>
-                </div>
+            <div className="eco-insight-grid">
+              <div className="eco-insight-row">
+                <span className="eco-label">Question:</span>
+                <span className="eco-val">{tierName}</span>
               </div>
-            ) : isCachedAnswer ? (
-              <div className="eco-insight-grid">
-                <div className="eco-insight-row">
-                  <span className="eco-label">Complexity:</span>
-                  <span className="eco-val">{tierName}</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Source:</span>
-                  <span className="eco-val highlight-green">EcoQuery Stored Response</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">LLM Used:</span>
-                  <span className="eco-val">No</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">LLM Call Avoided:</span>
-                  <span className="eco-val highlight-green">Yes (Zero Emissions)</span>
-                </div>
+              <div className="eco-insight-row">
+                <span className="eco-label">Knowledge match:</span>
+                <span className={`eco-val ${isKnowledge ? 'highlight-green' : ''}`}>
+                  {isKnowledge ? 'Yes' : 'No'}
+                </span>
               </div>
-            ) : isManual ? (
-              <div className="eco-insight-grid">
-                <div className="eco-insight-row">
-                  <span className="eco-label">Complexity:</span>
-                  <span className="eco-val">{tierName}</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Routing:</span>
-                  <span className="eco-val">User Selected</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Model:</span>
-                  <span className="eco-val">{meta.model_id || meta.model_used}</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Provider:</span>
-                  <span className="eco-val">{meta.model_used?.split(' ')[0] || 'Selected Provider'}</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Region:</span>
-                  <span className="eco-val">{meta.region || 'auto'}</span>
-                </div>
+              <div className="eco-insight-row">
+                <span className="eco-label">LLM required:</span>
+                <span className="eco-val">{llmRequired}</span>
               </div>
-            ) : (
-              <div className="eco-insight-grid">
-                <div className="eco-insight-row">
-                  <span className="eco-label">Complexity:</span>
-                  <span className="eco-val">{tierName}</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Routing:</span>
-                  <span className="eco-val highlight-blue">EcoQuery Automatic</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Model:</span>
-                  <span className="eco-val">{meta.model_id || meta.model_used}</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Provider:</span>
-                  <span className="eco-val">{meta.model_used?.split(' ')[0] || 'Green Provider'}</span>
-                </div>
-                <div className="eco-insight-row">
-                  <span className="eco-label">Region:</span>
-                  <span className="eco-val">{meta.region || 'Green Region'}</span>
-                </div>
-                {meta.energy_source && (
-                  <div className="eco-insight-row">
-                    <span className="eco-label">Carbon Intensity:</span>
-                    <span className="eco-val">{meta.energy_source}</span>
-                  </div>
-                )}
-                <div className="eco-insight-row">
-                  <span className="eco-label">Estimated CO₂:</span>
-                  <span className="eco-val">{meta.co2_estimated_g ?? 0}g</span>
-                </div>
+              <div className="eco-insight-row">
+                <span className="eco-label">Selected route:</span>
+                <span className="eco-val">{route}</span>
               </div>
-            )}
+              <div className="eco-insight-row">
+                <span className="eco-label">Reason:</span>
+                <span className="eco-val">{reason}</span>
+              </div>
+              <div className="eco-insight-row">
+                <span className="eco-label">Carbon:</span>
+                <span className="eco-val">
+                  {meta.co2_estimated_g ?? 0}g ({meta.region || 'auto'})
+                </span>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
+
 
 const LiveDemo = () => {
   const [messages, setMessages] = useState<Message[]>([
@@ -283,6 +217,12 @@ const LiveDemo = () => {
     return 'Simple';
   };
 
+  const handleNewChat = () => {
+    setMessages([
+      { role: 'system', content: 'Welcome to EcoQuery. Ask any question to experience carbon-aware routing and zero-LLM knowledge answers!' }
+    ]);
+  };
+
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() && attachedImages.length === 0) return;
@@ -309,22 +249,64 @@ const LiveDemo = () => {
     }
 
     try {
-      const response = await fetch(`${API}/api/chat`, {
+      const response = await fetch(`${API}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMsg,
+          conversation: messages.filter(m => m.role !== 'system'),
           ...(overrideModel ? { model_id: overrideModel } : {}),
           ...(attachedImages.length > 0 ? { images: attachedImages } : {}),
         })
       });
-      const data = await response.json();
-      const meta = data.metadata as Metadata;
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply, metadata: meta }]);
+      
+      if (!response.body) throw new Error('No readable stream');
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      
+      let currentReply = '';
+      let meta: Metadata | undefined;
+
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              if (data.token) {
+                currentReply += data.token;
+                setMessages(prev => {
+                  const newMsgs = [...prev];
+                  newMsgs[newMsgs.length - 1].content = currentReply;
+                  return newMsgs;
+                });
+              }
+              if (data.done) {
+                meta = data.metadata;
+                setMessages(prev => {
+                  const newMsgs = [...prev];
+                  newMsgs[newMsgs.length - 1].metadata = meta;
+                  return newMsgs;
+                });
+              }
+            } catch (e) {
+              console.error('Error parsing SSE', e);
+            }
+          }
+        }
+      }
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to the routing backend. Please ensure the backend server is running.' }]);
     } finally {
       setIsTyping(false);
+      setRoutingStage('');
     }
   };
 
@@ -345,6 +327,9 @@ const LiveDemo = () => {
                 <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>
                   {!overrideModel ? 'Auto Mode' : 'Manual Mode'}
                 </span>
+                <button type="button" onClick={handleNewChat} style={{ fontSize: '0.75rem', color: 'var(--accent)', background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.25rem 0.5rem', cursor: 'pointer' }}>
+                  New Chat
+                </button>
                 <select
                   aria-label="Model override"
                   value={overrideModel}
@@ -362,7 +347,7 @@ const LiveDemo = () => {
                       <optgroup key={tier} label={`${tier.charAt(0).toUpperCase() + tier.slice(1)} Tier`} className="model-picker-group">
                         {tierModels.map(m => (
                           <option key={m.id} value={m.id} className="model-picker-option" title={m.description}>
-                            {m.provider} {m.id}
+                            {m.provider} {m.id.split('/').pop()}
                           </option>
                         ))}
                       </optgroup>
@@ -410,7 +395,10 @@ const LiveDemo = () => {
                           )}
                         </div>
 
-                        <EcoInsight meta={msg.metadata} />
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          <span>Tokens: Input {Math.max(5, Math.floor((msg.content?.length || 0) / 4))} • Output {msg.content?.split(' ').length || 0}</span>
+                        </div>
+                        <EcoDecision meta={msg.metadata} />
                       </motion.div>
                     )}
                   </div>

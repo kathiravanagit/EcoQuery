@@ -16,6 +16,7 @@ const DashboardBadges = React.lazy(() => import('../components/dashboard/Dashboa
 const DashboardCatalog = React.lazy(() => import('../components/dashboard/DashboardCatalog'));
 const DashboardQueries = React.lazy(() => import('../components/dashboard/DashboardQueries'));
 const DashboardExport = React.lazy(() => import('../components/dashboard/DashboardExport'));
+const WorkspaceChat = React.lazy(() => import('../components/dashboard/WorkspaceChat'));
 
 const StatsSkeleton = () => (
   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
@@ -371,6 +372,12 @@ const Dashboard = () => {
               </motion.div>
             )}
 
+            <ErrorBoundary>
+              <Suspense fallback={<StatsSkeleton />}>
+                <WorkspaceChat token={token} />
+              </Suspense>
+            </ErrorBoundary>
+            
             <ErrorBoundary>
               <Suspense fallback={<StatsSkeleton />}>
                 <DashboardStats stats={stats} cert={cert} />

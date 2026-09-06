@@ -26,7 +26,7 @@ const SORT_OPTIONS = [
   { value: 'latency', label: 'Latency' },
 ];
 
-const TIER_OPTIONS = ['green', 'balanced', 'performance', ''];
+const TIER_OPTIONS = ['simple', 'medium', 'complex', ''];
 
 const DashboardQueries = ({ token }: Props) => {
   const [queries, setQueries] = useState<QueryRecord[]>([]);

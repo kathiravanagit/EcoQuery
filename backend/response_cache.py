@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 import numpy as np
+import difflib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -65,15 +66,17 @@ class ResponseCache:
             self._tfidf_matrix = None
             return
         try:
+            # Build TF-IDF on normalized questions for better semantic matching
+            normalized_questions = [_normalize(q) for q in self._questions]
             self._vectorizer = TfidfVectorizer(
                 ngram_range=(1, 3),
                 sublinear_tf=True,
                 strip_accents="unicode",
-                lowercase=True,
+                lowercase=False,  # already normalized
                 stop_words="english",
                 token_pattern=r'(?u)\b\w+\b'
             )
-            self._tfidf_matrix = self._vectorizer.fit_transform(self._questions)
+            self._tfidf_matrix = self._vectorizer.fit_transform(normalized_questions)
         except Exception as e:
             logger.warning(f"Failed to rebuild response_cache TF-IDF index: {e}")
 
@@ -117,7 +120,7 @@ class ResponseCache:
 
         # 2. Semantic TF-IDF Cosine Similarity
         try:
-            query_vec = self._vectorizer.transform([query])
+            query_vec = self._vectorizer.transform([_normalize(query)])
             sims = cosine_similarity(query_vec, self._tfidf_matrix)[0]
             best_idx = int(np.argmax(sims))
             best_score = float(sims[best_idx])
@@ -127,8 +130,23 @@ class ResponseCache:
             stored_words = set(_normalize(best_entry.get("question", "")).split())
             common_words = [w for w in (q_words & stored_words) if len(w) > 3]
 
-            # High confidence threshold for complex questions (>= 0.82)
-            if best_score >= 0.82 and len(common_words) >= 1:
+            # Compute edit similarity (SequenceMatcher) as an alternative to TF‑IDF
+            max_edit_score = 0.0
+            best_edit_entry = None
+            for entry in self._entries:
+                entry_norm = _normalize(entry.get("question", ""))
+                ratio = difflib.SequenceMatcher(None, norm_query, entry_norm).ratio()
+                if ratio > max_edit_score:
+                    max_edit_score = ratio
+                    best_edit_entry = entry
+
+            # Choose the higher scoring method (TF‑IDF vs edit similarity)
+            if max_edit_score > best_score:
+                best_score = max_edit_score
+                best_entry = best_edit_entry
+
+            # Use a higher confidence threshold for semantic matches (>= 0.80)
+            if best_score >= 0.80 and len(common_words) >= 1:
                 return {
                     "matched": True,
                     "confidence": round(min(0.99, best_score), 2),
