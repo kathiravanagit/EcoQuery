@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Terminal } from 'lucide-react';
+import { ArrowRight, Check, Database, GitBranch, MapPin, ShieldCheck, Terminal } from 'lucide-react';
 import './Hero.css';
 import { EASE_FN } from '../constants';
 
@@ -43,19 +43,50 @@ const Hero = () => {
           </motion.div>
           
           <motion.h1 className="hero-title" variants={fadeUp}>
-            route queries<span className="text-gradient"> greener</span>
+            the control plane<span className="text-gradient"> for sustainable AI</span>
           </motion.h1>
           
           <p className="hero-subtitle">
-            EcoQuery doesn't just answer your question. It decides whether an AI model is needed, which capability is sufficient, and which available route is greener.
+            EcoQuery decides whether inference is needed, selects the smallest capable model in the cleanest available region, and records evidence for every decision.
           </p>
+
+          <motion.div className="hero-decision" variants={fadeUp}>
+            <div className="decision-topline">
+              <span><span className="live-dot"></span> decision trace / sample query</span>
+              <span className="decision-status"><Check size={13} /> verified path</span>
+            </div>
+            <div className="decision-question">"Explain how REST APIs work"</div>
+            <div className="decision-flow">
+              <div className="decision-node">
+                <Database size={16} />
+                <span>Knowledge layer</span>
+                <strong>matched · 96%</strong>
+              </div>
+              <div className="decision-arrow">→</div>
+              <div className="decision-node decision-node-active">
+                <GitBranch size={16} />
+                <span>Inference</span>
+                <strong>not needed</strong>
+              </div>
+              <div className="decision-arrow">→</div>
+              <div className="decision-node">
+                <MapPin size={16} />
+                <span>Impact</span>
+                <strong>0 g CO₂</strong>
+              </div>
+            </div>
+            <div className="decision-footer">
+              <span><ShieldCheck size={14} /> Evidence logged for this route</span>
+              <span>zero-inference answer</span>
+            </div>
+          </motion.div>
 
           <motion.div className="hero-actions" variants={fadeUp}>
             <a href="#demo" className="btn btn-primary">
               <Terminal size={16} /> try demo
             </a>
             <a href="#how-it-works" className="btn btn-secondary">
-              read docs <ArrowRight size={14} />
+              see the system <ArrowRight size={14} />
             </a>
           </motion.div>
         </motion.div>

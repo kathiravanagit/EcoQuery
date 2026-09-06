@@ -13,20 +13,20 @@ describe('Features', () => {
 
   it('renders all feature cards', () => {
     render(<MemoryRouter><Features /></MemoryRouter>);
-    expect(screen.getByText('Smart Classifier')).toBeInTheDocument();
-    expect(screen.getByText('Carbon Estimator')).toBeInTheDocument();
-    expect(screen.getByText('Intelligent Router')).toBeInTheDocument();
-    expect(screen.getByText('Verification Engine')).toBeInTheDocument();
-    expect(screen.getByText('Live Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Compute Sufficiency Engine')).toBeInTheDocument();
+    expect(screen.getByText('Live Grid Intelligence')).toBeInTheDocument();
+    expect(screen.getByText('Green Route Control')).toBeInTheDocument();
+    expect(screen.getByText('Model Integrity Proof')).toBeInTheDocument();
+    expect(screen.getByText('Impact Ledger')).toBeInTheDocument();
   });
 
   it('renders feature descriptions', () => {
     render(<MemoryRouter><Features /></MemoryRouter>);
-    expect(screen.getByText(/query complexity/)).toBeInTheDocument();
-    expect(screen.getByText(/real-time grid/)).toBeInTheDocument();
-    expect(screen.getByText(/renewable energy/)).toBeInTheDocument();
-    expect(screen.getByText(/immutable audit/)).toBeInTheDocument();
-    expect(screen.getByText(/deep visibility/)).toBeInTheDocument();
+    expect(screen.getByText(/smallest capability/)).toBeInTheDocument();
+    expect(screen.getByText(/regional carbon intensity/)).toBeInTheDocument();
+    expect(screen.getByText(/cleanest capable provider/)).toBeInTheDocument();
+    expect(screen.getByText(/what was requested/)).toBeInTheDocument();
+    expect(screen.getByText(/routing decisions/)).toBeInTheDocument();
   });
 });
 
@@ -47,13 +47,13 @@ describe('Hero', () => {
   it('renders the main heading', () => {
     render(<MemoryRouter><Hero /></MemoryRouter>);
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1.textContent).toMatch(/route queries greener/);
+    expect(h1.textContent).toMatch(/control plane.*sustainable AI/i);
   });
 
   it('renders call-to-action buttons', () => {
     render(<MemoryRouter><Hero /></MemoryRouter>);
     expect(screen.getByText('try demo')).toBeInTheDocument();
-    expect(screen.getByText(/read docs/)).toBeInTheDocument();
+    expect(screen.getByText(/see the system/)).toBeInTheDocument();
   });
 
   it('renders version badge', () => {

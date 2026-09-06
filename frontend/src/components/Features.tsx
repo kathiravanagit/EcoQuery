@@ -4,11 +4,11 @@ import { Brain, CloudRain, Cpu, BarChart3, Fingerprint } from 'lucide-react';
 import './Features.css';
 
 const featureList = [
-  { title: 'Smart Classifier', icon: Brain, description: 'Automatically analyzes query complexity to determine the minimal LLM capability required for high-quality results.' },
-  { title: 'Carbon Estimator', icon: CloudRain, description: 'Connects to real-time grid intensity data to estimate the carbon footprint of executing a query in different regions.' },
-  { title: 'Intelligent Router', icon: Cpu, description: 'Dynamically routes queries to models running in data centers with the highest renewable energy mix.' },
-  { title: 'Verification Engine', icon: Fingerprint, description: 'Maintains an immutable audit trail of carbon savings for CSR reporting and compliance.' },
-  { title: 'Live Dashboard', icon: BarChart3, description: 'Provides deep visibility into your organization\'s LLM usage, cost savings, and emissions avoided.' },
+  { title: 'Compute Sufficiency Engine', icon: Brain, description: 'Classifies each request to determine the smallest capability that can answer it well.' },
+  { title: 'Live Grid Intelligence', icon: CloudRain, description: 'Reads regional carbon intensity so routing reflects the grid actually powering inference.' },
+  { title: 'Green Route Control', icon: Cpu, description: 'Chooses the cleanest capable provider and region instead of defaulting to the largest model.' },
+  { title: 'Model Integrity Proof', icon: Fingerprint, description: 'Records what was requested, what ran, and whether the response passed verification.' },
+  { title: 'Impact Ledger', icon: BarChart3, description: 'Turns routing decisions into auditable usage, cost, and emissions evidence for teams.' },
 ];
 
 import { EASE_FN } from '../constants';

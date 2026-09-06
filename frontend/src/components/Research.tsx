@@ -24,8 +24,15 @@ const Research = () => {
     <section id="research" className="section research-section">
       <div className="container">
         <motion.div className="section-header" {...fadeUp}>
-          <h2>Research & <span className="text-gradient">Transparency</span></h2>
-          <p>Built on peer-reviewed methodologies for calculating AI emissions.</p>
+          <h2>Proof over <span className="text-gradient">promises</span></h2>
+          <p>Every route carries its source, decision, estimate, and verification state.</p>
+        </motion.div>
+
+        <motion.div className="transparency-strip" {...fadeUp}>
+          <div><span className="transparency-value">13</span><span>g CO₂/kWh</span><small>lowest reference region</small></div>
+          <div><span className="transparency-value">13</span><span>regions</span><small>compared before routing</small></div>
+          <div><span className="transparency-value">SHA-256</span><span>integrity hash</span><small>attached to audit records</small></div>
+          <div><span className="transparency-value">0 g</span><span>when knowledge matches</span><small>inference avoided entirely</small></div>
         </motion.div>
 
         <div className="research-content">

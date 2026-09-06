@@ -126,6 +126,11 @@ async def get_audit(
         return {"records": [], "count": 0, "total": 0, "error": str(e)}
 
 
+@router.get("/api/audit/verify")
+async def verify_audit_chain(current_user: dict = Depends(get_current_user)):
+    return await ledger.verify_user_chain(current_user["email"])
+
+
 @router.get("/api/stats")
 async def get_stats():
     return await ledger.get_stats()

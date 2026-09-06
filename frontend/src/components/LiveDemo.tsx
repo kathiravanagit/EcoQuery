@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, CheckCircle2, Zap, Cpu } from 'lucide-react';
+import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, ShieldCheck } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
 
@@ -82,6 +82,17 @@ function EcoDecision({ meta }: { meta: Metadata }) {
 
   return (
     <div className="eco-insight-container">
+      <div className="eco-proof-summary">
+        <div className="eco-proof-main">
+          <div className="eco-proof-kicker"><span className="eco-proof-dot"></span> Decision trace</div>
+          <strong>{isKnowledge || isCache ? 'Inference avoided' : 'Lowest-impact capable route selected'}</strong>
+          <span>{reason}</span>
+        </div>
+        <div className="eco-proof-stat">
+          <strong>{isKnowledge || isCache ? '0 g' : `${meta.co2_estimated_g ?? 0} g`}</strong>
+          <span>estimated CO₂</span>
+        </div>
+      </div>
       <button
         type="button"
         className="eco-insight-header"
@@ -133,6 +144,10 @@ function EcoDecision({ meta }: { meta: Metadata }) {
                   {meta.co2_estimated_g ?? 0}g ({meta.region || 'auto'})
                 </span>
               </div>
+              <div className="eco-insight-row">
+                <span className="eco-label">Verification:</span>
+                <span className="eco-val highlight-green"><ShieldCheck size={13} /> {meta.verification_status || 'Recorded'}</span>
+              </div>
             </div>
           </motion.div>
         )}
@@ -179,6 +194,7 @@ const LiveDemo = () => {
     const files = e.target.files;
     if (!files) return;
 
+    let imagesQueued = attachedImages.length;
     Array.from(files).forEach(file => {
       if (!file.type.startsWith('image/')) {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Only image files are supported. PDFs and other documents are not accepted.' }]);
@@ -188,10 +204,11 @@ const LiveDemo = () => {
         setMessages(prev => [...prev, { role: 'assistant', content: `File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.` }]);
         return;
       }
-      if (attachedImages.length >= MAX_IMAGES) {
+      if (imagesQueued >= MAX_IMAGES) {
         setMessages(prev => [...prev, { role: 'assistant', content: `Maximum ${MAX_IMAGES} images per message.` }]);
         return;
       }
+      imagesQueued += 1;
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
@@ -266,40 +283,45 @@ const LiveDemo = () => {
       
       let currentReply = '';
       let meta: Metadata | undefined;
+      let sseBuffer = '';
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
+      const processSseFrame = (frame: string) => {
+        const dataLine = frame.split('\n').find(line => line.startsWith('data: '));
+        if (!dataLine) return;
+        try {
+          const data = JSON.parse(dataLine.substring(6));
+          if (data.token) {
+            currentReply += data.token;
+            setMessages(prev => {
+              const newMsgs = [...prev];
+              newMsgs[newMsgs.length - 1].content = currentReply;
+              return newMsgs;
+            });
+          }
+          if (data.done) {
+            meta = data.metadata;
+            setMessages(prev => {
+              const newMsgs = [...prev];
+              newMsgs[newMsgs.length - 1].metadata = meta;
+              return newMsgs;
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing SSE', error);
+        }
+      };
+
       while (true) {
         const { value, done } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.substring(6));
-              if (data.token) {
-                currentReply += data.token;
-                setMessages(prev => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1].content = currentReply;
-                  return newMsgs;
-                });
-              }
-              if (data.done) {
-                meta = data.metadata;
-                setMessages(prev => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1].metadata = meta;
-                  return newMsgs;
-                });
-              }
-            } catch (e) {
-              console.error('Error parsing SSE', e);
-            }
-          }
+        sseBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+        const frames = sseBuffer.replace(/\r\n/g, '\n').split('\n\n');
+        sseBuffer = frames.pop() || '';
+        frames.forEach(processSseFrame);
+        if (done) {
+          processSseFrame(sseBuffer);
+          break;
         }
       }
     } catch {

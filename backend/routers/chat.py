@@ -85,6 +85,21 @@ def clean_response(text: str, max_words: int = 150) -> str:
     return text.strip()
 
 
+def _selection_for_model(openrouter_id: str, current: dict) -> dict:
+    catalog_entry = next(
+        (model for model in CARBON_MODELS if model['openrouter_id'] == openrouter_id),
+        None,
+    )
+    if not catalog_entry:
+        return {**current, 'openrouter_id': openrouter_id, 'model': openrouter_id}
+    return {
+        **catalog_entry,
+        'display_name': f"{catalog_entry['provider']} {catalog_entry['id']}",
+        'reason': f"Fallback model selected after the primary route returned no content",
+        'estimated_latency_s': current.get('estimated_latency_s', 2.0),
+    }
+
+
 async def _resolve_user_email(request: Request) -> str:
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -299,6 +314,8 @@ async def _record_and_notify(
     cache_hit: bool = False,
 ):
     user_email = await _resolve_user_email(request)
+    zero_llm_savings = compute_savings(WORST_MODEL["carbon_score"], WORST_INTENSITY, prompt_length=len(req.message))
+    saved_vs_baseline = savings["saved_vs_baseline_g"] if llm_used else zero_llm_savings["estimated_co2_g"]
     model_name = model_sel["model"] if llm_used else ("ecoquery-knowledge" if answer_source == "ecoquery_knowledge" else "ecoquery-stored-response")
     provider_name = model_sel["provider"] if llm_used else ("EcoQuery Knowledge" if answer_source == "ecoquery_knowledge" else "EcoQuery Stored Response")
 
@@ -311,7 +328,7 @@ async def _record_and_notify(
         "region": "local-direct" if not llm_used else region_info["region"],
         "energy_source": "zero-emission" if not llm_used else region_info["energy_source"],
         "co2_estimated": 0.0 if not llm_used else savings["estimated_co2_g"],
-        "co2_saved_vs_baseline": savings["saved_vs_baseline_g"] if llm_used else 0.05,
+        "co2_saved_vs_baseline": saved_vs_baseline,
         "is_mocked": is_mocked, "classifier_method": classification["method"],
         "classifier_confidence": classification["confidence"],
         "carbon_method": "zero-llm-cache" if not llm_used else region_info.get("method", "mock-fallback"),
@@ -342,7 +359,7 @@ async def _record_and_notify(
             "model": model_name,
             "region": "local-direct" if not llm_used else region_info["region"],
             "co2_g": 0.0 if not llm_used else savings["estimated_co2_g"],
-            "co2_saved_g": savings["saved_vs_baseline_g"] if llm_used else 0.05,
+            "co2_saved_g": saved_vs_baseline,
             "api_cost": api_cost,
             "answer_source": answer_source,
             "llm_used": llm_used,
@@ -459,6 +476,9 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                     reply_content = clean_response(result.get("content") or "") or ""
                     if reply_content:
                         target_model = fallback_id
+                        model_sel = _selection_for_model(fallback_id, model_sel)
+                        intensity = region_info.get("carbon_intensity_g_kwh", WORST_INTENSITY)
+                        savings = compute_savings(model_sel["carbon_score"], intensity, prompt_length=prompt_len)
                         break
                 except Exception:
                     continue
@@ -494,7 +514,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
 
     latency_seconds = round(time.time() - start_time, 3)
     v_result = verifier.verify_completion(
-        model_id=model_sel["model"], prompt_tokens=prompt_tokens,
+        model_id=target_model, prompt_tokens=prompt_tokens,
         completion_tokens=output_tokens, latency_seconds=latency_seconds,
         reported_co2_g=savings["estimated_co2_g"]
     )

@@ -10,10 +10,29 @@ EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     model_id: Optional[str] = None
-    images: Optional[List[str]] = None  # Base64 encoded images
-    files: Optional[List[dict]] = None  # [{name, content_type, data}]
-    conversation: Optional[List[dict]] = None
-    max_output_tokens: Optional[int] = None
+    images: Optional[List[str]] = Field(default=None, max_length=3)  # Base64 encoded images
+    files: Optional[List[dict]] = Field(default=None, max_length=3)  # [{name, content_type, data}]
+    conversation: Optional[List[dict]] = Field(default=None, max_length=20)
+    max_output_tokens: Optional[int] = Field(default=None, ge=1, le=4000)
+
+    @field_validator('images')
+    @classmethod
+    def validate_images(cls, images):
+        max_base64_chars = 7_000_000  # approximately 5 MB decoded
+        if images and any(len(image) > max_base64_chars for image in images):
+            raise ValueError('Each image must be 5 MB or smaller')
+        return images
+
+    @field_validator('files')
+    @classmethod
+    def validate_files(cls, files):
+        max_base64_chars = 7_000_000
+        if files:
+            for file in files:
+                data = file.get('data', '') if isinstance(file, dict) else ''
+                if not isinstance(data, str) or len(data) > max_base64_chars:
+                    raise ValueError('Each file must contain data no larger than 5 MB')
+        return files
 
 
 class ChatResponse(BaseModel):
