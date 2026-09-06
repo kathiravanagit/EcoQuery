@@ -20,6 +20,7 @@ def _normalize(text: str) -> str:
     text = text.lower().strip()
     text = re.sub(r'[^\w\s]', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r'\basync\b', 'asynchronous', text)
     return text
 
 
