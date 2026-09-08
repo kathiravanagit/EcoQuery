@@ -45,3 +45,6 @@ Thumbs.db
 
 # Backups
 backups/
+
+.vercel
+.env*
