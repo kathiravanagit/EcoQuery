@@ -92,9 +92,8 @@ async def health():
                 checks["electricity_maps_reachable"] = r.status_code == 200
         except Exception:
             checks["electricity_maps_reachable"] = False
-    or_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+    or_key = os.getenv("OPENROUTER_API_KEY", "")
     checks["openrouter_configured"] = or_key.startswith("sk-or-")
-    checks["openai_configured"] = bool(or_key) and not or_key.startswith("sk-or-")
     if not checks["ledger_connected"] or not checks["auth_db_connected"]:
         checks["status"] = "degraded"
     return checks

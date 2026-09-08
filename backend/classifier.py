@@ -61,7 +61,7 @@ class QueryClassifier:
     async def _classify_ml(self, message: str) -> dict | None:
         from providers import provider_router
 
-        api_key = os.getenv("OPENAI_API_KEY", "")
+        api_key = os.getenv("OPENROUTER_API_KEY", "")
         if not api_key:
             return None
 

@@ -44,7 +44,7 @@ const faqCategories = [
     items: [
       {
         question: 'How does the carbon-aware routing work?',
-        answer: 'When you send a query, EcoQuery: (1) Classifies the query complexity, (2) Checks real-time carbon intensity for available data centers, (3) Routes to the greenest provider, (4) Logs the carbon savings in an immutable audit trail.'
+        answer: 'When you send a query, EcoQuery: (1) Classifies the query complexity, (2) Checks real-time carbon intensity for available data centers, (3) Routes to the greenest provider, (4) Logs the carbon savings in a hash-chained, tamper-evident audit trail.'
       },
       {
         question: 'Does routing to green data centers affect response quality?',
@@ -73,7 +73,7 @@ const faqCategories = [
       },
       {
         question: 'Can I use my own API keys with EcoQuery?',
-        answer: 'Yes. EcoQuery supports bringing your own API keys for OpenRouter, Anthropic, and other providers. Your keys are encrypted and never shared with third parties.'
+        answer: 'EcoQuery uses OpenRouter for model access. Configure your OpenRouter key on the backend; it is never exposed to the browser.'
       },
       {
         question: 'What regions does EcoQuery support?',
@@ -81,7 +81,7 @@ const faqCategories = [
       },
       {
         question: 'How does the verification system work?',
-        answer: 'EcoQuery\'s verification engine logs every query with: model used, region, carbon intensity, and an SHA-256 integrity hash. This creates an immutable audit trail for ESG reporting and compliance.'
+        answer: 'EcoQuery\'s verification engine logs every query with: model used, region, carbon intensity, and an SHA-256 integrity hash. This creates a tamper-evident audit trail for ESG reporting and compliance.'
       }
     ] as FAQItem[]
   },

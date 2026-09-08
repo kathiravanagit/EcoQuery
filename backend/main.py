@@ -63,7 +63,7 @@ async def rate_limit_middleware(request: Request, call_next):
 async def lifespan(app: FastAPI):
     logger.info("Starting EcoQuery backend...")
 
-    required_vars = ["JWT_SECRET", "OPENAI_API_KEY"]
+    required_vars = ["JWT_SECRET", "OPENROUTER_API_KEY"]
     missing = [v for v in required_vars if not os.getenv(v)]
     if missing:
         logger.warning(f"Missing env vars: {', '.join(missing)}")
@@ -132,8 +132,6 @@ from routers.analytics import router as analytics_router
 from routers.webhooks import router as webhooks_router
 from routers.chat import router as chat_router
 from routers.misc import router as misc_router
-from routers.proxy import router as proxy_router
-from routers.ollama import router as ollama_router
 
 app.include_router(auth_router)
 app.include_router(orgs_router)
@@ -141,8 +139,6 @@ app.include_router(analytics_router)
 app.include_router(webhooks_router)
 app.include_router(chat_router)
 app.include_router(misc_router)
-app.include_router(proxy_router)
-app.include_router(ollama_router)
 
 
 @app.get("/")

@@ -407,7 +407,7 @@ const LiveDemo = () => {
                           </span>
                           {msg.metadata.co2_saved_g && msg.metadata.co2_saved_g > 0 ? (
                             <span className="meta-tag savings">
-                              -{msg.metadata.co2_saved_g}g CO₂ saved
+                              {msg.metadata.co2_saved_g}g CO₂ saved
                             </span>
                           ) : null}
                           {msg.metadata.region && (

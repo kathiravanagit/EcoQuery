@@ -77,6 +77,29 @@ async def test_error_and_sensitive_responses_not_stored():
     assert stored_priv is False
 
 
+@pytest.mark.anyio
+async def test_semantic_match_requires_overlap_with_selected_candidate():
+    cache = ResponseCache()
+
+    cache._entries = [
+        {"question": "Explain distributed consensus", "answer": "Wrong answer"},
+        {"question": "zzzzzzzzzzzzzzzzzzzzzzzzzz", "answer": "Unrelated answer"},
+    ]
+    cache._questions = [entry["question"] for entry in cache._entries]
+    cache._vectorizer = type("Vectorizer", (), {"transform": lambda self, values: object()})()
+    cache._tfidf_matrix = object()
+
+    with patch("response_cache.cosine_similarity", return_value=[[0.79, 0.1]]), \
+            patch("response_cache.difflib.SequenceMatcher") as sequence_matcher:
+        sequence_matcher.side_effect = [
+            type("Ratio", (), {"ratio": lambda self: 0.1})(),
+            type("Ratio", (), {"ratio": lambda self: 0.81})(),
+        ]
+        result = await cache.match("Can you explain distributed consensus")
+
+    assert result["matched"] is False
+
+
 def test_api_chat_uses_response_cache():
     client = TestClient(app)
 

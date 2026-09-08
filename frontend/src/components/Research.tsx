@@ -62,7 +62,7 @@ const Research = () => {
               <ol>
                 <li><strong>Complexity Classification:</strong> Using a trained <span className="highlight">sklearn</span> classifier with ML fallback and heuristic rules, we classify user intent to avoid over-provisioning compute for simple tasks.</li>
                 <li><strong>Grid-Aware API:</strong> We integrate with <em>Electricity Maps API</em> to determine the live carbon intensity of data center regions.</li>
-                <li><strong>Verification:</strong> An immutable ledger logs the delta between the requested model and the optimally routed model, proving verifiable CSR impact.</li>
+                <li><strong>Verification:</strong> A hash-chained, tamper-evident ledger logs the delta between the requested model and the optimally routed model.</li>
               </ol>
               <a href="/Whitepaper.pdf" target="_blank" rel="noopener noreferrer" className="read-paper-link">Read our whitepaper <ExternalLink size={16} /></a>
             </div>
