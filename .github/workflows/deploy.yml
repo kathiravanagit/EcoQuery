@@ -73,7 +73,7 @@ jobs:
             exit 1
           fi
           rm -rf .vercel
-          npx vercel link --yes --project="$VERCEL_PROJECT_ID" --team="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+          npx vercel link --yes --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
           npx vercel pull --yes --environment=production --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
           npx vercel build --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
           npx vercel deploy --prebuilt --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
