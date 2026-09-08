@@ -123,8 +123,51 @@ class ProviderRouter:
 
     async def _openrouter_stream(self, client_kwargs, target_model, messages, max_tokens):
         from openai import AsyncOpenAI
-        client = AsyncOpenAI(**client_kwargs, timeout=60.0)
+        models = [target_model] + [model for model in self.FALLBACK_MODELS if model != target_model]
+        last_error = None
+
+        for model in models:
+            try:
+                client = AsyncOpenAI(**client_kwargs, timeout=60.0)
+                stream = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    stream=True,
+                )
+                emitted = False
+                async for chunk in stream:
+                    delta = chunk.choices[0].delta if chunk.choices else None
+                    token = (delta.content or "") if delta else ""
+                    if token:
+                        emitted = True
+                        yield token
+                if emitted:
+                    if model != target_model:
+                        logger.info("Streaming fallback to %s succeeded", model)
+                    return
+            except Exception as error:
+                last_error = error
+                logger.warning("OpenRouter stream failed for model=%s: %s", model, error)
+
+        if self.openrouter_key_2:
+            logger.warning("OpenRouter streaming models failed; retrying with secondary key")
+            secondary_kwargs = {**client_kwargs, "api_key": self.openrouter_key_2}
+            async for token in self._openrouter_stream_with_key(
+                secondary_kwargs, target_model, messages, max_tokens
+            ):
+                yield token
+            return
+
+        logger.error("All OpenRouter streaming models failed: %s", last_error)
+        raise RuntimeError("OpenRouter streaming failed for all configured models")
+
+    async def _openrouter_stream_with_key(self, client_kwargs, target_model, messages, max_tokens):
+        """Retry one streaming request with an alternate OpenRouter key."""
+        from openai import AsyncOpenAI
+
         try:
+            client = AsyncOpenAI(**client_kwargs, timeout=60.0)
             stream = await client.chat.completions.create(
                 model=target_model,
                 messages=messages,
@@ -136,31 +179,8 @@ class ProviderRouter:
                 token = (delta.content or "") if delta else ""
                 if token:
                     yield token
-        except Exception as e:
-            error_str = str(e)
-            if self.openrouter_key_2 and any(code in error_str for code in ("402", "401", "credit", "balance", "quota", "rate")):
-                logger.warning(f"Primary key stream failed, retrying with secondary key")
-                try:
-                    fallback_kwargs = {**client_kwargs, "api_key": self.openrouter_key_2}
-                    client = AsyncOpenAI(**fallback_kwargs, timeout=60.0)
-                    stream = await client.chat.completions.create(
-                        model=target_model,
-                        messages=messages,
-                        max_tokens=max_tokens,
-                        stream=True,
-                    )
-                    async for chunk in stream:
-                        delta = chunk.choices[0].delta if chunk.choices else None
-                        token = (delta.content or "") if delta else ""
-                        if token:
-                            yield token
-                    return
-                except Exception as e2:
-                    logger.error(f"Secondary key stream also failed: {e2}")
-                    yield "Stream error: Connection to provider failed."
-                    return
-            logger.error(f"OpenRouter stream failed: {e}")
-            yield "Stream error: Connection to provider failed."
+        except Exception as error:
+            logger.error("Secondary OpenRouter stream failed: %s", error)
 
 
 provider_router = ProviderRouter()
