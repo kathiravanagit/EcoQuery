@@ -1,7 +1,4 @@
-"""
-Multi-provider inference for EcoQuery.
-Supports OpenRouter (free models), direct Anthropic, Gemini, and OpenAI.
-"""
+"""OpenRouter inference for EcoQuery."""
 
 import os
 import logging
@@ -11,26 +8,11 @@ logger = logging.getLogger("EcoQuery.providers")
 
 class ProviderRouter:
     def __init__(self):
-        self.openrouter_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+        self.openrouter_key = os.getenv("OPENROUTER_API_KEY", "")
         self.openrouter_key_2 = os.getenv("OPENROUTER_API_KEY_2", "")
-        self.anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
-        self.gemini_key = os.getenv("GEMINI_API_KEY", "")
-        self.openai_key = os.getenv("OPENAI_DIRECT_KEY", "")
 
     def get_target(self, model_id: str) -> tuple:
-        """Return (client_kwargs, model_name, provider_name)."""
-        if model_id.startswith("claude-") and self.anthropic_key:
-            return (
-                {"api_key": self.anthropic_key},
-                model_id,
-                "anthropic",
-            )
-        if model_id.startswith("gemini-") and self.gemini_key:
-            return (
-                {"api_key": self.gemini_key},
-                model_id,
-                "gemini",
-            )
+        """Return OpenRouter client settings for a model."""
         return (
             {"api_key": self.openrouter_key, "base_url": "https://openrouter.ai/api/v1"},
             model_id,
@@ -55,13 +37,7 @@ class ProviderRouter:
         Returns: {"content": str, "usage": {"prompt_tokens": int, "completion_tokens": int}}
         """
         client_kwargs, target_model, provider = self.get_target(model_id)
-
-        if provider == "anthropic":
-            result = await self._anthropic_call(target_model, messages, max_tokens)
-        elif provider == "gemini":
-            result = await self._gemini_call(target_model, messages, max_tokens)
-        else:
-            result = await self._openrouter_call(client_kwargs, target_model, messages, max_tokens)
+        result = await self._openrouter_call(client_kwargs, target_model, messages, max_tokens)
 
         if not result.get("content") and provider == "openrouter":
             for fb in self.FALLBACK_MODELS:
@@ -134,60 +110,6 @@ class ProviderRouter:
             logger.error(f"OpenRouter call failed: {e}")
             return {"content": "I'm sorry, I encountered an error connecting to the model provider.", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
-    async def _anthropic_call(self, model_id, messages, max_tokens):
-        try:
-            import anthropic
-            client = anthropic.AsyncAnthropic(api_key=self.anthropic_key)
-            system_msg = ""
-            user_messages = []
-            for msg in messages:
-                if msg["role"] == "system":
-                    system_msg = msg["content"]
-                else:
-                    user_messages.append(msg)
-            response = await client.messages.create(
-                model=model_id,
-                max_tokens=max_tokens,
-                system=system_msg if system_msg else None,
-                messages=user_messages,
-            )
-            content = response.content[0].text if response.content else ""
-            return {
-                "content": content,
-                "usage": {
-                    "prompt_tokens": response.usage.input_tokens,
-                    "completion_tokens": response.usage.output_tokens,
-                },
-            }
-        except Exception as e:
-            logger.error(f"Anthropic call failed: {e}")
-            return {"content": "I'm sorry, I encountered an error connecting to the model provider.", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
-
-    async def _gemini_call(self, model_id, messages, max_tokens):
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=self.gemini_key)
-            model = genai.GenerativeModel(model_id)
-            contents = []
-            for msg in messages:
-                role = "user" if msg["role"] in ("user", "assistant") else "user"
-                contents.append({"role": role, "parts": [msg["content"]]})
-            response = await model.generate_content_async(
-                contents,
-                generation_config=genai.types.GenerationConfig(max_output_tokens=max_tokens),
-            )
-            content = response.text or ""
-            return {
-                "content": content,
-                "usage": {
-                    "prompt_tokens": response.usage_metadata.prompt_token_count if response.usage_metadata else 0,
-                    "completion_tokens": response.usage_metadata.candidates_token_count if response.usage_metadata else 0,
-                },
-            }
-        except Exception as e:
-            logger.error(f"Gemini call failed: {e}")
-            return {"content": "I'm sorry, I encountered an error connecting to the model provider.", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
-
     async def stream_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024
     ):
@@ -196,21 +118,56 @@ class ProviderRouter:
         Yields: str tokens
         """
         client_kwargs, target_model, provider = self.get_target(model_id)
-
-        if provider == "anthropic":
-            async for token in self._anthropic_stream(target_model, messages, max_tokens):
-                yield token
-        elif provider == "gemini":
-            async for token in self._gemini_stream(target_model, messages, max_tokens):
-                yield token
-        else:
-            async for token in self._openrouter_stream(client_kwargs, target_model, messages, max_tokens):
-                yield token
+        async for token in self._openrouter_stream(client_kwargs, target_model, messages, max_tokens):
+            yield token
 
     async def _openrouter_stream(self, client_kwargs, target_model, messages, max_tokens):
         from openai import AsyncOpenAI
-        client = AsyncOpenAI(**client_kwargs, timeout=60.0)
+        models = [target_model] + [model for model in self.FALLBACK_MODELS if model != target_model]
+        last_error = None
+
+        for model in models:
+            try:
+                client = AsyncOpenAI(**client_kwargs, timeout=60.0)
+                stream = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    stream=True,
+                )
+                emitted = False
+                async for chunk in stream:
+                    delta = chunk.choices[0].delta if chunk.choices else None
+                    token = (delta.content or "") if delta else ""
+                    if token:
+                        emitted = True
+                        yield token
+                if emitted:
+                    if model != target_model:
+                        logger.info("Streaming fallback to %s succeeded", model)
+                    return
+            except Exception as error:
+                last_error = error
+                logger.warning("OpenRouter stream failed for model=%s: %s", model, error)
+
+        if self.openrouter_key_2:
+            logger.warning("OpenRouter streaming models failed; retrying with secondary key")
+            secondary_kwargs = {**client_kwargs, "api_key": self.openrouter_key_2}
+            async for token in self._openrouter_stream_with_key(
+                secondary_kwargs, target_model, messages, max_tokens
+            ):
+                yield token
+            return
+
+        logger.error("All OpenRouter streaming models failed: %s", last_error)
+        raise RuntimeError("OpenRouter streaming failed for all configured models")
+
+    async def _openrouter_stream_with_key(self, client_kwargs, target_model, messages, max_tokens):
+        """Retry one streaming request with an alternate OpenRouter key."""
+        from openai import AsyncOpenAI
+
         try:
+            client = AsyncOpenAI(**client_kwargs, timeout=60.0)
             stream = await client.chat.completions.create(
                 model=target_model,
                 messages=messages,
@@ -222,75 +179,8 @@ class ProviderRouter:
                 token = (delta.content or "") if delta else ""
                 if token:
                     yield token
-        except Exception as e:
-            error_str = str(e)
-            if self.openrouter_key_2 and any(code in error_str for code in ("402", "401", "credit", "balance", "quota", "rate")):
-                logger.warning(f"Primary key stream failed, retrying with secondary key")
-                try:
-                    fallback_kwargs = {**client_kwargs, "api_key": self.openrouter_key_2}
-                    client = AsyncOpenAI(**fallback_kwargs, timeout=60.0)
-                    stream = await client.chat.completions.create(
-                        model=target_model,
-                        messages=messages,
-                        max_tokens=max_tokens,
-                        stream=True,
-                    )
-                    async for chunk in stream:
-                        delta = chunk.choices[0].delta if chunk.choices else None
-                        token = (delta.content or "") if delta else ""
-                        if token:
-                            yield token
-                    return
-                except Exception as e2:
-                    logger.error(f"Secondary key stream also failed: {e2}")
-                    yield "Stream error: Connection to provider failed."
-                    return
-            logger.error(f"OpenRouter stream failed: {e}")
-            yield "Stream error: Connection to provider failed."
-
-    async def _anthropic_stream(self, model_id, messages, max_tokens):
-        try:
-            import anthropic
-            client = anthropic.AsyncAnthropic(api_key=self.anthropic_key)
-            system_msg = ""
-            user_messages = []
-            for msg in messages:
-                if msg["role"] == "system":
-                    system_msg = msg["content"]
-                else:
-                    user_messages.append(msg)
-            async with client.messages.stream(
-                model=model_id,
-                max_tokens=max_tokens,
-                system=system_msg if system_msg else None,
-                messages=user_messages,
-            ) as stream:
-                async for text in stream.text_stream:
-                    yield text
-        except Exception as e:
-            logger.error(f"Anthropic stream failed: {e}")
-            yield "Stream error: Connection to provider failed."
-
-    async def _gemini_stream(self, model_id, messages, max_tokens):
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=self.gemini_key)
-            model = genai.GenerativeModel(model_id)
-            contents = []
-            for msg in messages:
-                role = "user" if msg["role"] in ("user", "assistant") else "user"
-                contents.append({"role": role, "parts": [msg["content"]]})
-            response = await model.generate_content_async(
-                contents,
-                generation_config=genai.types.GenerationConfig(max_output_tokens=max_tokens),
-                stream=True,
-            )
-            async for chunk in response:
-                if chunk.text:
-                    yield chunk.text
-        except Exception as e:
-            logger.error(f"Gemini stream failed: {e}")
-            yield "Stream error: Connection to provider failed."
+        except Exception as error:
+            logger.error("Secondary OpenRouter stream failed: %s", error)
 
 
 provider_router = ProviderRouter()

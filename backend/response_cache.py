@@ -127,10 +127,6 @@ class ResponseCache:
             best_score = float(sims[best_idx])
             best_entry = self._entries[best_idx]
 
-            q_words = set(norm_query.split())
-            stored_words = set(_normalize(best_entry.get("question", "")).split())
-            common_words = [w for w in (q_words & stored_words) if len(w) > 3]
-
             # Compute edit similarity (SequenceMatcher) as an alternative to TF‑IDF
             max_edit_score = 0.0
             best_edit_entry = None
@@ -145,6 +141,11 @@ class ResponseCache:
             if max_edit_score > best_score:
                 best_score = max_edit_score
                 best_entry = best_edit_entry
+
+            # Check overlap against the candidate that will actually be returned.
+            q_words = set(norm_query.split())
+            stored_words = set(_normalize(best_entry.get("question", "")).split())
+            common_words = [w for w in (q_words & stored_words) if len(w) > 3]
 
             # Use a higher confidence threshold for semantic matches (>= 0.80)
             if best_score >= 0.80 and len(common_words) >= 1:

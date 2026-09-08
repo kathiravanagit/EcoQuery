@@ -50,7 +50,7 @@ Available models: 7 free-tier models across 5 providers (NVIDIA, Meta, OpenAI, D
 
 ### Step D — LLM Call
 
-The query is forwarded through the OpenRouter-backed free-tier catalog selected by the router. The shared provider layer also supports Gemini and Anthropic for fallback or direct-provider paths, but the main chat route uses the OpenRouter-backed models from the catalog.
+The query is forwarded through the OpenRouter-backed free-tier catalog selected by the router. OpenRouter model fallback is used when the selected model is unavailable.
 
 ### Step E — Verifier
 
@@ -91,7 +91,7 @@ If the user has a WebSocket connection open, a real-time event is pushed to thei
 
 ## 4. What the user sees
 
-- **Hero page:** Target impact estimates (12.5 trees, 50 km, 1,250 LED hours)
+- **Hero page:** Design-target impact estimates, clearly labeled as targets rather than measured savings
 - **Dashboard:** Real-time query feed via WebSocket, analytics charts, badges
 - **Badges:** Auto-earned based on query count and CO₂ saved (8 badge types)
 - **Sustainability report:** Downloadable GHG Protocol-aligned text report

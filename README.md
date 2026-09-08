@@ -22,7 +22,7 @@ EcoQuery sits between your application and LLM providers:
 - **Predict** carbon impact via real-time power grid data across 13 regions
 - **Route** to the greenest model+region pair automatically
 - **Verify** response integrity via TPS analysis and SHA-256 hashing
-- **Log** everything to a tamper-proof audit trail
+- **Log** everything to a hash-chained, tamper-evident audit trail
 
 ---
 
@@ -39,7 +39,7 @@ EcoQuery sits between your application and LLM providers:
 | Dashboard & Analytics | Real-time feed, CO₂ equivalents, charts, leaderboard |
 | Gamification | 8 badge types, leaderboards, sustainability reports |
 | Organization Support | Team workspaces with member roles |
-| Multi-Provider Backend | OpenRouter-backed free-tier catalog, Gemini classifier fallback, Ollama VPS/proxy routes |
+| Inference Backend | OpenRouter-backed free-tier catalog with model fallback |
 
 ---
 
@@ -78,7 +78,7 @@ EcoQuery sits between your application and LLM providers:
 | Backend | FastAPI, Uvicorn, Python 3.10+ |
 | Database | MongoDB Atlas |
 | AI/ML | Trained classifier, Carbon intensity ML baselines |
-| APIs | Electricity Maps, OpenRouter, Ollama/proxy routes |
+| APIs | Electricity Maps and OpenRouter |
 | Auth | JWT + Google OAuth |
 | CI/CD | GitHub Actions |
 | Deploy | Vercel (frontend) + Render (backend) |
@@ -130,7 +130,7 @@ EcoQuery sits between your application and LLM providers:
 - Python 3.10+
 - Node.js 18+
 - MongoDB Atlas (free tier works)
-- OpenRouter API key (preferred via `OPENROUTER_API_KEY`; `OPENAI_API_KEY` is accepted as a fallback alias in the current code)
+- OpenRouter API key via `OPENROUTER_API_KEY`
 
 ### Setup
 
@@ -156,7 +156,7 @@ npm run dev
 # Backend
 JWT_SECRET=your-random-secret
 OPENROUTER_API_KEY=sk-or-...          # OpenRouter key (preferred)
-OPENAI_API_KEY=sk-or-...              # Fallback alias used by the current backend
+OPENROUTER_API_KEY=sk-or-...          # OpenRouter API key
 ELECTRICITY_MAPS_API_KEY=em_...       # Optional (uses static fallback)
 MONGODB_URL=mongodb+srv://...         # Optional (degrades without)
 ALLOWED_ORIGINS=https://eco2query.vercel.app,http://localhost:5173
