@@ -7,7 +7,6 @@ import logging
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorClient
 
 logger = logging.getLogger("EcoQuery.ledger")
@@ -261,7 +260,6 @@ class VerificationLedger:
         if stats["total_queries"] > 0 and (stats["green_count"] / stats["total_queries"]) > 0.8:
             badges.append({"id": "pure_green", "name": "Pure Green", "description": "80%+ queries on green tier", "icon": "medal", "earned_at": datetime.now(timezone.utc).isoformat()})
 
-        badge_ids = [b["id"] for b in badges]
         if self.badges_col is not None:
             existing_doc = await self.badges_col.find_one({"email": user_email})
             existing_ids = [b["id"] for b in (existing_doc.get("badges", []) if existing_doc else [])]

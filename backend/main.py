@@ -10,6 +10,12 @@ from jose import JWTError, jwt
 from auth import auth_db, SECRET_KEY, ALGORITHM
 from ledger import ledger
 from dotenv import load_dotenv
+from routers.auth import router as auth_router
+from routers.orgs import router as orgs_router
+from routers.analytics import router as analytics_router
+from routers.webhooks import router as webhooks_router
+from routers.chat import router as chat_router
+from routers.misc import router as misc_router
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
@@ -124,14 +130,6 @@ async def security_headers_middleware(request: Request, call_next):
 
 
 app.middleware("http")(security_headers_middleware)
-
-# ─── Include Routers ──────────────────────────────────────────────
-from routers.auth import router as auth_router
-from routers.orgs import router as orgs_router
-from routers.analytics import router as analytics_router
-from routers.webhooks import router as webhooks_router
-from routers.chat import router as chat_router
-from routers.misc import router as misc_router
 
 app.include_router(auth_router)
 app.include_router(orgs_router)

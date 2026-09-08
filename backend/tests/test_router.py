@@ -5,7 +5,6 @@ import os
 import asyncio
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
 from router import route_query, compute_savings
 
 

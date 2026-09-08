@@ -9,8 +9,6 @@ from urllib.parse import urlencode
 from hashlib import sha256
 from hmac import compare_digest, new as hmac_new
 
-logger = logging.getLogger("EcoQuery.auth.router")
-
 from schemas import (
     SignupRequest, LoginRequest, AuthResponse,
     UpdateNameRequest, UpdatePasswordRequest, DeleteAccountRequest,
@@ -19,9 +17,11 @@ from schemas import (
 )
 from auth import (
     auth_db, hash_password, verify_password, create_access_token,
-    SECRET_KEY, ALGORITHM, get_current_user, UserInDB
+    SECRET_KEY, get_current_user, UserInDB
 )
 from email_service import email_service, otp_store
+
+logger = logging.getLogger("EcoQuery.auth.router")
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 

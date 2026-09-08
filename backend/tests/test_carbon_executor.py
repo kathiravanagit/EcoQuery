@@ -2,8 +2,7 @@
 Tests for region_scorer (used by ollama routing).
 """
 
-import pytest
-from region_scorer import scorer, RegionScorer, RegionScore, CARBON_THRESHOLDS
+from region_scorer import scorer, RegionScorer
 
 
 class TestRegionScorer:

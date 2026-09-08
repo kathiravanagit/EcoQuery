@@ -95,7 +95,7 @@ def _selection_for_model(openrouter_id: str, current: dict) -> dict:
     return {
         **catalog_entry,
         'display_name': f"{catalog_entry['provider']} {catalog_entry['id']}",
-        'reason': f"Fallback model selected after the primary route returned no content",
+        'reason': "Fallback model selected after the primary route returned no content",
         'estimated_latency_s': current.get('estimated_latency_s', 2.0),
     }
 

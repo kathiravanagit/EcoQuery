@@ -7,7 +7,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 os.environ["ECO_QUERY_TESTING"] = "1"
 
-import pytest
 from classifier import classifier
 
 

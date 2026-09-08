@@ -6,9 +6,8 @@ Sources: Electricity Maps API (real-time) + IEA 2024 baselines (fallback).
 import os
 import logging
 import time
-import asyncio
 import httpx
-from typing import Optional, Dict
+from typing import Dict
 
 logger = logging.getLogger("EcoQuery.carbon_collector")
 

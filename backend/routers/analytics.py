@@ -13,7 +13,6 @@ router = APIRouter(prefix="/api/user", tags=["analytics"])
 @router.get("/analytics")
 async def get_analytics(current_user: dict = Depends(get_current_user), period: str = "day"):
     records, _ = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
-    now = datetime.now(timezone.utc)
     buckets: dict[str, dict] = {}
     for r in records:
         ts = r.get("timestamp", "")

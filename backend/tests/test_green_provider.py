@@ -2,7 +2,6 @@
 Tests for green_provider — miniature Bedrock/Vertex region selection.
 """
 
-import pytest
 from green_provider import GreenProviderRouter, PROVIDER_REGIONS
 
 

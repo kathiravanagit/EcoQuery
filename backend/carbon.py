@@ -9,9 +9,8 @@ Data sources (in priority order):
 
 import os
 import logging
-import time
 import asyncio
-from typing import Optional, Dict
+from typing import Optional
 from cache import cache_get, cache_set
 
 logger = logging.getLogger("EcoQuery.carbon")

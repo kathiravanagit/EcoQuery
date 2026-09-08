@@ -3,7 +3,6 @@ Persistent Complex-Question Response Cache for EcoQuery.
 Provides database-backed semantic response caching for questions requiring LLM inference.
 """
 
-import os
 import re
 import logging
 from datetime import datetime, timezone

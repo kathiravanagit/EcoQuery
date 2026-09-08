@@ -2,7 +2,6 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
 from carbon import _mock_region, REGIONS, _estimate_source, _estimate_savings, STATIC_REGIONAL_INTENSITY, ENERGY_SOURCE_PROFILES
 
 

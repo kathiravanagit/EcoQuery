@@ -9,11 +9,9 @@ Three strategies tested:
 Measures: response quality (leniency score), CO2 estimates, latency.
 """
 
-import asyncio
 import json
 import os
 import sys
-import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 

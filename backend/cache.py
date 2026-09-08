@@ -6,7 +6,6 @@ Falls back to in-memory dict if Redis is unavailable.
 import os
 import json
 import logging
-import time
 from typing import Optional
 
 logger = logging.getLogger("EcoQuery.cache")
