@@ -6,7 +6,7 @@ import os
 import httpx
 from jose import JWTError, jwt
 
-from auth import SECRET_KEY, ALGORITHM, get_current_user, get_admin_user
+from auth import SECRET_KEY, ALGORITHM, get_current_user, get_admin_user, hash_api_key
 from ledger import ledger
 from models import CARBON_MODELS
 from websocket_manager import ws_manager
@@ -44,18 +44,26 @@ async def get_contacts(current_user: dict = Depends(get_admin_user)):
     return {"messages": messages, "count": len(messages)}
 
 
-async def _get_api_key(email: str) -> str:
+async def _get_api_key_metadata(email: str) -> dict:
     from auth import auth_db
     if auth_db.available and auth_db.collection is not None:
         user = await auth_db.collection.find_one({"email": email}, {"api_key": 1})
-        return (user or {}).get("api_key", "")
-    return ""
+        stored = (user or {}).get("api_key", "")
+        if not stored:
+            return {"has_api_key": False, "prefix": ""}
+        # Legacy plaintext values are represented by their prefix only.
+        prefix = stored[:12] if stored.startswith("eq_") else "eq_"
+        return {"has_api_key": True, "prefix": prefix}
+    return {"has_api_key": False, "prefix": ""}
 
 
 async def _set_api_key(email: str, key: str):
     from auth import auth_db
     if auth_db.available and auth_db.collection is not None:
-        await auth_db.collection.update_one({"email": email}, {"$set": {"api_key": key}})
+        await auth_db.collection.update_one(
+            {"email": email},
+            {"$set": {"api_key": hash_api_key(key) if key else ""}},
+        )
 
 
 @router.get("/api/models")
@@ -271,10 +279,10 @@ async def generate_api_key(current_user: dict = Depends(get_current_user)):
 
 @router.get("/api/user/api-key")
 async def get_api_key(current_user: dict = Depends(get_current_user)):
-    key = await _get_api_key(current_user["email"])
-    if not key:
-        return {"api_key": "", "message": "No API key generated yet. POST /api/user/api-key to create one."}
-    return {"api_key": key}
+    metadata = await _get_api_key_metadata(current_user["email"])
+    if not metadata["has_api_key"]:
+        return {"api_key": "", "has_api_key": False, "message": "No API key generated yet. POST /api/user/api-key to create one."}
+    return {"api_key": "", **metadata, "message": "The API key is only shown once when generated."}
 
 
 @router.post("/api/user/api-key/revoke")
