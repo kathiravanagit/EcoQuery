@@ -1,7 +1,6 @@
 import os
 import logging
 import secrets
-import hashlib
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -125,24 +124,7 @@ def hash_password(password: str) -> str:
     return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    try:
-        return _bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
-    except (ValueError, TypeError):
-        return False
-
-
-def hash_api_key(api_key: str) -> str:
-    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
-
-
-def verify_api_key(api_key: str, stored_hash: str) -> bool:
-    if not api_key or not stored_hash:
-        return False
-    # Keep legacy plaintext keys readable during migration, without creating new ones.
-    if stored_hash.startswith("eq_"):
-        return secrets.compare_digest(api_key, stored_hash)
-    return secrets.compare_digest(hash_api_key(api_key), stored_hash)
-
+    return _bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
@@ -160,17 +142,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     if token.startswith("eq_"):
         if not auth_db.available or auth_db.collection is None:
             raise credentials_exception
-        user = await auth_db.collection.find_one({"api_key": hash_api_key(token)})
+        user = await auth_db.collection.find_one({"api_key": token})
         if user is None:
-            # One-time compatibility path for keys created before hashing.
-            legacy_user = await auth_db.collection.find_one({"api_key": token})
-            if legacy_user is None:
-                raise credentials_exception
-            user = legacy_user
-            await auth_db.collection.update_one(
-                {"_id": user["_id"]},
-                {"$set": {"api_key": hash_api_key(token)}},
-            )
+            raise credentials_exception
         user["_id"] = str(user["_id"])
         return user
     # Then try JWT
