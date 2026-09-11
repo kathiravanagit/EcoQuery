@@ -15,9 +15,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 SECRET_KEY = os.getenv("JWT_SECRET")
 if not SECRET_KEY:
-    if os.getenv("ENVIRONMENT", "development").lower() in {"production", "prod"} or os.getenv("RENDER"):
-        raise RuntimeError("JWT_SECRET must be configured in production")
-    logger.warning("JWT_SECRET is not set; using an ephemeral development key. Configure it before deployment.")
+    is_production = os.getenv("RENDER") is not None
+    if is_production:
+        logger.error("! " + "=" * 60)
+        logger.error("! CRITICAL: JWT_SECRET not set in Render environment!")
+        logger.error("! Sessions will not persist. Set JWT_SECRET in Render dashboard.")
+        logger.error("!" + "=" * 62)
+    else:
+        logger.warning("! " + "=" * 60)
+        logger.warning("! JWT_SECRET not set. Using temporary key for development.")
+        logger.warning("! Set JWT_SECRET in .env for persistence.")
+        logger.warning("!" + "=" * 62)
     SECRET_KEY = secrets.token_hex(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 7

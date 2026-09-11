@@ -69,12 +69,10 @@ async def rate_limit_middleware(request: Request, call_next):
 async def lifespan(app: FastAPI):
     logger.info("Starting EcoQuery backend...")
 
-    required_vars = ["JWT_SECRET", "OPENROUTER_API_KEY", "MONGODB_URL"]
+    required_vars = ["JWT_SECRET", "OPENROUTER_API_KEY"]
     missing = [v for v in required_vars if not os.getenv(v)]
-    if missing and os.getenv("ENVIRONMENT", "development").lower() in {"production", "prod"}:
-        raise RuntimeError(f"Missing required production environment variables: {', '.join(missing)}")
     if missing:
-        logger.warning("Missing optional development environment variables: %s", ", ".join(missing))
+        logger.warning(f"Missing env vars: {', '.join(missing)}")
 
     await ledger.connect()
     await auth_db.connect()
