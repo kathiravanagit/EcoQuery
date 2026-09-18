@@ -165,6 +165,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
                     "auth_provider": "organization_api_key",
                     "org_id": org_id,
                 }
+        if auth_db.available and auth_db.db is not None:
+            org = await auth_db.db["organizations"].find_one({"api_keys.key": token})
+            if org:
+                matching_key = next(key for key in org.get("api_keys", []) if key.get("key") == token)
+                return {
+                    "email": matching_key["created_by"],
+                    "display_name": matching_key["created_by"],
+                    "auth_provider": "organization_api_key",
+                    "org_id": org.get("id"),
+                }
         if not auth_db.available or auth_db.collection is None:
             raise credentials_exception
         user = await auth_db.collection.find_one({"api_key": token})

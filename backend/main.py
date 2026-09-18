@@ -6,18 +6,18 @@ import time
 import logging
 import asyncio
 from jose import JWTError, jwt
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from auth import auth_db, SECRET_KEY, ALGORITHM
 from ledger import ledger
-from dotenv import load_dotenv
 from routers.auth import router as auth_router
 from routers.orgs import router as orgs_router
 from routers.analytics import router as analytics_router
 from routers.webhooks import router as webhooks_router
 from routers.chat import router as chat_router
 from routers.misc import router as misc_router
-
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("EcoQuery")

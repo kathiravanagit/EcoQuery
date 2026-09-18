@@ -12,9 +12,22 @@ router = APIRouter(prefix="/api/orgs", tags=["organizations"])
 
 async def get_orgs_collection():
     from auth import auth_db
-    if auth_db.available:
+    if auth_db.available and auth_db.db is not None:
         return auth_db.db["organizations"]
     return None
+
+
+async def load_org(org_id: str):
+    org = ORGANIZATIONS.get(org_id)
+    if org:
+        return org
+    coll = await get_orgs_collection()
+    if coll:
+        org = await coll.find_one({"id": org_id})
+        if org:
+            org.pop("_id", None)
+            ORGANIZATIONS[org_id] = org
+    return org
 
 
 @router.post("/create")
@@ -26,7 +39,8 @@ async def create_org(req: OrgCreateRequest, current_user: dict = Depends(get_cur
         "members": [current_user["email"]],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "total_queries": 0,
-        "daily_quota": 100000
+        "daily_quota": 100000,
+        "api_keys": [],
     }
     ORGANIZATIONS[org_id] = org
     coll = await get_orgs_collection()
@@ -38,19 +52,26 @@ async def create_org(req: OrgCreateRequest, current_user: dict = Depends(get_cur
 @router.get("")
 async def list_orgs(current_user: dict = Depends(get_current_user)):
     user_orgs = [o for o in ORGANIZATIONS.values() if current_user["email"] in o.get("members", [])]
+    coll = await get_orgs_collection()
+    if coll:
+        stored_orgs = await coll.find({"members": current_user["email"]}).to_list(length=1000)
+        for org in stored_orgs:
+            org.pop("_id", None)
+            ORGANIZATIONS[org["id"]] = org
+        user_orgs = [o for o in stored_orgs if current_user["email"] in o.get("members", [])]
     for o in user_orgs:
-        o.setdefault("api_keys", [])
+        o["api_keys"] = ORG_API_KEYS.get(o["id"], o.get("api_keys", []))
     return {"orgs": user_orgs}
 
 
 @router.get("/{org_id}")
 async def get_org(org_id: str, current_user: dict = Depends(get_current_user)):
-    org = ORGANIZATIONS.get(org_id)
+    org = await load_org(org_id)
     if not org or current_user["email"] not in org.get("members", []):
         raise HTTPException(status_code=404, detail="Organization not found")
     org.setdefault("api_keys", [])
-    ak = ORG_API_KEYS.get(org_id, [])
-    org["api_keys"] = ak
+    org["api_keys"] = ORG_API_KEYS.get(org_id, org.get("api_keys", []))
+    ORG_API_KEYS[org_id] = org["api_keys"]
     return {"org": org}
 
 
@@ -74,32 +95,43 @@ async def join_org(token: str, current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Invalid or expired invitation")
     if invite["email"] != current_user["email"]:
         raise HTTPException(status_code=403, detail="This invitation is for another user")
-    org = ORGANIZATIONS.get(invite["org_id"])
+    org = await load_org(invite["org_id"])
     if not org:
         raise HTTPException(status_code=404, detail="Organization no longer exists")
     if current_user["email"] not in org["members"]:
         org["members"].append(current_user["email"])
+        coll = await get_orgs_collection()
+        if coll:
+            await coll.update_one({"id": org["id"]}, {"$set": {"members": org["members"]}})
     return {"status": "ok", "org": org}
 
 
 @router.delete("/{org_id}/members/{email}")
 async def remove_member(org_id: str, email: str, current_user: dict = Depends(get_current_user)):
-    org = ORGANIZATIONS.get(org_id)
+    org = await load_org(org_id)
     if not org or org.get("owner") != current_user["email"]:
         raise HTTPException(status_code=403, detail="Only the owner can remove members")
     if email == org["owner"]:
         raise HTTPException(status_code=400, detail="Cannot remove the owner")
     org["members"] = [m for m in org["members"] if m != email]
+    coll = await get_orgs_collection()
+    if coll:
+        await coll.update_one({"id": org_id}, {"$set": {"members": org["members"]}})
     return {"status": "ok"}
 
 
 @router.post("/{org_id}/api-key")
 async def generate_org_api_key(org_id: str, current_user: dict = Depends(get_current_user)):
-    org = ORGANIZATIONS.get(org_id)
+    org = await load_org(org_id)
     if not org or org.get("owner") != current_user["email"]:
         raise HTTPException(status_code=403, detail="Only the owner can generate API keys")
     key = f"eq_org_{secrets.token_hex(24)}"
-    ORG_API_KEYS.setdefault(org_id, []).append({"key": key, "created_at": datetime.now(timezone.utc).isoformat(), "created_by": current_user["email"]})
+    key_record = {"key": key, "created_at": datetime.now(timezone.utc).isoformat(), "created_by": current_user["email"]}
+    ORG_API_KEYS.setdefault(org_id, org.get("api_keys", [])).append(key_record)
+    org["api_keys"] = ORG_API_KEYS[org_id]
+    coll = await get_orgs_collection()
+    if coll:
+        await coll.update_one({"id": org_id}, {"$set": {"api_keys": org["api_keys"]}})
     return {"api_key": key}
 
 

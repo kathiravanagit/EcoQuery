@@ -15,7 +15,7 @@ interface Org {
 }
 
 const Teams = () => {
-  const { user, token } = useAuth();
+  const { user, token, logout } = useAuth();
   const { toast } = useToast();
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
@@ -33,13 +33,17 @@ const Teams = () => {
     setLoading(true);
     try {
       const r = await fetch(`${API}/api/orgs`, { headers });
+      if (r.status === 401) {
+        logout();
+        return;
+      }
       const d = await r.json();
       setOrgs(d.orgs || []);
     } catch (e) { toast("error", 'Failed to fetch organizations'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchOrgs(); }, []);
+  useEffect(() => { fetchOrgs(); }, [token]);
 
   const createOrg = async () => {
     if (!newOrgName.trim()) return;
