@@ -27,6 +27,8 @@ interface Metadata {
   knowledge_confidence?: number;
   llm_used?: boolean;
   cache_hit?: boolean;
+  prompt_tokens?: number;
+  completion_tokens?: number;
   what_if?: {
     baseline_model: string;
     baseline_region: string;
@@ -426,7 +428,7 @@ const LiveDemo = () => {
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          <span>Tokens: Input {Math.max(5, Math.floor((msg.content?.length || 0) / 4))} • Output {msg.content?.split(' ').length || 0}</span>
+                          <span>Tokens: Input {msg.metadata.prompt_tokens ?? 0} • Output {msg.metadata.completion_tokens ?? 0}</span>
                         </div>
                         <EcoDecision meta={msg.metadata} />
                       </motion.div>
