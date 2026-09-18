@@ -91,7 +91,6 @@
   color: white;
   padding: 1rem 1.2rem;
   border-radius: 16px 16px 0 16px;
-  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.2);
 }
 
 .workspace-message.assistant {
@@ -138,7 +137,6 @@
 
 .workspace-chat-input-wrapper:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
 }
 
 .workspace-chat-textarea {
@@ -175,7 +173,6 @@
 
 .workspace-chat-submit:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(var(--accent-rgb), 0.3);
 }
 
 .workspace-chat-submit:disabled {
