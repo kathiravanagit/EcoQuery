@@ -195,6 +195,14 @@ const WorkspaceChat = ({ token }: Props) => {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.substring(6));
+              if (data.error === 'ALL_KEYS_EXPIRED') {
+                setMessages(prev => {
+                  const newMsgs = [...prev];
+                  newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
+                  return newMsgs;
+                });
+                break;
+              }
               if (data.token) {
                 currentReply += data.token;
                 setMessages(prev => {
@@ -217,8 +225,12 @@ const WorkspaceChat = ({ token }: Props) => {
           }
         }
       }
-    } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'An error occurred connecting to the backend.' }]);
+    } catch (e: any) {
+      if (e.message?.includes('402')) {
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.' }]);
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'An error occurred connecting to the backend.' }]);
+      }
     } finally {
       setIsTyping(false);
     }

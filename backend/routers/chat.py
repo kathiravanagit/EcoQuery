@@ -429,6 +429,10 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             messages=_build_messages(req),
             max_tokens=max_tokens,
         )
+        if result.get("error") == "ALL_KEYS_EXPIRED":
+            from fastapi import HTTPException
+            raise HTTPException(status_code=402, detail="All configured API keys have expired or reached their limits. Please update your API keys to continue.")
+            
         reply_content = clean_response(result.get("content") or "") or ""
 
         # Fallback chain: if primary returns empty, try next models
@@ -603,7 +607,15 @@ async def chat_stream(req: ChatRequest, request: Request):
                 messages=_build_messages(req),
                 max_tokens=max_tokens,
             ):
-                if token:
+                if isinstance(token, dict) and token.get("error") == "ALL_KEYS_EXPIRED":
+                    full_reply = "All configured API keys have expired or reached their limits. Please update your API keys to continue."
+                    yield f"data: {json.dumps({'error': 'ALL_KEYS_EXPIRED'})}\n\n"
+                    break
+                if isinstance(token, dict) and "token" in token:
+                    tok = token["token"]
+                    full_reply += tok
+                    yield f"data: {json.dumps({'token': tok})}\n\n"
+                elif isinstance(token, str):
                     full_reply += token
                     yield f"data: {json.dumps({'token': token})}\n\n"
         except Exception as e:
