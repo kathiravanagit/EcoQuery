@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -117,6 +118,7 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <AppContent />
+          <Analytics />
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
