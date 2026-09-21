@@ -6,6 +6,8 @@
 
 A consumer-side middleware that selects the greenest available AI model based on real-time carbon intensity data, while independently verifying that the requested model wasn't silently substituted.
 
+See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the estimation formula, routing policy, evaluation protocol, data-source provenance, and verification limitations.
+
 **Live:** [eco2query.vercel.app](https://eco2query.vercel.app) · **Backend:** [ecoquery.onrender.com](https://ecoquery.onrender.com)
 
 ---
@@ -185,6 +187,16 @@ npm run build
 ---
 
 ## Design Decisions
+
+### Carbon estimates and evaluation
+
+EcoQuery reports **estimated** CO2e, not directly metered electricity use. It estimates inference energy from token count and model carbon score, then applies the selected grid intensity:
+
+```text
+Estimated CO2e = Estimated inference energy (kWh) x Grid carbon intensity (gCO2e/kWh)
+```
+
+The repository's `backend/benchmark.py` compares carbon-first routing with always-largest and always-smallest baselines across 30 fixed prompts. Its results are a reproducible routing simulation; production claims should use matched provider experiments with measured latency, success rate, data-source provenance, and uncertainty. Full methodology and limitations are documented in [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
 
 ### Removed Features (Intentional)
 

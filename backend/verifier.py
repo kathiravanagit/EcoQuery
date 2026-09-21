@@ -1,10 +1,11 @@
 """
 Enhanced Verification Layer for EcoQuery.
-Detects provider integrity & silent model substitution using:
+Flags possible provider/model substitution using:
   - TPS (Tokens Per Second) estimated thresholds
   - Latency anomaly detection
   - Response pattern analysis
 All thresholds are estimated from available data, not calibrated from real measurements.
+TPS and latency are behavioral signals, not cryptographic proof of model identity.
 """
 
 import logging
