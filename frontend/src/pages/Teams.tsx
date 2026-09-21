@@ -52,7 +52,7 @@ const Teams = () => {
       const d = await r.json();
       if (r.ok) { setNewOrgName(''); setShowCreate(false); await fetchOrgs(); setMessage({ type: 'success', text: `"${d.org.name}" created!` }); }
       else setMessage({ type: 'error', text: d.detail || 'Failed' });
-    } catch (e) { setMessage({ type: 'error', text: 'Failed to connect to server' }); }
+    } catch (e) { setMessage({ type: 'error', text: e instanceof Error ? e.message : 'Failed to connect to server' }); }
   };
 
   const selectOrg = async (org: Org) => {

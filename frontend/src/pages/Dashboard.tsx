@@ -72,6 +72,7 @@ const Dashboard = () => {
   const [analytics, setAnalytics] = useState<AnalyticsPoint[]>([]);
   const [analyticsPeriod, setAnalyticsPeriod] = useState('day');
   const [loading, setLoading] = useState(true);
+  const [apiStatus, setApiStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [realtimeEvents, setRealtimeEvents] = useState<RealtimeEvent[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -81,6 +82,7 @@ const Dashboard = () => {
   const headers = { Authorization: `Bearer ${token}` };
 
   const fetchAll = useCallback(async () => {
+    setApiStatus('connecting');
     try {
       const [s, m, c, a, b] = await Promise.all([
         fetch(`${API}/api/user/stats`, { headers }).then(r => r.ok ? r.json() : null),
@@ -91,7 +93,8 @@ const Dashboard = () => {
       ]);
       setStats(s); setModels(m?.models || []);
       setCert(c); setAnalytics(a?.queries_by_day || []); setBadges(b?.badges || []);
-    } catch (e) { console.error('Failed to fetch dashboard data', e); }
+      setApiStatus(s ? 'connected' : 'disconnected');
+    } catch (e) { console.error('Failed to fetch dashboard data', e); setApiStatus('disconnected'); }
     finally { setLoading(false); }
   }, [analyticsPeriod, token]);
 
@@ -349,9 +352,13 @@ const Dashboard = () => {
             <h1 className="section-title">Your Dashboard</h1>
             <p className="section-subtitle" style={{ textAlign: 'center', marginBottom: '2rem' }}>
               Track carbon savings, costs, analytics, and manage your account.
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginLeft: '0.5rem', fontSize: '0.8rem', color: wsStatus === 'connected' ? 'var(--accent)' : '#ef4444' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: wsStatus === 'connected' ? 'var(--accent)' : '#ef4444', display: 'inline-block' }}></span>
-                {wsStatus === 'connected' ? 'Live' : 'Offline'}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', marginLeft: '0.5rem', fontSize: '0.8rem' }}>
+                <span style={{ color: apiStatus === 'connected' ? 'var(--accent)' : '#ef4444' }}>
+                  API: {apiStatus === 'connected' ? 'Connected' : apiStatus === 'connecting' ? 'Connecting' : 'Disconnected'}
+                </span>
+                <span style={{ color: wsStatus === 'connected' ? 'var(--accent)' : 'var(--text-secondary)' }}>
+                  Realtime: {wsStatus === 'connected' ? 'Connected' : 'Disconnected'}
+                </span>
               </span>
             </p>
 

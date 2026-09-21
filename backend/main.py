@@ -107,9 +107,20 @@ app = FastAPI(
     openapi_url="/openapi.json" if api_docs_enabled else None,
 )
 
+configured_origins = {
+    origin.strip().rstrip("/")
+    for origin in os.getenv("ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+}
+configured_origins.update({
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://eco2query.vercel.app",
+})
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(","),
+    allow_origins=sorted(configured_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
