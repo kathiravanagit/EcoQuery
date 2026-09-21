@@ -26,6 +26,7 @@ const Teams = () => {
   const [copied, setCopied] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   const authHeaders = { Authorization: `Bearer ${token}` };
@@ -40,9 +41,10 @@ const Teams = () => {
       }
       const body = await r.text();
       if (!r.ok) {
-        let detail = body;
-        try { detail = JSON.parse(body).detail || body; } catch {}
-        throw new Error(`Organizations request failed (${r.status}): ${detail}`);
+        let detail = `Server error (${r.status})`;
+        try { detail = JSON.parse(body).detail || detail; } catch {}
+        toast("error", detail);
+        return;
       }
       const d = JSON.parse(body);
       setOrgs(d.orgs || []);
@@ -55,13 +57,21 @@ const Teams = () => {
   useEffect(() => { fetchOrgs(); }, [token]);
 
   const createOrg = async () => {
-    if (!newOrgName.trim()) return;
+    if (!newOrgName.trim() || creating) return;
+    setCreating(true);
     try {
       const r = await fetch(`${API}/api/orgs/create`, { method: 'POST', headers, body: JSON.stringify({ name: newOrgName }) });
-      const d = await r.json();
-      if (r.ok) { setNewOrgName(''); setShowCreate(false); await fetchOrgs(); setMessage({ type: 'success', text: `"${d.org.name}" created!` }); }
-      else setMessage({ type: 'error', text: d.detail || 'Failed' });
+      if (r.ok) {
+        const d = await r.json();
+        setNewOrgName(''); setShowCreate(false); await fetchOrgs(); setMessage({ type: 'success', text: `"${d.org.name}" created!` });
+      } else {
+        const errText = await r.text();
+        let detail = `Server error (${r.status})`;
+        try { detail = JSON.parse(errText).detail || detail; } catch {}
+        setMessage({ type: 'error', text: detail });
+      }
     } catch (e) { setMessage({ type: 'error', text: e instanceof Error ? e.message : 'Failed to connect to server' }); }
+    finally { setCreating(false); }
   };
 
   const selectOrg = async (org: Org) => {
@@ -133,7 +143,7 @@ const Teams = () => {
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
                   <label htmlFor="org-name" style={{ display: 'none' }}>Organization name</label>
                   <input id="org-name" value={newOrgName} onChange={e => setNewOrgName(e.target.value)} placeholder="Organization name" style={{ flex: 1 }} />
-                  <button className="btn btn-primary" onClick={createOrg}>Create</button>
+                  <button className="btn btn-primary" onClick={createOrg} disabled={creating}>{creating ? 'Creating…' : 'Create'}</button>
                   <button className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
                 </div>
               </div>

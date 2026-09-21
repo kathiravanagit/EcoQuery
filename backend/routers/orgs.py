@@ -1,11 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
+import logging
 import secrets
 
 from schemas import OrgCreateRequest, OrgInviteRequest
 from auth import get_current_user
 from email_service import email_service
 from shared import ORGANIZATIONS, ORG_INVITES, ORG_API_KEYS
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/orgs", tags=["organizations"])
 
@@ -32,9 +35,12 @@ async def load_org(org_id: str):
 
 @router.post("/create")
 async def create_org(req: OrgCreateRequest, current_user: dict = Depends(get_current_user)):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Organization name cannot be empty")
     org_id = f"org_{secrets.token_hex(12)}"
     org = {
-        "id": org_id, "name": req.name,
+        "id": org_id, "name": name,
         "owner": current_user["email"],
         "members": [current_user["email"]],
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -45,7 +51,12 @@ async def create_org(req: OrgCreateRequest, current_user: dict = Depends(get_cur
     ORGANIZATIONS[org_id] = org
     coll = await get_orgs_collection()
     if coll:
-        await coll.insert_one(org)
+        try:
+            await coll.insert_one(dict(org))
+        except Exception as exc:
+            ORGANIZATIONS.pop(org_id, None)
+            logger.exception("Failed to persist organization %s: %s", org_id, exc)
+            raise HTTPException(status_code=503, detail="Could not save organization — please try again")
     return {"status": "ok", "org": org}
 
 
