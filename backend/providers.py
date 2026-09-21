@@ -73,6 +73,15 @@ class ProviderRouter:
                     if any(code in str(e).lower() for code in ("401", "403", "expired", "invalid")):
                         key_manager.mark_key_inactive(key_id)
         
+        # Distinguish missing provider configuration from exhausted credentials.
+        if not grouped_keys:
+            logger.error("No active external model provider keys are configured")
+            return {
+                "error": "ALL_KEYS_EXPIRED",
+                "content": "No external model provider is configured. Add an OpenRouter API key to the backend environment.",
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0},
+            }
+
         # If we exhausted all keys
         logger.error(f"All API keys across all providers failed. Last error: {last_error}")
         return {

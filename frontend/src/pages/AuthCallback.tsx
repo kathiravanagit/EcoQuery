@@ -31,7 +31,10 @@ const AuthCallback = () => {
           headers: { Authorization: `Bearer ${data.access_token}` }
         });
         if (userResponse.ok) localStorage.setItem('user', JSON.stringify(await userResponse.json()));
-        if (!cancelled) navigate('/');
+        if (!cancelled) {
+          window.dispatchEvent(new Event('auth-callback'));
+          navigate('/');
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Network error. Please try again.');
       }
