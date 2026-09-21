@@ -3,7 +3,6 @@ import sqlite3
 import datetime
 import logging
 import uuid
-import json
 
 logger = logging.getLogger("EcoQuery.key_manager")
 

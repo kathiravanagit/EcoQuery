@@ -3,7 +3,6 @@ Tests for carbon-aware routing modules:
 carbon_collector, region_scorer
 """
 
-from unittest.mock import MagicMock
 from carbon_collector import CarbonDataCollector, IEA_BASELINES, ENERGY_SOURCES
 from region_scorer import RegionScorer
 

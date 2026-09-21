@@ -10,14 +10,14 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-from auth import auth_db, SECRET_KEY, ALGORITHM
-from ledger import ledger
-from routers.auth import router as auth_router
-from routers.orgs import router as orgs_router
-from routers.analytics import router as analytics_router
-from routers.webhooks import router as webhooks_router
-from routers.chat import router as chat_router
-from routers.misc import router as misc_router
+from auth import auth_db, SECRET_KEY, ALGORITHM  # noqa: E402
+from ledger import ledger  # noqa: E402
+from routers.auth import router as auth_router  # noqa: E402
+from routers.orgs import router as orgs_router  # noqa: E402
+from routers.analytics import router as analytics_router  # noqa: E402
+from routers.webhooks import router as webhooks_router  # noqa: E402
+from routers.chat import router as chat_router  # noqa: E402
+from routers.misc import router as misc_router  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("EcoQuery")

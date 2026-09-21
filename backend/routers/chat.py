@@ -436,7 +436,6 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             max_tokens=max_tokens,
         )
         if result.get("error") == "ALL_KEYS_EXPIRED":
-            from fastapi import HTTPException
             raise HTTPException(status_code=402, detail="All configured API keys have expired or reached their limits. Please update your API keys to continue.")
             
         reply_content = clean_response(result.get("content") or "") or ""

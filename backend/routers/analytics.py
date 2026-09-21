@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
-from datetime import datetime, timezone
+from datetime import datetime
 import csv
 import io
 
