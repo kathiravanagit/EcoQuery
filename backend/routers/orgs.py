@@ -77,7 +77,7 @@ async def get_org(org_id: str, current_user: dict = Depends(get_current_user)):
 
 @router.post("/{org_id}/invite")
 async def invite_member(org_id: str, req: OrgInviteRequest, current_user: dict = Depends(get_current_user)):
-    org = ORGANIZATIONS.get(org_id)
+    org = await load_org(org_id)
     if not org or org.get("owner") != current_user["email"]:
         raise HTTPException(status_code=403, detail="Only the owner can invite members")
     if req.email in org["members"]:
@@ -137,7 +137,7 @@ async def generate_org_api_key(org_id: str, current_user: dict = Depends(get_cur
 
 @router.get("/{org_id}/sustainability")
 async def get_org_sustainability(org_id: str, current_user: dict = Depends(get_current_user)):
-    org = ORGANIZATIONS.get(org_id)
+    org = await load_org(org_id)
     if not org or current_user["email"] not in org.get("members", []):
         raise HTTPException(status_code=404, detail="Organization not found")
     
@@ -176,7 +176,7 @@ async def get_org_sustainability(org_id: str, current_user: dict = Depends(get_c
 
 @router.get("/{org_id}/members/roles")
 async def get_org_member_roles(org_id: str, current_user: dict = Depends(get_current_user)):
-    org = ORGANIZATIONS.get(org_id)
+    org = await load_org(org_id)
     if not org or current_user["email"] not in org.get("members", []):
         raise HTTPException(status_code=404, detail="Organization not found")
     
@@ -191,7 +191,7 @@ async def get_org_member_roles(org_id: str, current_user: dict = Depends(get_cur
 
 @router.post("/{org_id}/members/{email}/role")
 async def update_member_role(org_id: str, email: str, role: str, current_user: dict = Depends(get_current_user)):
-    org = ORGANIZATIONS.get(org_id)
+    org = await load_org(org_id)
     if not org or org.get("owner") != current_user["email"]:
         raise HTTPException(status_code=403, detail="Only the owner can update roles")
     if email not in org.get("members", []):
@@ -210,7 +210,7 @@ async def update_member_role(org_id: str, email: str, role: str, current_user: d
 
 @router.get("/{org_id}/dashboard")
 async def get_org_dashboard(org_id: str, current_user: dict = Depends(get_current_user)):
-    org = ORGANIZATIONS.get(org_id)
+    org = await load_org(org_id)
     if not org or current_user["email"] not in org.get("members", []):
         raise HTTPException(status_code=404, detail="Organization not found")
     

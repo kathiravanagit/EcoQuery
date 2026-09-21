@@ -38,9 +38,17 @@ const Teams = () => {
         logout();
         return;
       }
-      const d = await r.json();
+      const body = await r.text();
+      if (!r.ok) {
+        let detail = body;
+        try { detail = JSON.parse(body).detail || body; } catch {}
+        throw new Error(`Organizations request failed (${r.status}): ${detail}`);
+      }
+      const d = JSON.parse(body);
       setOrgs(d.orgs || []);
-    } catch (e) { toast("error", 'Failed to fetch organizations'); }
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : 'Failed to fetch organizations');
+    }
     finally { setLoading(false); }
   };
 
