@@ -62,22 +62,69 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - name: Deploy to Vercel
+      - name: Install Vercel CLI
+        run: npm install --global vercel@59.23.2
+      - name: Validate Vercel configuration
+        working-directory: frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID must be configured in GitHub repository secrets."
+          set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN is missing."
             exit 1
           fi
-          rm -rf .vercel
-          npx vercel link --yes --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
-          npx vercel pull --yes --environment=production --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
-          npx vercel build --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
-          npx vercel deploy --prebuilt --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+          if [ -z "$VERCEL_ORG_ID" ]; then
+            echo "VERCEL_ORG_ID is missing."
+            exit 1
+          fi
+          if [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "VERCEL_PROJECT_ID is missing."
+            exit 1
+          fi
+          vercel whoami --token="$VERCEL_TOKEN"
+      - name: Configure Vercel project link
         working-directory: frontend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p .vercel
+          node -e 'const fs = require("fs"); fs.writeFileSync(".vercel/project.json", JSON.stringify({ orgId: process.env.VERCEL_ORG_ID, projectId: process.env.VERCEL_PROJECT_ID }) + "\n");'
+      - name: Pull Vercel production environment
+        working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          vercel pull \
+            --yes \
+            --environment=production \
+            --token="$VERCEL_TOKEN"
+      - name: Build Vercel production artifact
+        working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          vercel build \
+            --prod \
+            --token="$VERCEL_TOKEN"
+      - name: Deploy Vercel production artifact
+        working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          vercel deploy \
+            --prebuilt \
+            --prod \
+            --token="$VERCEL_TOKEN"
 
   deploy-backend:
     name: Deploy Backend → Render
