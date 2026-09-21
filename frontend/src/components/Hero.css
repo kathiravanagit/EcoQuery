@@ -126,8 +126,8 @@
   margin: 2.5rem auto 2rem;
   padding: 1.25rem 1.5rem;
   text-align: left;
-  background: linear-gradient(135deg, rgba(43, 182, 115, 0.1), var(--bg-secondary) 48%);
-  border: 1px solid rgba(43, 182, 115, 0.35);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
 }
 
@@ -194,7 +194,7 @@
 
 .decision-node svg { color: var(--accent); }
 .decision-node strong { color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; }
-.decision-node-active { border-color: rgba(43, 182, 115, 0.65); background: rgba(43, 182, 115, 0.08); }
+.decision-node-active { border-color: var(--border-color); background: rgba(255, 255, 255, 0.03); }
 .decision-arrow { color: var(--accent); font-size: 1.25rem; text-align: center; }
 .decision-footer { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--border-color); text-transform: none; letter-spacing: 0; }
 
