@@ -28,11 +28,12 @@ const Teams = () => {
   const [loading, setLoading] = useState(true);
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const authHeaders = { Authorization: `Bearer ${token}` };
 
   const fetchOrgs = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${API}/api/orgs`, { headers });
+      const r = await fetch(`${API}/api/orgs`, { headers: authHeaders });
       if (r.status === 401) {
         logout();
         return;
