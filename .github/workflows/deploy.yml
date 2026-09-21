@@ -65,7 +65,6 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@59.23.2
       - name: Validate Vercel configuration
-        working-directory: frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -86,7 +85,6 @@ jobs:
           fi
           vercel whoami --token="$VERCEL_TOKEN"
       - name: Configure Vercel project link
-        working-directory: frontend
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -95,14 +93,13 @@ jobs:
           mkdir -p .vercel
           node -e 'const fs = require("fs"); fs.writeFileSync(".vercel/project.json", JSON.stringify({ orgId: process.env.VERCEL_ORG_ID, projectId: process.env.VERCEL_PROJECT_ID }) + "\n");'
       - name: Deploy Vercel production source
-        working-directory: frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
           vercel deploy \
             --prod \
-            --local-config=vercel.json \
+            --local-config=frontend/vercel.json \
             --token="$VERCEL_TOKEN"
 
   deploy-backend:
