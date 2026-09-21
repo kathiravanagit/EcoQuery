@@ -40,6 +40,7 @@ class UserInDB(BaseModel):
     is_active: bool = True
     role: str = "user"
     email_verified: bool = False
+    tokens_used: int = 0
 
 class AuthDB:
     def __init__(self):
@@ -87,6 +88,12 @@ class AuthDB:
     async def update_user(self, email: str, updates: dict) -> bool:
         if self.available and self.collection is not None:
             await self.collection.update_one({"email": email}, {"$set": updates})
+            return True
+        return False
+
+    async def increment_user_tokens(self, email: str, tokens: int) -> bool:
+        if self.available and self.collection is not None and tokens > 0:
+            await self.collection.update_one({"email": email}, {"$inc": {"tokens_used": tokens}})
             return True
         return False
 

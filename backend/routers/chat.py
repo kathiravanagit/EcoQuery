@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from datetime import datetime, timezone
 import time
@@ -350,6 +350,12 @@ async def _record_and_notify(
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest, request: Request):
+    user_email = await _resolve_user_email(request)
+    if user_email:
+        user = await auth_db.find_user_by_email(user_email)
+        if user and user.get("tokens_used", 0) >= 100000:
+            raise HTTPException(status_code=402, detail="Token limit of 100K reached.")
+
     start_time = time.time()
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
 
@@ -501,6 +507,9 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         cache_hit=False
     )
 
+    if user_email:
+        await auth_db.increment_user_tokens(user_email, prompt_tokens + output_tokens)
+
     return ChatResponse(
         reply=reply_content,
         metadata=_build_metadata(
@@ -515,6 +524,12 @@ async def chat_endpoint(req: ChatRequest, request: Request):
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
+    user_email = await _resolve_user_email(request)
+    if user_email:
+        user = await auth_db.find_user_by_email(user_email)
+        if user and user.get("tokens_used", 0) >= 100000:
+            raise HTTPException(status_code=402, detail="Token limit of 100K reached.")
+
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
 
     # ── STEP 1: ZERO-LLM 3000-Q KNOWLEDGE DIRECT STREAMING ──────────────────
@@ -653,6 +668,9 @@ async def chat_stream(req: ChatRequest, request: Request):
             knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True,
             cache_hit=False
         )
+
+        if user_email:
+            await auth_db.increment_user_tokens(user_email, prompt_tokens + output_tokens)
 
         yield f"data: {json.dumps({'done': True, 'metadata': _build_metadata(
             classification, prompt_len, region_info, model_sel, savings,
