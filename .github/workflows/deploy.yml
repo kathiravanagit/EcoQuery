@@ -94,37 +94,15 @@ jobs:
           set -euo pipefail
           mkdir -p .vercel
           node -e 'const fs = require("fs"); fs.writeFileSync(".vercel/project.json", JSON.stringify({ orgId: process.env.VERCEL_ORG_ID, projectId: process.env.VERCEL_PROJECT_ID }) + "\n");'
-      - name: Pull Vercel production environment
-        working-directory: frontend
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          set -euo pipefail
-          vercel pull \
-            --yes \
-            --environment=production \
-            --token="$VERCEL_TOKEN"
-      - name: Build Vercel production artifact
-        working-directory: frontend
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          set -euo pipefail
-          vercel build \
-            --prod \
-            --local-config=vercel.json \
-            --token="$VERCEL_TOKEN"
-      - name: Deploy Vercel production artifact
+      - name: Deploy Vercel production source
         working-directory: frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
           vercel deploy \
-            --prebuilt \
             --prod \
+            --local-config=vercel.json \
             --token="$VERCEL_TOKEN"
 
   deploy-backend:
