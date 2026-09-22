@@ -25,12 +25,12 @@ const About = () => {
       <section className="section">
         <div className="container">
           <div className="about-story card">
-            <h2>Our Mission</h2>
+            <h2>Why we built EcoQuery</h2>
             <p>
-              AI inference is projected to consume more energy than training by 2027. Yet most optimization tools focus only on the training phase. EcoQuery was built to close this gap by intelligently routing queries to the most carbon-efficient model and region in real-time.
+              Large language models are powerful, but developers usually cannot see the energy or carbon impact of each request. EcoQuery was built as an AIML project to study whether query classification, local answers, and model routing can reduce unnecessary inference.
             </p>
             <p>
-              Founded on peer-reviewed research, we provide the first verifiable, real-time carbon-aware routing layer for LLM inference.
+              Our goal is not to claim perfect carbon measurement. It is to make AI usage more visible, measurable, and easier to optimize with the data and assumptions documented in our methodology.
             </p>
           </div>
 

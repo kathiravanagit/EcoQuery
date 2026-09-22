@@ -8,7 +8,7 @@ import Privacy from '../pages/Privacy';
 describe('About page', () => {
   it('renders the heading', () => {
     render(<MemoryRouter><About /></MemoryRouter>);
-    expect(screen.getByText(/Our Mission/)).toBeInTheDocument();
+    expect(screen.getByText(/Why we built EcoQuery/)).toBeInTheDocument();
   });
 });
 
