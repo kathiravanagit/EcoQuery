@@ -49,30 +49,36 @@ class KeyManager:
             ''')
             conn.commit()
             
-            self._seed_initial_keys()
+            self._sync_environment_keys()
 
-    def _seed_initial_keys(self):
-        """Seed the database with keys from environment/user if empty."""
+    def _sync_environment_keys(self):
+        """Add environment keys that are not already in the persistent key pool."""
+        environment_keys = (
+            (os.getenv("OPENROUTER_API_KEY", ""), "openrouter"),
+            (os.getenv("OPENROUTER_API_KEY_2", ""), "openrouter"),
+            (os.getenv("GROK_API_KEY", ""), "grok"),
+            (os.getenv("GOOGLE_API_KEY", ""), "google"),
+        )
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM api_keys")
-            if cursor.fetchone()[0] == 0:
-                logger.info("Seeding initial API keys from environment")
-                # Seeding OpenRouter keys if available
-                or_key_1 = os.getenv("OPENROUTER_API_KEY", "")
-                or_key_2 = os.getenv("OPENROUTER_API_KEY_2", "")
-                if or_key_1:
-                    self.add_key(or_key_1, "openrouter")
-                if or_key_2:
-                    self.add_key(or_key_2, "openrouter")
-                
-                # Seed Grok/Google keys if available in env
-                grok_key = os.getenv("GROK_API_KEY", "")
-                google_key = os.getenv("GOOGLE_API_KEY", "")
-                if grok_key:
-                    self.add_key(grok_key, "grok")
-                if google_key:
-                    self.add_key(google_key, "google")
+            for key_value, provider in environment_keys:
+                if not key_value:
+                    continue
+                cursor.execute(
+                    "SELECT 1 FROM api_keys WHERE key_value = ? AND provider = ?",
+                    (key_value, provider),
+                )
+                if cursor.fetchone() is None:
+                    cursor.execute(
+                        """
+                        INSERT INTO api_keys (id, key_value, provider, role, daily_limit)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (str(uuid.uuid4()), key_value, provider, "user", 1000),
+                    )
+                    logger.info("Added %s API key from environment", provider)
+            conn.commit()
 
     def add_key(self, key_value: str, provider: str, role: str = 'user', daily_limit: int = 1000):
         key_id = str(uuid.uuid4())
