@@ -4,11 +4,11 @@ import { Brain, CloudRain, Cpu, BarChart3, Fingerprint } from 'lucide-react';
 import './Features.css';
 
 const featureList = [
-  { title: 'Request classification', icon: Brain, description: 'Classifies each request to estimate the capability it needs before choosing a model.' },
-  { title: 'Grid data', icon: CloudRain, description: 'Uses regional carbon-intensity data when selecting a lower-impact inference route.' },
-  { title: 'Model routing', icon: Cpu, description: 'Chooses a suitable provider and model instead of defaulting to the largest available option.' },
-  { title: 'Response checks', icon: Fingerprint, description: 'Records what was requested, what ran, and which response checks completed.' },
-  { title: 'Usage records', icon: BarChart3, description: 'Keeps query, cost, latency, and estimated emissions data for later review.' },
+  { title: 'Compute Sufficiency Engine', icon: Brain, description: 'Classifies each request to determine the smallest capability that can answer it well.' },
+  { title: 'Live Grid Intelligence', icon: CloudRain, description: 'Reads regional carbon intensity so routing reflects the grid actually powering inference.' },
+  { title: 'Green Route Control', icon: Cpu, description: 'Chooses the cleanest capable provider and region instead of defaulting to the largest model.' },
+  { title: 'Model Integrity Proof', icon: Fingerprint, description: 'Records what was requested, what ran, and whether the response passed verification.' },
+  { title: 'Impact Ledger', icon: BarChart3, description: 'Turns routing decisions into auditable usage, cost, and emissions evidence for teams.' },
 ];
 
 import { EASE_FN } from '../constants';
@@ -33,7 +33,7 @@ const Features = () => {
       <div className="container">
         <motion.div className="section-header" {...fadeUp}>
           <h2>Platform <span className="text-gradient">Features</span></h2>
-          <p>The parts of the project that decide, estimate, and record each request.</p>
+          <p>Everything you need to minimize your AI infrastructure footprint.</p>
         </motion.div>
 
         <div className="features-grid">

@@ -5,7 +5,7 @@ import Footer from '../components/Footer';
 describe('Footer', () => {
   it('renders brand description', () => {
     render(<MemoryRouter><Footer /></MemoryRouter>);
-    expect(screen.getByText(/AIML project for estimating and reducing unnecessary LLM inference/)).toBeInTheDocument();
+    expect(screen.getByText(/Carbon-aware infrastructure for production AI/)).toBeInTheDocument();
   });
 
   it('renders all section headings', () => {

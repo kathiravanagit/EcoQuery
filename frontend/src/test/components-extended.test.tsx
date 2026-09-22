@@ -7,25 +7,26 @@ import Hero from '../components/Hero';
 describe('Features', () => {
   it('renders section heading', () => {
     render(<MemoryRouter><Features /></MemoryRouter>);
-    expect(screen.getByRole('heading', { level: 2 }).textContent).toMatch(/Platform Features/);
+    const h2 = screen.getByRole('heading', { level: 2 });
+    expect(h2.textContent).toMatch(/Platform Features/);
   });
 
   it('renders all feature cards', () => {
     render(<MemoryRouter><Features /></MemoryRouter>);
-    expect(screen.getByText('Request classification')).toBeInTheDocument();
-    expect(screen.getByText('Grid data')).toBeInTheDocument();
-    expect(screen.getByText('Model routing')).toBeInTheDocument();
-    expect(screen.getByText('Response checks')).toBeInTheDocument();
-    expect(screen.getByText('Usage records')).toBeInTheDocument();
+    expect(screen.getByText('Compute Sufficiency Engine')).toBeInTheDocument();
+    expect(screen.getByText('Live Grid Intelligence')).toBeInTheDocument();
+    expect(screen.getByText('Green Route Control')).toBeInTheDocument();
+    expect(screen.getByText('Model Integrity Proof')).toBeInTheDocument();
+    expect(screen.getByText('Impact Ledger')).toBeInTheDocument();
   });
 
   it('renders feature descriptions', () => {
     render(<MemoryRouter><Features /></MemoryRouter>);
-    expect(screen.getByText(/capability it needs/)).toBeInTheDocument();
-    expect(screen.getByText(/regional carbon-intensity data/)).toBeInTheDocument();
-    expect(screen.getByText(/suitable provider and model/)).toBeInTheDocument();
+    expect(screen.getByText(/smallest capability/)).toBeInTheDocument();
+    expect(screen.getByText(/regional carbon intensity/)).toBeInTheDocument();
+    expect(screen.getByText(/cleanest capable provider/)).toBeInTheDocument();
     expect(screen.getByText(/what was requested/)).toBeInTheDocument();
-    expect(screen.getByText(/query, cost, latency/)).toBeInTheDocument();
+    expect(screen.getByText(/routing decisions/)).toBeInTheDocument();
   });
 });
 
@@ -33,7 +34,7 @@ describe('ImpactStats', () => {
   it('renders section heading', () => {
     render(<MemoryRouter><ImpactStats /></MemoryRouter>);
     const h2 = screen.getByRole('heading', { level: 2 });
-    expect(h2.textContent).toMatch(/metrics/);
+    expect(h2.textContent).toMatch(/Impact/);
   });
 
   it('renders a loading state before metrics arrive', () => {
@@ -46,7 +47,7 @@ describe('Hero', () => {
   it('renders the main heading', () => {
     render(<MemoryRouter><Hero /></MemoryRouter>);
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1.textContent).toMatch(/ask AI with less.*unnecessary computation/i);
+    expect(h1.textContent).toMatch(/control plane.*sustainable AI/i);
   });
 
   it('renders call-to-action buttons', () => {

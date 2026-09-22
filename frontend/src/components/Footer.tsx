@@ -22,7 +22,7 @@ const Footer = () => {
             <img src="/logo.png" alt="EcoQuery" className="logo-icon" />
           </Link>
           <p className="footer-desc">
-            An AIML project for estimating and reducing unnecessary LLM inference.
+            Carbon-aware infrastructure for production AI.
           </p>
           <div className="social-links">
             <motion.a href="https://github.com/kathiravanagit/EcoQuery" target="_blank" rel="noopener noreferrer" aria-label="GitHub" whileHover={{ scale: 1.15, y: -3 }}>

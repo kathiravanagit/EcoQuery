@@ -83,7 +83,7 @@ const ImpactStats = () => {
           transition={{ duration: 0.6 }}
         >
           <div className="stats-header">
-            <h2>{statsLoading ? "Loading" : hasData ? "Observed" : "Design"} <span className="text-gradient">metrics</span></h2>
+            <h2>{statsLoading ? "Loading" : hasData ? "Live" : "Target"} <span className="text-gradient">Impact</span></h2>
             <p>{statsLoading ? "Fetching the latest routing metrics." : hasData ? "Real aggregate metrics from routed queries." : "Design targets for sustainable AI routing. Real results vary by region and provider."}</p>
           </div>
           
