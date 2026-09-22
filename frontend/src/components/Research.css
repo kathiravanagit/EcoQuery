@@ -1,3 +1,11 @@
+.research-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
 .transparency-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -6,46 +14,6 @@
   margin: 0 auto 2rem;
   border: 1px solid var(--border-color);
   background: var(--border-color);
-}
-
-.research-limitations {
-  display: grid;
-  grid-template-columns: 1.4fr 0.6fr;
-  gap: 2rem;
-  max-width: 1000px;
-  margin: 2rem auto 0;
-  padding: 1.5rem;
-  border: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-}
-
-.research-limitations h3 {
-  margin: 0 0 1rem;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-}
-
-.research-limitations ul {
-  margin: 0;
-  padding-left: 1.2rem;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
-.research-limitations li + li {
-  margin-top: 0.45rem;
-}
-
-.research-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  justify-content: center;
-}
-
-.research-links a {
-  color: var(--accent);
-  font-weight: 600;
 }
 
 .transparency-strip > div {
@@ -144,7 +112,7 @@
 }
 
 @media (max-width: 768px) {
-  .research-limitations {
+  .research-content {
     grid-template-columns: 1fr;
   }
   .transparency-strip {

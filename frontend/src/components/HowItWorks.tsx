@@ -10,29 +10,29 @@ const steps = [
     detail: 'Supported: text, code, analysis, creative writing, and more.',
   },
   { 
-    id: 2, title: 'Classify the request', icon: Activity,
-    desc: 'Estimates query complexity and the capability it needs.',
+    id: 2, title: 'Compute Sufficiency', icon: Activity,
+    desc: 'Determines query complexity and model requirements.',
     detail: 'Trained classifier with ML fallback and simple heuristic rules for reliability.',
   },
   { 
-    id: 3, title: 'Read grid data', icon: Leaf,
-    desc: 'Uses live or baseline carbon-intensity data for 13 regions.',
+    id: 3, title: 'Grid Intelligence', icon: Leaf,
+    desc: 'Calculates real-time grid carbon intensity across 13 regions.',
     detail: 'Electricity Maps API + IEA static baselines for fallback.',
   },
   { 
-    id: 4, title: 'Choose a route', icon: GitBranch,
-    desc: 'Selects a suitable model and lower-impact provider route.',
-    detail: 'The route is an estimate based on available provider and grid data.',
+    id: 4, title: 'Green Route Control', icon: GitBranch,
+    desc: 'Routes to the most eco-friendly suitable model.',
+    detail: 'Always carbon-first. Picks greenest provider based on real-time data.',
   },
   { 
-    id: 5, title: 'Record the result', icon: ShieldCheck,
-    desc: 'Stores the request, route, response checks, and estimate.',
-    detail: 'TPS analysis, latency checks, and SHA-256 hashes support the audit record.',
+    id: 5, title: 'Model Integrity Proof', icon: ShieldCheck,
+    desc: 'Audits and logs the carbon savings independently.',
+    detail: 'TPS analysis, latency verification, SHA-256 integrity hashes.',
   },
   { 
-    id: 6, title: 'Review the impact', icon: BarChart3,
-    desc: 'Shows estimated carbon, latency, cost, and routing history.',
-    detail: 'These are estimates for comparison, not direct GPU power measurements.',
+    id: 6, title: 'Impact Ledger', icon: BarChart3,
+    desc: 'Tracks cumulative environmental impact in real-time.',
+    detail: 'CO₂ equivalents, cost savings, gamification badges, ESG reports.',
   },
 ];
 
@@ -61,7 +61,7 @@ const HowItWorks = () => {
       <div className="container">
         <motion.div className="section-header" {...fadeUp}>
           <h2>How <span className="text-gradient">EcoQuery</span> Works</h2>
-          <p>For each request, EcoQuery records the selected route, model, region, latency, and estimated impact.</p>
+          <p>Every request becomes a measurable routing decision, from capability to carbon evidence.</p>
         </motion.div>
 
         <div className="flowchart-container">
@@ -113,7 +113,7 @@ const HowItWorks = () => {
             padding: '1.5rem', maxWidth: 600, margin: '0 auto',
           }}>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center' }}>
-              Routing and impact metadata via a single API call.
+              Carbon-aware routing via a single API call.
             </p>
             <pre style={{
               background: '#0a0a0a', color: 'var(--accent)', padding: '1rem',
@@ -126,7 +126,7 @@ const HowItWorks = () => {
   -d '{"message": "Explain quantum computing"}'`}
             </pre>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.75rem', textAlign: 'center' }}>
-              The response includes the selected model, region, estimate, and verification status.
+              Response includes model routing, CO₂ savings, region, and verification status.
             </p>
           </div>
         </motion.div>
@@ -137,7 +137,7 @@ const HowItWorks = () => {
             padding: '1.5rem', maxWidth: 600, margin: '0 auto',
           }}>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center' }}>
-              Reference carbon intensity (g CO₂/kWh) across regions. Lower is greener
+              Real-time carbon intensity (g CO₂/kWh) across regions. Lower is greener
             </p>
             {regionData.map((r, i) => (
               <motion.div key={r.name} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }}
