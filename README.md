@@ -173,7 +173,7 @@ VITE_API_URL=https://ecoquery.onrender.com  # Prod
 ## Testing
 
 ```bash
-# Backend (121 tests)
+# Backend (137 tests)
 cd backend
 python -m pytest tests/ -q
 
@@ -246,7 +246,7 @@ Push to `main` triggers GitHub Actions:
 | Regions | 13 |
 | Carbon range | 13–380 g CO₂/kWh |
 | API endpoints | 30+ |
-| Backend tests | 121 |
+| Backend tests | 137 |
 | Security level | A- |
 
 ---

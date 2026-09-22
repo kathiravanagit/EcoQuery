@@ -436,8 +436,10 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             max_tokens=max_tokens,
         )
         if result.get("error") == "ALL_KEYS_EXPIRED":
-            raise HTTPException(status_code=402, detail="All configured API keys have expired or reached their limits. Please update your API keys to continue.")
-            
+            raise HTTPException(
+                status_code=402,
+                detail="All configured API keys have expired or reached their limits. Please update your API keys to continue.",
+            )
         reply_content = clean_response(result.get("content") or "") or ""
 
         # Fallback chain: if primary returns empty, try next models
@@ -473,7 +475,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             api_cost = round((prompt_tokens * rate / 1000) + (output_tokens * rate / 1000), 6)
 
         # Store successful response in persistent cache for future queries
-        if reply_content and not reply_content.startswith("I'm sorry") and not req.images:
+        if reply_content and not is_mocked and not reply_content.startswith("I'm sorry") and not req.images:
             await response_cache.store(
                 question=req.message,
                 answer=reply_content,
@@ -483,6 +485,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                 region_info=region_info,
                 savings=savings
             )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.warning(f"LLM API call failed: {e}")
         reply_content = (
@@ -623,6 +627,7 @@ async def chat_stream(req: ChatRequest, request: Request):
             ):
                 if isinstance(token, dict) and token.get("error") == "ALL_KEYS_EXPIRED":
                     full_reply = "All configured API keys have expired or reached their limits. Please update your API keys to continue."
+                    is_mocked = True
                     yield f"data: {json.dumps({'error': 'ALL_KEYS_EXPIRED'})}\n\n"
                     break
                 if isinstance(token, dict) and "token" in token:
@@ -649,7 +654,7 @@ async def chat_stream(req: ChatRequest, request: Request):
         )
 
         # Store in cache if successful
-        if cleaned_reply and not cleaned_reply.startswith("I'm sorry") and not req.images:
+        if cleaned_reply and not is_mocked and not cleaned_reply.startswith("I'm sorry") and not req.images:
             await response_cache.store(
                 question=req.message,
                 answer=cleaned_reply,

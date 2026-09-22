@@ -110,8 +110,8 @@ const Dashboard = () => {
 
     const connect = () => {
       if (unmounted) return;
-      const wsUrl = API.replace(/^http/, 'ws') + '/ws?token=' + t;
-      ws = new WebSocket(wsUrl);
+      const wsUrl = API.replace(/^http/, 'ws') + '/ws';
+      ws = new WebSocket(wsUrl, ['ecoquery.bearer', t]);
       ws.onopen = () => { setWsStatus('connected'); retryDelay = 1000; };
       ws.onclose = () => {
         setWsStatus('disconnected');

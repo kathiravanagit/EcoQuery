@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import os
 import time
 import logging
 import asyncio
+from collections import defaultdict, deque
 from jose import JWTError, jwt
 from dotenv import load_dotenv
 
@@ -24,7 +26,7 @@ logger = logging.getLogger("EcoQuery")
 
 RATE_LIMIT_DURATION = 60
 RATE_LIMIT_MAX = 30
-_rate_store: dict[str, list[float]] = {}
+_rate_store: dict[str, deque] = defaultdict(deque)
 
 
 def rate_limit_key(request: Request) -> str:
@@ -38,22 +40,52 @@ def rate_limit_key(request: Request) -> str:
     return request.client.host or "unknown"
 
 
+def _memory_rate_check(key: str, now: float) -> tuple[bool, int]:
+    window = _rate_store[key]
+    while window and now - window[0] >= RATE_LIMIT_DURATION:
+        window.popleft()
+    count = len(window)
+    if count >= RATE_LIMIT_MAX:
+        return False, 0
+    window.append(now)
+    return True, RATE_LIMIT_MAX - count
+
+
+def _redis_rate_check(key: str, now: float) -> tuple[bool, int] | None:
+    try:
+        from cache import _get_redis
+        r = _get_redis()
+        if not r:
+            return None
+        rkey = f"rl:{key}"
+        count = r.incr(rkey)
+        if count == 1:
+            r.expire(rkey, RATE_LIMIT_DURATION)
+        if count > RATE_LIMIT_MAX:
+            r.decr(rkey)
+            return False, 0
+        return True, max(0, RATE_LIMIT_MAX - count)
+    except Exception as e:
+        logger.warning(f"Redis rate limit failed ({e}); using in-memory fallback")
+        return None
+
+
 async def rate_limit_middleware(request: Request, call_next):
     remaining = RATE_LIMIT_MAX
     if request.url.path.startswith("/api/") and request.method != "GET":
         key = rate_limit_key(request)
         now = time.time()
-        window = _rate_store.setdefault(key, [])
-        window[:] = [t for t in window if now - t < RATE_LIMIT_DURATION]
-        remaining = max(0, RATE_LIMIT_MAX - len(window))
-        if len(window) >= RATE_LIMIT_MAX:
-            from fastapi.responses import JSONResponse
+        result = _redis_rate_check(key, now)
+        if result is None:
+            allowed, remaining = _memory_rate_check(key, now)
+        else:
+            allowed, remaining = result
+        if not allowed:
             resp = JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Try again later."})
             resp.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_MAX)
             resp.headers["X-RateLimit-Remaining"] = "0"
             resp.headers["X-RateLimit-Reset"] = str(int(now + RATE_LIMIT_DURATION))
             return resp
-        window.append(now)
     start = time.time()
     response = await call_next(request)
     elapsed = round((time.time() - start) * 1000)

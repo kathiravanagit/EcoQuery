@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from datetime import datetime, timezone
+import asyncio
+import logging
 import secrets
 import os
 import httpx
@@ -12,6 +14,8 @@ from models import CARBON_MODELS
 from websocket_manager import ws_manager
 from carbon import get_carbon_optimal_region
 from key_manager import key_manager
+
+logger = logging.getLogger("EcoQuery.misc")
 router = APIRouter(tags=["misc"])
 
 
@@ -326,22 +330,49 @@ async def get_certificate(current_user: dict = Depends(get_current_user)):
     }
 
 
-@router.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
-    token = ws.query_params.get("token", "")
+async def _extract_ws_token(ws: WebSocket) -> str:
+    protocol = ws.headers.get("sec-websocket-protocol", "")
+    parts = [p.strip() for p in protocol.split(",") if p.strip()]
+    if len(parts) >= 2 and parts[0] == "ecoquery.bearer":
+        return parts[1]
+    return ""
+
+
+async def _decode_ws_user(token: str) -> str:
     if not token:
-        await ws.close(code=4001)
-        return
+        return ""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_email = payload.get("sub", "")
+        return payload.get("sub", "")
+    except JWTError:
+        return ""
+
+
+@router.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
+    token = await _extract_ws_token(ws)
+    user_email = await _decode_ws_user(token)
+    subprotocol = None
+    if user_email:
+        protocol = ws.headers.get("sec-websocket-protocol", "")
+        parts = [p.strip() for p in protocol.split(",") if p.strip()]
+        if "ecoquery.bearer" in parts:
+            subprotocol = "ecoquery.bearer"
+        await ws_manager.connect(ws, user_email, subprotocol=subprotocol)
+    else:
+        await ws.accept()
+        try:
+            raw = await asyncio.wait_for(ws.receive_text(), timeout=5)
+            import json as _json
+            msg = _json.loads(raw)
+            user_email = await _decode_ws_user(msg.get("token", ""))
+        except (WebSocketDisconnect, asyncio.TimeoutError, ValueError, TypeError):
+            user_email = ""
         if not user_email:
             await ws.close(code=4001)
             return
-    except JWTError:
-        await ws.close(code=4001)
-        return
-    await ws_manager.connect(ws, user_email)
+        ws_manager.connections.setdefault(user_email, set()).add(ws)
+        logger.info(f"WS connected (first-message auth): {user_email}")
     try:
         while True:
             await ws.receive_text()
