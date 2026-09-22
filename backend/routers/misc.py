@@ -11,6 +11,7 @@ from ledger import ledger
 from models import CARBON_MODELS
 from websocket_manager import ws_manager
 from carbon import get_carbon_optimal_region
+from key_manager import key_manager
 router = APIRouter(tags=["misc"])
 
 
@@ -94,6 +95,8 @@ async def health():
             checks["electricity_maps_reachable"] = False
     or_key = os.getenv("OPENROUTER_API_KEY", "")
     checks["openrouter_configured"] = or_key.startswith("sk-or-")
+    checks["openrouter_active_keys"] = len(key_manager.get_active_keys("openrouter"))
+    checks["openrouter_eligible_keys"] = len(key_manager.get_all_providers_keys().get("openrouter", []))
     if not checks["ledger_connected"] or not checks["auth_db_connected"]:
         checks["status"] = "degraded"
     return checks

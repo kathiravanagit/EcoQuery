@@ -78,6 +78,12 @@ class KeyManager:
                         (str(uuid.uuid4()), key_value, provider, "user", 1000),
                     )
                     logger.info("Added %s API key from environment", provider)
+                else:
+                    cursor.execute(
+                        "UPDATE api_keys SET is_active = 1 WHERE key_value = ? AND provider = ?",
+                        (key_value, provider),
+                    )
+                    logger.info("Reactivated %s API key from environment", provider)
             conn.commit()
 
     def add_key(self, key_value: str, provider: str, role: str = 'user', daily_limit: int = 1000):
