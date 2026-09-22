@@ -43,11 +43,11 @@ const Hero = () => {
           </motion.div>
           
           <motion.h1 className="hero-title" variants={fadeUp}>
-            the control plane<span className="text-gradient"> for sustainable AI</span>
+            ask AI with less<span className="text-gradient"> unnecessary computation</span>
           </motion.h1>
           
           <p className="hero-subtitle">
-            EcoQuery decides whether inference is needed, selects the smallest capable model in the cleanest available region, and records evidence for every decision.
+            EcoQuery checks whether a question can be answered locally before using an external model. When inference is needed, it estimates the impact and records the route, model, region, and verification result.
           </p>
 
           <motion.div className="hero-decision" variants={fadeUp}>

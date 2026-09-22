@@ -16,15 +16,32 @@ const Research = () => {
     <section id="research" className="section research-section">
       <div className="container">
         <motion.div className="section-header" {...fadeUp}>
-          <h2>Proof over <span className="text-gradient">promises</span></h2>
-          <p>Every route carries its source, decision, estimate, and verification state.</p>
+          <h2>What we <span className="text-gradient">measure</span></h2>
+          <p>The dashboard reports routing evidence and estimates, with the assumptions documented in the methodology.</p>
         </motion.div>
 
         <motion.div className="transparency-strip" {...fadeUp}>
-          <div><span className="transparency-value">13</span><span>g CO₂/kWh</span><small>lowest reference region</small></div>
-          <div><span className="transparency-value">13</span><span>regions</span><small>compared before routing</small></div>
-          <div><span className="transparency-value">SHA-256</span><span>integrity hash</span><small>attached to audit records</small></div>
-          <div><span className="transparency-value">0 g</span><span>when knowledge matches</span><small>inference avoided entirely</small></div>
+          <div><span className="transparency-value">13</span><span>g CO₂/kWh</span><small>lowest reference intensity</small></div>
+          <div><span className="transparency-value">13</span><span>regions</span><small>reference data used for routing</small></div>
+          <div><span className="transparency-value">SHA-256</span><span>record hash</span><small>helps detect audit changes</small></div>
+          <div><span className="transparency-value">0 g</span><span>estimated impact</span><small>when a local answer avoids inference</small></div>
+        </motion.div>
+
+        <motion.div className="research-limitations" {...fadeUp}>
+          <div>
+            <h3>What EcoQuery does not claim</h3>
+            <ul>
+              <li>It does not directly measure GPU electricity for every request.</li>
+              <li>It cannot guarantee the physical data center used by an external provider.</li>
+              <li>CO₂ values are estimates based on tokens, model assumptions, and regional intensity.</li>
+              <li>A hash shows whether our audit record changed; it does not prove hidden provider execution details.</li>
+            </ul>
+          </div>
+          <div className="research-links">
+            <a href="/Whitepaper.pdf" target="_blank" rel="noopener noreferrer">Read the whitepaper</a>
+            <a href="https://github.com/kathiravanagit/EcoQuery/blob/main/docs/METHODOLOGY.md" target="_blank" rel="noopener noreferrer">View the methodology</a>
+            <a href="https://github.com/kathiravanagit/EcoQuery/blob/main/docs/EVALUATION.md" target="_blank" rel="noopener noreferrer">View the evaluation</a>
+          </div>
         </motion.div>
 
       </div>
