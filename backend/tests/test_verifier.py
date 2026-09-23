@@ -82,7 +82,7 @@ def test_verify_integrity_hash_present():
         reported_co2_g=0.005
     )
     assert "integrity_hash" in result
-    assert len(result["integrity_hash"]) == 16
+    assert len(result["integrity_hash"]) == 64
 
 
 def test_verify_confidence_range():
@@ -153,3 +153,16 @@ def test_verify_high_latency_triggers_flag():
     )
     # latency_ratio = 20.0/0.5 = 40x > 3.0 → should flag
     assert result["flagged"] is True
+
+
+def test_verifier_uses_token_window_for_tps():
+    result = verifier.verify_completion(
+        model_id="gpt-oss-20b:free",
+        prompt_tokens=10,
+        completion_tokens=100,
+        latency_seconds=10.0,
+        reported_co2_g=0.1,
+        t_first_token_s=2.0,
+        t_last_token_s=4.0,
+    )
+    assert result["observed_tps"] == 50.0

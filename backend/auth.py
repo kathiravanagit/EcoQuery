@@ -1,17 +1,20 @@
 import os
 import logging
 import secrets
+import hashlib
+import hmac
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorClient
 from jose import JWTError, jwt
 import bcrypt as _bcrypt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
 from pydantic import BaseModel
 
 logger = logging.getLogger("EcoQuery.auth")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+optional_bearer = HTTPBearer(auto_error=False)
 
 SECRET_KEY = os.getenv("JWT_SECRET")
 if not SECRET_KEY:
@@ -141,13 +144,21 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return _bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
+
+def hash_api_key(key: str) -> str:
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def verify_api_key(key: str, stored_hash: str) -> bool:
+    return hmac.compare_digest(hash_api_key(key), stored_hash)
+
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+async def authenticate_token(token: str) -> dict:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -157,7 +168,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     if token.startswith("eq_"):
         from shared import ORG_API_KEYS
         for org_id, keys in ORG_API_KEYS.items():
-            matching_key = next((key for key in keys if key.get("key") == token), None)
+            matching_key = next((key for key in keys if verify_api_key(token, key.get("key_hash", ""))), None)
             if matching_key:
                 return {
                     "email": matching_key["created_by"],
@@ -166,9 +177,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
                     "org_id": org_id,
                 }
         if auth_db.available and auth_db.db is not None:
-            org = await auth_db.db["organizations"].find_one({"api_keys.key": token})
+            org = await auth_db.db["organizations"].find_one({"api_keys.key_hash": hash_api_key(token)})
             if org:
-                matching_key = next(key for key in org.get("api_keys", []) if key.get("key") == token)
+                matching_key = next(key for key in org.get("api_keys", []) if verify_api_key(token, key.get("key_hash", "")))
                 return {
                     "email": matching_key["created_by"],
                     "display_name": matching_key["created_by"],
@@ -177,7 +188,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
                 }
         if not auth_db.available or auth_db.collection is None:
             raise credentials_exception
-        user = await auth_db.collection.find_one({"api_key": token})
+        user = await auth_db.collection.find_one({"api_key_hash": hash_api_key(token)})
         if user is None:
             raise credentials_exception
         user["_id"] = str(user["_id"])
@@ -194,6 +205,27 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     if user is None:
         raise credentials_exception
     user["_id"] = str(user["_id"])
+    return user
+
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+    return await authenticate_token(token)
+
+
+async def get_chat_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_bearer),
+) -> dict:
+    if credentials is None:
+        if os.getenv("PUBLIC_DEMO_MODE", "false").lower() == "true":
+            user = {"email": "anonymous-demo", "display_name": "Public demo", "auth_provider": "demo"}
+            request.state.user = user
+            return user
+        raise HTTPException(status_code=401, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
+    user = await authenticate_token(credentials.credentials)
+    if user.get("tokens_used", 0) >= int(os.getenv("MAX_USER_TOKENS", "100000")):
+        raise HTTPException(status_code=402, detail="Token limit reached. Upgrade your plan to continue.")
+    request.state.user = user
     return user
 
 async def get_admin_user(current_user: dict = Depends(get_current_user)) -> dict:

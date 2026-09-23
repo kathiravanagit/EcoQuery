@@ -1,6 +1,7 @@
 """Inference router for EcoQuery with dynamic multi-provider API Key fallback."""
 
 import logging
+import time
 from openai import AsyncOpenAI
 from key_manager import key_manager
 
@@ -141,14 +142,21 @@ class ProviderRouter:
                     )
                     
                     emitted = False
+                    first_token_s = None
+                    last_token_s = None
+                    stream_started = time.monotonic()
                     async for chunk in stream:
                         delta = chunk.choices[0].delta if chunk.choices else None
                         token = (delta.content or "") if delta else ""
                         if token:
                             emitted = True
+                            now = time.monotonic() - stream_started
+                            first_token_s = now if first_token_s is None else first_token_s
+                            last_token_s = now
                             yield {"token": token}
                             
                     if emitted:
+                        yield {"timing": {"t_first_token_s": first_token_s, "t_last_token_s": last_token_s}}
                         key_manager.log_usage(key_id, provider, target_model, 10, "success") # Approx tokens for stream
                         return
                         

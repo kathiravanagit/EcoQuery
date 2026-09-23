@@ -147,7 +147,7 @@ class ResponseCache:
             common_words = [w for w in (q_words & stored_words) if len(w) > 3]
 
             # Use a higher confidence threshold for semantic matches (>= 0.80)
-            if best_score >= 0.80 and len(common_words) >= 1:
+            if best_score >= 0.85 and len(common_words) >= 2:
                 return {
                     "matched": True,
                     "confidence": round(min(0.99, best_score), 2),

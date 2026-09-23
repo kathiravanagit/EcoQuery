@@ -39,6 +39,8 @@ def _generate_state() -> str:
 def _validate_state(state: str, cookie_state: str = "") -> bool:
     """Validate and consume an OAuth state parameter."""
     try:
+        if not cookie_state or not compare_digest(state, cookie_state):
+            return False
         timestamp, nonce, signature = state.split(".", 2)
         payload = f"{timestamp}.{nonce}"
         expected = hmac_new(SECRET_KEY.encode(), payload.encode(), sha256).hexdigest()

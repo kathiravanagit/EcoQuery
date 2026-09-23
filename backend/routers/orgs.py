@@ -4,7 +4,7 @@ import logging
 import secrets
 
 from schemas import OrgCreateRequest, OrgInviteRequest
-from auth import get_current_user
+from auth import get_current_user, hash_api_key
 from email_service import email_service
 from shared import ORGANIZATIONS, ORG_INVITES, ORG_API_KEYS
 
@@ -137,13 +137,13 @@ async def generate_org_api_key(org_id: str, current_user: dict = Depends(get_cur
     if not org or org.get("owner") != current_user["email"]:
         raise HTTPException(status_code=403, detail="Only the owner can generate API keys")
     key = f"eq_org_{secrets.token_hex(24)}"
-    key_record = {"key": key, "created_at": datetime.now(timezone.utc).isoformat(), "created_by": current_user["email"]}
+    key_record = {"key_hash": hash_api_key(key), "key_prefix": key[:10], "created_at": datetime.now(timezone.utc).isoformat(), "created_by": current_user["email"]}
     ORG_API_KEYS.setdefault(org_id, org.get("api_keys", [])).append(key_record)
     org["api_keys"] = ORG_API_KEYS[org_id]
     coll = await get_orgs_collection()
     if coll:
         await coll.update_one({"id": org_id}, {"$set": {"api_keys": org["api_keys"]}})
-    return {"api_key": key}
+    return {"api_key": key, "warning": "Store this key now; it cannot be retrieved later."}
 
 
 @router.get("/{org_id}/sustainability")

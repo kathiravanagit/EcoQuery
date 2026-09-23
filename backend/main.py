@@ -5,6 +5,7 @@ import os
 import time
 import logging
 import asyncio
+import hashlib
 from jose import JWTError, jwt
 from dotenv import load_dotenv
 
@@ -32,10 +33,12 @@ def rate_limit_key(request: Request) -> str:
     if auth.startswith("Bearer "):
         try:
             payload = jwt.decode(auth[7:], SECRET_KEY, algorithms=[ALGORITHM])
-            return payload.get("sub", request.client.host or "unknown")
+            return f"subject:{payload.get('sub', 'unknown')}"
         except JWTError:
             pass
-    return request.client.host or "unknown"
+    if auth.startswith("Bearer "):
+        return f"api-key:{hashlib.sha256(auth[7:].encode()).hexdigest()}"
+    return f"ip:{request.client.host or 'unknown'}"
 
 
 async def rate_limit_middleware(request: Request, call_next):
@@ -121,7 +124,6 @@ configured_origins.update({
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(configured_origins),
-    allow_origin_regex=r"https://[a-zA-Z0-9-]+\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -138,6 +140,9 @@ async def security_headers_middleware(request: Request, call_next):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 

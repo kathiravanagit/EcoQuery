@@ -131,14 +131,14 @@ class KnowledgeBase:
         self._is_loaded = False
         self._load_and_index()
 
-    def _generate_answer_for_prompt(self, text: str, tier: str) -> str:
-        """Derive an authoritative direct answer for any indexed prompt."""
+    def _generate_answer_for_prompt(self, text: str, tier: str) -> Optional[str]:
+        """Return an answer only when the prompt maps to curated knowledge."""
         norm = _normalize_text(text)
 
         # Check direct keyword match in curated repository
         for key, ans in KNOWLEDGE_ANSWERS.items():
             key_norm = _normalize_text(key)
-            if key_norm in norm or norm in key_norm:
+            if key_norm == norm or re.search(rf"(?<!\w){re.escape(key_norm)}(?!\w)", norm):
                 return ans
 
         # Capital cities
@@ -149,44 +149,7 @@ class KnowledgeBase:
             if key in KNOWLEDGE_ANSWERS:
                 return KNOWLEDGE_ANSWERS[key]
 
-        # Definitions
-        def_match = re.search(r'(?:define|what is|what are)\s+([a-z0-9\s]+)', norm)
-        if def_match:
-            concept = def_match.group(1).strip()
-            if concept in KNOWLEDGE_ANSWERS:
-                return KNOWLEDGE_ANSWERS[concept]
-
-        # Comparisons
-        comp_match = re.search(r'(?:difference between|compare)\s+([a-z0-9\s]+?)\s+(?:and|with)\s+([a-z0-9\s]+)', norm)
-        if comp_match:
-            c1 = comp_match.group(1).strip()
-            c2 = comp_match.group(2).strip()
-            return f"{c1.capitalize()} and {c2} differ fundamentally in their architecture and trade-offs. {c1.capitalize()} emphasizes specific design goals whereas {c2} provides alternative operational characteristics suited for distinct workload requirements."
-
-        # French translations
-        trans_match = re.search(r"translate\s+'?([a-z]+)'?\s+to french", norm)
-        if trans_match:
-            word = trans_match.group(1)
-            translations = {
-                "hot": "chaud", "big": "grand", "fast": "rapide", "bright": "brillant",
-                "strong": "fort", "happy": "heureux", "dark": "sombre", "deep": "profond"
-            }
-            if word in translations:
-                return f"The French translation of '{word}' is '{translations[word]}'."
-
-        # Math: square root
-        sqrt_match = re.search(r'square root of (\d+)', norm)
-        if sqrt_match:
-            num = int(sqrt_match.group(1))
-            val = round(np.sqrt(num), 4)
-            return f"The square root of {num} is approximately {val}."
-
-        # Math: 2 + 2
-        if "2 + 2" in norm:
-            return "2 + 2 equals 4."
-
-        # Generic concise factual responses
-        return f"{text.rstrip('?').capitalize()} is a fundamental concept in computing and science with broad applications across engineering, data systems, and sustainable computing architectures."
+        return None
 
     def _load_and_index(self):
         """Load 3,000 synthetic questions from CSV and build TF-IDF semantic index."""
@@ -211,9 +174,10 @@ class KnowledgeBase:
                         label = row.get("label", "simple").strip()
                         if text:
                             ans = self._generate_answer_for_prompt(text, label)
-                            questions.append(text)
-                            answers.append(ans)
-                            tiers.append(label)
+                            if ans:
+                                questions.append(text)
+                                answers.append(ans)
+                                tiers.append(label)
                 logger.info("Loaded %d knowledge records from %s", len(questions), DATA_PATH)
             except Exception as e:
                 logger.error("Failed to load training_data.csv: %s", e)
@@ -260,7 +224,8 @@ class KnowledgeBase:
 
         for key, ans in KNOWLEDGE_ANSWERS.items():
             key_norm = _normalize_text(key)
-            if key_norm == core_norm or key_norm == query_norm or (len(key_norm) > 3 and key_norm in query_norm and any(w in query_norm for w in ["what", "explain", "describe", "define", "tell"])):
+            key_in_query = re.search(rf"(?<!\w){re.escape(key_norm)}(?!\w)", query_norm)
+            if key_norm == core_norm or key_norm == query_norm or (len(key_norm) > 3 and key_in_query and any(w in query_norm for w in ["what", "explain", "describe", "define", "tell"])):
                 return {
                     "matched": True,
                     "confidence": 0.98,
@@ -289,7 +254,7 @@ class KnowledgeBase:
             stored_words = set(_normalize_text(best_question).split())
             common_non_stopwords = [w for w in (q_words & stored_words) if len(w) > 3]
 
-            if best_score >= 0.85 or (best_score >= 0.68 and len(common_non_stopwords) >= 1):
+            if best_score >= 0.85 and len(common_non_stopwords) >= 2:
                 confidence = round(min(0.99, max(0.70, best_score)), 2)
                 return {
                     "matched": True,

@@ -6,6 +6,7 @@ import os
 import logging
 import hashlib
 import json
+import asyncio
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -20,6 +21,7 @@ class VerificationLedger:
         self.badges_col = None
         self.available = False
         self._last_hash_by_user: dict[str, str] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
 
     async def connect(self):
         url = os.getenv("MONGODB_URL", "mongodb://localhost:27017/ecoquery")
@@ -36,36 +38,27 @@ class VerificationLedger:
             self.available = False
 
     async def record_query(self, entry: dict, user_email: str = "") -> str:
-        previous_hash = self._last_hash_by_user.get(user_email, "")
-        if self.available and self.collection is not None:
-            try:
-                previous = await self.collection.find_one(
-                    {"user_email": user_email},
-                    sort=[("timestamp", -1)],
-                    projection={"ledger_hash": 1},
-                )
-                previous_hash = (previous or {}).get("ledger_hash", previous_hash)
-            except Exception as e:
-                logger.debug("Could not read previous ledger hash: %s", e)
-        record = {
-            **entry,
-            "user_email": user_email,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "version": "3.0",
-            "previous_ledger_hash": previous_hash,
-        }
-        record["ledger_hash"] = self._compute_ledger_hash(record)
-        self._last_hash_by_user[user_email] = record["ledger_hash"]
-        if self.available and self.collection is not None:
-            try:
-                result = await self.collection.insert_one(record)
-                if user_email:
-                    await self._update_badges(user_email)
-                return str(result.inserted_id)
-            except Exception as e:
-                logger.debug("Ledger insert_one failed: %s", e)
-                return "no-db-entry"
-        return "no-db-entry"
+        lock = self._locks.setdefault(user_email, asyncio.Lock())
+        async with lock:
+            previous_hash = self._last_hash_by_user.get(user_email, "")
+            if self.available and self.collection is not None:
+                try:
+                    previous = await self.collection.find_one({"user_email": user_email}, sort=[("timestamp", -1)], projection={"ledger_hash": 1})
+                    previous_hash = (previous or {}).get("ledger_hash", previous_hash)
+                except Exception as e:
+                    logger.debug("Could not read previous ledger hash: %s", e)
+            record = {**entry, "user_email": user_email, "timestamp": datetime.now(timezone.utc).isoformat(), "version": "3.0", "previous_ledger_hash": previous_hash}
+            record["ledger_hash"] = self._compute_ledger_hash(record)
+            self._last_hash_by_user[user_email] = record["ledger_hash"]
+            if self.available and self.collection is not None:
+                try:
+                    result = await self.collection.insert_one(record)
+                    if user_email:
+                        await self._update_badges(user_email)
+                    return str(result.inserted_id)
+                except Exception as e:
+                    logger.debug("Ledger insert_one failed: %s", e)
+            return "no-db-entry"
 
     async def verify_user_chain(self, user_email: str = "") -> dict:
         if self.available and self.collection is not None:
@@ -213,7 +206,7 @@ class VerificationLedger:
         ]
         results = await self.collection.aggregate(pipeline).to_list(limit)
         return [
-            {"email": r["_id"], "total_co2_saved_g": round(r["total_co2"], 3), "total_queries": r["total_queries"]}
+            {"user_id": hashlib.sha256(r["_id"].encode()).hexdigest()[:12], "total_co2_saved_g": round(r["total_co2"], 3), "total_queries": r["total_queries"]}
             for r in results if r["_id"]
         ]
 
@@ -275,7 +268,7 @@ class VerificationLedger:
     def _compute_ledger_hash(self, record: dict) -> str:
         hashable = {key: value for key, value in record.items() if key not in {"ledger_hash", "_id"}}
         payload = json.dumps(hashable, sort_keys=True, separators=(",", ":"), default=str)
-        return hashlib.sha256(payload.encode()).hexdigest()[:24]
+        return hashlib.sha256(payload.encode()).hexdigest()
 
 
 ledger = VerificationLedger()

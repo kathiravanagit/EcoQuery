@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from datetime import datetime, timezone
 import time
 import logging
 import json
 import re
+import hashlib
 from jose import JWTError, jwt
 
 from schemas import ChatRequest, ChatResponse
-from auth import SECRET_KEY, ALGORITHM, auth_db
+from auth import SECRET_KEY, ALGORITHM, auth_db, get_chat_user, hash_api_key
 from models import CARBON_MODELS, FALLBACK_MODELS, VISION_MODEL
 from classifier import classifier
 from knowledge import knowledge_base
@@ -70,7 +71,7 @@ def clean_response(text: str, max_words: int = 150) -> str:
             else:
                 words = part.split()
                 if len(words) > word_budget:
-                    part = ' '.join(words[:word_budget]) + '...'
+                    part = ' '.join(words[:word_budget])
                     word_budget = 0
                 else:
                     word_budget -= len(words)
@@ -80,9 +81,21 @@ def clean_response(text: str, max_words: int = 150) -> str:
     else:
         words = text.split()
         if len(words) > max_words:
-            text = ' '.join(words[:max_words]) + '...'
+            text = ' '.join(words[:max_words])
 
     return text.strip()
+
+
+def _image_data_url(image: str) -> str:
+    """Attach the correct media type for the supported base64 image formats."""
+    media_type = "image/jpeg"
+    if image.startswith("iVBORw0KGgo"):
+        media_type = "image/png"
+    elif image.startswith("UklGR"):
+        media_type = "image/webp"
+    elif image.startswith("R0lGOD"):
+        media_type = "image/gif"
+    return f"data:{media_type};base64,{image}"
 
 
 def _selection_for_model(openrouter_id: str, current: dict) -> dict:
@@ -101,6 +114,9 @@ def _selection_for_model(openrouter_id: str, current: dict) -> dict:
 
 
 async def _resolve_user_email(request: Request) -> str:
+    state_user = getattr(request.state, "user", None)
+    if state_user:
+        return state_user.get("email", "")
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return ""
@@ -109,7 +125,7 @@ async def _resolve_user_email(request: Request) -> str:
         try:
             user = None
             if auth_db.available and auth_db.collection is not None:
-                user = await auth_db.collection.find_one({"api_key": token})
+                user = await auth_db.collection.find_one({"api_key_hash": hash_api_key(token)})
             if user:
                 return user.get("email", "")
         except Exception:
@@ -204,7 +220,7 @@ def _build_messages(req: ChatRequest):
         for img in req.images:
             content.append({
                 "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{img}"}
+                "image_url": {"url": _image_data_url(img)}
             })
         messages.append({"role": "user", "content": content})
     else:
@@ -282,6 +298,7 @@ async def _record_and_notify(
     knowledge_confidence: float = 0.0,
     llm_used: bool = True,
     cache_hit: bool = False,
+    response_text: str = "",
 ):
     user_email = await _resolve_user_email(request)
     zero_llm_savings = compute_savings(WORST_MODEL["carbon_score"], WORST_INTENSITY, prompt_length=len(req.message))
@@ -311,6 +328,10 @@ async def _record_and_notify(
         "answer_source": answer_source,
         "knowledge_match": knowledge_match,
         "knowledge_confidence": knowledge_confidence,
+        "response_hash": hashlib.sha256(response_text.encode()).hexdigest(),
+        "requested_model": req.model_id or model_sel.get("model", ""),
+        "actual_model": model_sel.get("model", ""),
+        "fallback_reason": model_sel.get("reason", "") if model_sel.get("model") != req.model_id else "",
         "llm_used": llm_used,
         "cache_hit": cache_hit,
         "is_local_inference": (model_sel["provider"] == "Ollama (Local)") or not llm_used
@@ -349,13 +370,8 @@ async def _record_and_notify(
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(req: ChatRequest, request: Request):
+async def chat_endpoint(req: ChatRequest, request: Request, current_user: dict = Depends(get_chat_user)):
     user_email = await _resolve_user_email(request)
-    if user_email:
-        user = await auth_db.find_user_by_email(user_email)
-        if user and user.get("tokens_used", 0) >= 100000:
-            raise HTTPException(status_code=402, detail="Token limit of 100K reached.")
-
     start_time = time.time()
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
 
@@ -374,7 +390,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False, v_result=v_result,
             routing_mode=routing_mode, answer_source="ecoquery_knowledge",
             knowledge_match=True, knowledge_confidence=knowledge_res["confidence"], llm_used=False,
-            cache_hit=False
+            cache_hit=False,
+            response_text=knowledge_res["answer"],
         )
         return ChatResponse(
             reply=knowledge_res["answer"],
@@ -403,7 +420,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             api_cost=0.0, latency_seconds=latency_seconds, is_mocked=False, v_result=v_result,
             routing_mode=routing_mode, answer_source="ecoquery_cache",
             knowledge_match=False, knowledge_confidence=cache_res["confidence"], llm_used=False,
-            cache_hit=True
+            cache_hit=True,
+            response_text=cache_res["answer"],
         )
         return ChatResponse(
             reply=cache_res["answer"],
@@ -503,7 +521,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         api_cost, latency_seconds, is_mocked, v_result,
         routing_mode=routing_mode, answer_source="llm",
         knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True,
-        cache_hit=False
+        cache_hit=False,
+        response_text=reply_content,
     )
 
     if user_email:
@@ -522,13 +541,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
 
 
 @router.post("/chat/stream")
-async def chat_stream(req: ChatRequest, request: Request):
+async def chat_stream(req: ChatRequest, request: Request, current_user: dict = Depends(get_chat_user)):
     user_email = await _resolve_user_email(request)
-    if user_email:
-        user = await auth_db.find_user_by_email(user_email)
-        if user and user.get("tokens_used", 0) >= 100000:
-            raise HTTPException(status_code=402, detail="Token limit of 100K reached.")
-
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
 
     # ── STEP 1: ZERO-LLM 3000-Q KNOWLEDGE DIRECT STREAMING ──────────────────
@@ -606,6 +620,8 @@ async def chat_stream(req: ChatRequest, request: Request):
     output_tokens = 40
     is_mocked = False
     full_reply = ""
+    t_first_token_s = None
+    t_last_token_s = None
     start_time = time.time()
 
     user_email = await _resolve_user_email(request)
@@ -614,7 +630,7 @@ async def chat_stream(req: ChatRequest, request: Request):
         max_tokens = req.max_output_tokens or 200
 
     async def generate():
-        nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply
+        nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply, t_first_token_s, t_last_token_s
         try:
             async for token in provider_router.stream_completion(
                 model_id=target_model,
@@ -629,6 +645,10 @@ async def chat_stream(req: ChatRequest, request: Request):
                     tok = token["token"]
                     full_reply += tok
                     yield f"data: {json.dumps({'token': tok})}\n\n"
+                elif isinstance(token, dict) and "timing" in token:
+                    timing = token["timing"]
+                    t_first_token_s = timing.get("t_first_token_s")
+                    t_last_token_s = timing.get("t_last_token_s")
                 elif isinstance(token, str):
                     full_reply += token
                     yield f"data: {json.dumps({'token': token})}\n\n"
@@ -645,7 +665,8 @@ async def chat_stream(req: ChatRequest, request: Request):
         v_result = verifier.verify_completion(
             model_id=model_sel["model"], prompt_tokens=prompt_tokens,
             completion_tokens=output_tokens, latency_seconds=latency_seconds,
-            reported_co2_g=savings["estimated_co2_g"]
+            reported_co2_g=savings["estimated_co2_g"],
+            t_first_token_s=t_first_token_s, t_last_token_s=t_last_token_s,
         )
 
         # Store in cache if successful
@@ -665,7 +686,8 @@ async def chat_stream(req: ChatRequest, request: Request):
             api_cost, latency_seconds, is_mocked, v_result,
             routing_mode=routing_mode, answer_source="llm",
             knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True,
-            cache_hit=False
+            cache_hit=False,
+            response_text=cleaned_reply,
         )
 
         if user_email:
