@@ -1,3 +1,5 @@
+import asyncio
+import json
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from datetime import datetime, timezone
@@ -326,24 +328,36 @@ async def get_certificate(current_user: dict = Depends(get_current_user)):
     }
 
 
-@router.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
-    offered_protocols = ws.scope.get("subprotocols", [])
-    token = next((p for p in offered_protocols if p != "ecoquery.bearer"), "")
-    if not token:
-        await ws.close(code=4001)
-        return
+async def _extract_ws_token(ws: WebSocket) -> str:
+    parts = [p.strip() for p in ws.headers.get("sec-websocket-protocol", "").split(",") if p.strip()]
+    return parts[1] if len(parts) >= 2 and parts[0] == "ecoquery.bearer" else ""
+
+
+async def _decode_ws_user(token: str) -> str:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_email = payload.get("sub", "")
+        return payload.get("sub", "")
+    except (JWTError, TypeError):
+        return ""
+
+
+@router.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
+    token = await _extract_ws_token(ws)
+    user_email = await _decode_ws_user(token)
+    if user_email:
+        await ws_manager.connect(ws, user_email, subprotocol="ecoquery.bearer")
+    else:
+        await ws.accept()
+        try:
+            raw = await asyncio.wait_for(ws.receive_text(), timeout=5)
+            user_email = await _decode_ws_user(json.loads(raw).get("token", ""))
+        except (WebSocketDisconnect, asyncio.TimeoutError, ValueError, TypeError):
+            user_email = ""
         if not user_email:
             await ws.close(code=4001)
             return
-    except JWTError:
-        await ws.close(code=4001)
-        return
-    await ws.accept(subprotocol="ecoquery.bearer")
-    await ws_manager.connect(ws, user_email)
+        ws_manager.connections.setdefault(user_email, set()).add(ws)
     try:
         while True:
             await ws.receive_text()
