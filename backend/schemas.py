@@ -98,30 +98,15 @@ class OrgInviteRequest(BaseModel):
 
 
 class WebhookCreateRequest(BaseModel):
-    url: str = Field(..., min_length=1, max_length=2000)
+    url: str = Field(..., min_length=1)
     events: list[str] = ["query.routed"]
 
     @field_validator('url')
     @classmethod
     def validate_url(cls, v):
-        from urllib.parse import urlparse
-        try:
-            parsed = urlparse(v)
-        except Exception:
-            raise ValueError('Invalid URL')
-        if parsed.scheme not in ('http', 'https'):
+        if not v.startswith(('http://', 'https://')):
             raise ValueError('URL must start with http:// or https://')
-        host = (parsed.hostname or '').lower()
-        if not host:
-            raise ValueError('URL must include a hostname')
-        if host in ('localhost', '0.0.0.0', '::1') or host.endswith('.local') or host.endswith('.internal'):
-            raise ValueError('Private/internal URLs are not allowed')
-        import ipaddress
-        try:
-            ip = ipaddress.ip_address(host)
-        except ValueError:
-            ip = None
-        if ip is not None and not ip.is_global:
+        if any(blocked in v for blocked in ['localhost', '127.0.0.1', '0.0.0.0', '10.', '172.', '192.168.']):
             raise ValueError('Private/internal URLs are not allowed')
         return v
 

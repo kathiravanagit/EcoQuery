@@ -9,18 +9,15 @@ TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 OUT_DIR="backups/ecoquery_${TIMESTAMP}"
 mkdir -p "$OUT_DIR"
 
-if [ -z "$MONGODB_URL" ]; then
-  echo "Error: MONGODB_URL environment variable is required." >&2
-  echo "Example: MONGODB_URL='mongodb+srv://...' bash scripts/backup-mongo.sh" >&2
-  exit 1
-fi
+MONGO_URL="${MONGODB_URL:-mongodb+srv://kathiravanawork_db_user:***@cluster0.zk5nkqw.mongodb.net/ecoquery}"
 
 echo "==> Backing up EcoQuery MongoDB to $OUT_DIR"
 
 mongodump \
-  --uri="$MONGODB_URL" \
+  --uri="$MONGO_URL" \
   --out="$OUT_DIR" \
   --gzip
 
 echo "==> Backup complete: $OUT_DIR"
 echo "    Collections: users, queries (ledger), contacts"
+echo "==> To restore: mongorestore --uri=\"$MONGO_URL\" \"$OUT_DIR\" --gzip"

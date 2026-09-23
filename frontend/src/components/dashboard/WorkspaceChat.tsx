@@ -196,7 +196,6 @@ const WorkspaceChat = ({ token }: Props) => {
             try {
               const data = JSON.parse(line.substring(6));
               if (data.error === 'ALL_KEYS_EXPIRED') {
-                if (currentReply.trim()) break;
                 setMessages(prev => {
                   const newMsgs = [...prev];
                   newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";

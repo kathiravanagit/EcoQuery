@@ -6,8 +6,6 @@ import time
 import logging
 import asyncio
 import hashlib
-from collections import defaultdict, deque
-from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
 from dotenv import load_dotenv
 
@@ -27,7 +25,7 @@ logger = logging.getLogger("EcoQuery")
 
 RATE_LIMIT_DURATION = 60
 RATE_LIMIT_MAX = 30
-_rate_store: dict[str, deque] = defaultdict(deque)
+_rate_store: dict[str, list[float]] = {}
 
 
 def rate_limit_key(request: Request) -> str:
@@ -48,11 +46,11 @@ async def rate_limit_middleware(request: Request, call_next):
     if request.url.path.startswith("/api/") and request.method != "GET":
         key = rate_limit_key(request)
         now = time.time()
-        window = _rate_store[key]
-        while window and now - window[0] >= RATE_LIMIT_DURATION:
-            window.popleft()
+        window = _rate_store.setdefault(key, [])
+        window[:] = [t for t in window if now - t < RATE_LIMIT_DURATION]
         remaining = max(0, RATE_LIMIT_MAX - len(window))
         if len(window) >= RATE_LIMIT_MAX:
+            from fastapi.responses import JSONResponse
             resp = JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Try again later."})
             resp.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_MAX)
             resp.headers["X-RateLimit-Remaining"] = "0"
