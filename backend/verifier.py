@@ -36,18 +36,6 @@ ESTIMATED_THRESHOLDS: Dict[str, Dict[str, float]] = {
 
 DEFAULT_THRESHOLD = {"min_tps": 15.0, "max_tps": 250.0, "expected_tps": 60.0, "avg_latency_s": 2.0}
 
-# Initial catalog operating points. These are calibration starting points, not
-# claims of identity; verifier_eval.py publishes measured precision/recall.
-ESTIMATED_THRESHOLDS.update({
-    "nemotron-3-ultra-550b-a55b:free": {"min_tps": 8.0, "max_tps": 120.0, "expected_tps": 45.0, "avg_latency_s": 4.0},
-    "nemotron-3-super-120b-a12b:free": {"min_tps": 12.0, "max_tps": 160.0, "expected_tps": 65.0, "avg_latency_s": 2.8},
-    "llama-4-scout": {"min_tps": 20.0, "max_tps": 220.0, "expected_tps": 100.0, "avg_latency_s": 2.0},
-    "gpt-oss-120b:free": {"min_tps": 12.0, "max_tps": 160.0, "expected_tps": 65.0, "avg_latency_s": 2.8},
-    "deepseek-chat-v3-0324:free": {"min_tps": 15.0, "max_tps": 180.0, "expected_tps": 80.0, "avg_latency_s": 2.4},
-    "gemma-4-31b:free": {"min_tps": 35.0, "max_tps": 260.0, "expected_tps": 130.0, "avg_latency_s": 1.4},
-    "gpt-oss-20b:free": {"min_tps": 50.0, "max_tps": 360.0, "expected_tps": 190.0, "avg_latency_s": 0.9},
-})
-
 
 class VerificationEngine:
     def verify_completion(
@@ -56,9 +44,7 @@ class VerificationEngine:
         prompt_tokens: int,
         completion_tokens: int,
         latency_seconds: float,
-        reported_co2_g: float,
-        t_first_token_s: float | None = None,
-        t_last_token_s: float | None = None,
+        reported_co2_g: float
     ) -> Dict[str, Any]:
         seconds_since_start = time.time() - SERVER_START_TIME
         is_warmup = seconds_since_start < WARMUP_SECONDS
@@ -74,12 +60,7 @@ class VerificationEngine:
                 "integrity_hash": self._compute_hash(model_id, prompt_tokens, completion_tokens, latency_seconds),
             }
 
-        token_window = latency_seconds
-        if t_first_token_s is not None and t_last_token_s is not None:
-            token_window = t_last_token_s - t_first_token_s
-        if token_window <= 0:
-            token_window = latency_seconds
-        observed_tps = round(completion_tokens / token_window, 2)
+        observed_tps = round(completion_tokens / latency_seconds, 2)
         threshold = ESTIMATED_THRESHOLDS.get(model_id, DEFAULT_THRESHOLD)
         latency_ratio = latency_seconds / threshold["avg_latency_s"] if threshold["avg_latency_s"] > 0 else 1.0
 
@@ -150,7 +131,7 @@ class VerificationEngine:
 
     def _compute_hash(self, model_id: str, prompt_tokens: int, completion_tokens: int, latency: float) -> str:
         payload = f"{model_id}:{prompt_tokens}:{completion_tokens}:{latency:.3f}"
-        return hashlib.sha256(payload.encode()).hexdigest()
+        return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
 verifier = VerificationEngine()

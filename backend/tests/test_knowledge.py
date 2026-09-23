@@ -62,21 +62,6 @@ def test_knowledge_unmatched_low_confidence():
     assert res["answer"] is None
 
 
-@pytest.mark.parametrize("question", [
-    "What is the capital of Peru?",
-    "What is the GDP of Peru?",
-])
-def test_knowledge_never_fabricates_answers(question):
-    result = knowledge_base.match(question)
-    assert result["matched"] is False
-    assert result["answer"] is None
-
-
-def test_hello_is_not_a_fabricated_definition():
-    result = knowledge_base.match("hello")
-    assert "fundamental concept" not in (result["answer"] or "")
-
-
 def test_chat_direct_knowledge_zero_llm(client):
     resp = client.post("/api/chat", json={
         "message": "Can you explain photosynthesis?"

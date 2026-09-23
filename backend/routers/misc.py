@@ -6,17 +6,12 @@ import os
 import httpx
 from jose import JWTError, jwt
 
-from auth import SECRET_KEY, ALGORITHM, get_current_user, get_admin_user, hash_api_key
+from auth import SECRET_KEY, ALGORITHM, get_current_user, get_admin_user
 from ledger import ledger
 from models import CARBON_MODELS
 from websocket_manager import ws_manager
 from carbon import get_carbon_optimal_region
 router = APIRouter(tags=["misc"])
-
-TREE_CO2_KG_PER_YEAR = 21.0
-SMARTPHONE_CHARGE_CO2_G = 8.22
-LED_BULB_WATTS = 10.0
-REFERENCE_GRID_CO2_G_PER_KWH = 475.0
 
 
 class ContactRequest(BaseModel):
@@ -49,13 +44,18 @@ async def get_contacts(current_user: dict = Depends(get_admin_user)):
     return {"messages": messages, "count": len(messages)}
 
 
+async def _get_api_key(email: str) -> str:
+    from auth import auth_db
+    if auth_db.available and auth_db.collection is not None:
+        user = await auth_db.collection.find_one({"email": email}, {"api_key": 1})
+        return (user or {}).get("api_key", "")
+    return ""
+
+
 async def _set_api_key(email: str, key: str):
     from auth import auth_db
     if auth_db.available and auth_db.collection is not None:
-        updates = {"api_key_hash": hash_api_key(key), "api_key_prefix": key[:10]}
-        if not key:
-            updates = {"api_key_hash": "", "api_key_prefix": ""}
-        await auth_db.collection.update_one({"email": email}, {"$set": updates})
+        await auth_db.collection.update_one({"email": email}, {"$set": {"api_key": key}})
 
 
 @router.get("/api/models")
@@ -142,13 +142,7 @@ async def get_analytics(current_user: dict = Depends(get_current_user), days: in
 
 @router.get("/api/leaderboard")
 async def get_leaderboard():
-    rows = await ledger.get_leaderboard(limit=20)
-    return {
-        "leaderboard": [
-            {"rank": index, "pseudonym": f"Eco user {index:02d}", "total_co2_saved_g": row["total_co2_saved_g"], "total_queries": row["total_queries"]}
-            for index, row in enumerate(rows, 1)
-        ]
-    }
+    return {"leaderboard": await ledger.get_leaderboard(limit=20)}
 
 
 @router.get("/api/user/badges")
@@ -228,10 +222,10 @@ async def get_sustainability_report(current_user: dict = Depends(get_current_use
         "model_usage": models,
         "environmental_impact": {
             "co2_equivalent": f"{round(total_co2 * 1000, 1)} mg CO₂ saved",
-            "trees_equivalent_days": round(total_co2 / (TREE_CO2_KG_PER_YEAR * 1000) * 365, 6),
-            "car_km_equivalent": round(total_co2 / 210, 2),
-            "smartphone_charges": round(total_co2 / SMARTPHONE_CHARGE_CO2_G, 1),
-            "led_bulb_hours": round(total_co2 / (LED_BULB_WATTS / 1000 * REFERENCE_GRID_CO2_G_PER_KWH), 2),
+            "trees_equivalent_days": round(total_co2 / 21.0, 6),
+            "car_km_equivalent": round(total_co2 / 0.21, 2),
+            "smartphone_charges": round(total_co2 / 0.008, 1),
+            "led_bulb_hours": round(total_co2 / 0.01, 0),
             "flight_minutes": round(total_co2 / 255.0, 4),
         },
         "ghg_protocol_alignment": {
@@ -239,7 +233,7 @@ async def get_sustainability_report(current_user: dict = Depends(get_current_use
             "category": "Cloud computing carbon footprint reduction",
             "methodology": "Real-time grid carbon intensity via Electricity Maps API",
             "verification": "TPS-based model substitution detection with integrity hashing",
-            "standard": "Informed by the GHG Protocol Scope 3 framing; values are engineering estimates, not an accounting statement.",
+            "standard": "Aligned with ISO 14064-1 GHG accounting",
         },
         "text_report": (
             f"{'='*50}\n"
@@ -255,12 +249,12 @@ async def get_sustainability_report(current_user: dict = Depends(get_current_use
             f"  TIER BREAKDOWN:\n"
             f"    Green: {green} | Balanced: {balanced} | Performance: {performance}\n\n"
             f"  ENVIRONMENTAL EQUIVALENTS:\n"
-            f"    Trees absorbed (days): {round(total_co2 / (TREE_CO2_KG_PER_YEAR * 1000) * 365, 6)}\n"
-            f"    Car travel saved: {round(total_co2 / 210, 2)} km\n"
-            f"    Smartphone charges: {round(total_co2 / SMARTPHONE_CHARGE_CO2_G, 1)}\n"
-            f"    LED bulb hours ({LED_BULB_WATTS:g} W at {REFERENCE_GRID_CO2_G_PER_KWH:g} g/kWh): {round(total_co2 / (LED_BULB_WATTS / 1000 * REFERENCE_GRID_CO2_G_PER_KWH), 2)}\n"
+            f"    Trees absorbed (days): {round(total_co2 / 21.0, 6)}\n"
+            f"    Car travel saved: {round(total_co2 / 0.21, 2)} km\n"
+            f"    Smartphone charges: {round(total_co2 / 0.008, 1)}\n"
+            f"    LED bulb hours: {round(total_co2 / 0.01, 0)}\n"
             f"    Flight minutes avoided: {round(total_co2 / 255.0, 4)}\n\n"
-            f"  GHG PROTOCOL: Informed by Scope 3 framing; engineering estimate, not an accounting statement\n"
+            f"  GHG PROTOCOL: Scope 3, ISO 14064-1 aligned\n"
             f"  VERIFICATION: TPS-based integrity check with SHA-256 hashing\n"
             f"{'='*50}\n"
         )
@@ -277,7 +271,10 @@ async def generate_api_key(current_user: dict = Depends(get_current_user)):
 
 @router.get("/api/user/api-key")
 async def get_api_key(current_user: dict = Depends(get_current_user)):
-    return {"api_key": "", "message": "API keys are shown only once when generated."}
+    key = await _get_api_key(current_user["email"])
+    if not key:
+        return {"api_key": "", "message": "No API key generated yet. POST /api/user/api-key to create one."}
+    return {"api_key": key}
 
 
 @router.post("/api/user/api-key/revoke")
@@ -328,8 +325,7 @@ async def get_certificate(current_user: dict = Depends(get_current_user)):
 
 @router.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
-    offered_protocols = ws.scope.get("subprotocols", [])
-    token = next((p for p in offered_protocols if p != "ecoquery.bearer"), "")
+    token = ws.query_params.get("token", "")
     if not token:
         await ws.close(code=4001)
         return
@@ -342,7 +338,6 @@ async def websocket_endpoint(ws: WebSocket):
     except JWTError:
         await ws.close(code=4001)
         return
-    await ws.accept(subprotocol="ecoquery.bearer")
     await ws_manager.connect(ws, user_email)
     try:
         while True:

@@ -109,7 +109,7 @@ If the user has a WebSocket connection open, a real-time event is pushed to thei
 | GET | /api/user/badges | Your earned badges |
 | GET | /api/leaderboard | Top users by CO₂ saved |
 | GET | /api/user/sustainability-report | Download ESG report |
-| WS | /ws with `ecoquery.bearer` subprotocol | Real-time query events |
+| WS | /ws?token= | Real-time query events |
 
 ## Data Sources
 

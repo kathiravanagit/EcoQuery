@@ -6,13 +6,11 @@ __pycache__/
 venv/
 .venv/
 *.egg-info/
-backend/keys.db
 
 # Build output
 frontend/dist
 dist
 dist-ssr
-frontend/.vite/
 
 # Logs
 logs
@@ -24,8 +22,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Environment
-.env*
-!.env.example
+.env
+.env.local
+.env.*.local
 
 # Deployment
 .vercel
@@ -47,14 +46,5 @@ Thumbs.db
 # Backups
 backups/
 
-# Experiment and test output
-experiments/results/
-backend/experiments/results/
-.coverage
-coverage.xml
-htmlcov/
-
-# Local secrets and certificates
-*.pem
-*.key
-*.secret
+.vercel
+.env*

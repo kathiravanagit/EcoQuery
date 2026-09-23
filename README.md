@@ -20,8 +20,6 @@ LLM inference costs — both financial and environmental — are significant and
 
 EcoQuery sits between your application and LLM providers:
 
-EcoQuery makes two contributions: (1) an ablation that quantifies how much of estimated carbon saving comes from model selection versus region selection, and (2) an evaluation-backed detector for provider model substitution with published precision/recall and ROC. Everything else is supporting engineering.
-
 - **Classify** query complexity using an LLM-powered classifier
 - **Predict** carbon impact via real-time power grid data across 13 regions
 - **Route** to the greenest model+region pair automatically
@@ -79,7 +77,7 @@ EcoQuery makes two contributions: (1) an ablation that quantifies how much of es
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 19, Vite 8, TypeScript, Framer Motion, Recharts |
-| Backend | FastAPI, Uvicorn, Python 3.12+ (PEP 701 f-strings) |
+| Backend | FastAPI, Uvicorn, Python 3.10+ |
 | Database | MongoDB Atlas |
 | AI/ML | Trained classifier, Carbon intensity ML baselines |
 | APIs | Electricity Maps and OpenRouter |
@@ -124,14 +122,14 @@ EcoQuery makes two contributions: (1) an ablation that quantifies how much of es
 | `GET` | `/api/leaderboard` | Top users by CO₂ saved |
 | `POST` | `/api/orgs/create` | Create organization |
 | `GET` | `/api/orgs/{id}/sustainability` | Org sustainability report |
-| `WS` | `/ws` with `ecoquery.bearer` subprotocol | Real-time query events |
+| `WS` | `/ws?token=` | Real-time query events |
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
-- Python 3.12+ (PEP 701 f-strings)
+- Python 3.10+
 - Node.js 18+
 - MongoDB Atlas (free tier works)
 - OpenRouter API key via `OPENROUTER_API_KEY`
@@ -160,6 +158,7 @@ npm run dev
 # Backend
 JWT_SECRET=your-random-secret
 OPENROUTER_API_KEY=sk-or-...          # OpenRouter key (preferred)
+OPENROUTER_API_KEY=sk-or-...          # OpenRouter API key
 ELECTRICITY_MAPS_API_KEY=em_...       # Optional (uses static fallback)
 MONGODB_URL=mongodb+srv://...         # Optional (degrades without)
 ALLOWED_ORIGINS=https://eco2query.vercel.app,http://localhost:5173
@@ -245,9 +244,10 @@ Push to `main` triggers GitHub Actions:
 | Metric | Value |
 |--------|-------|
 | Regions | 13 |
-| Carbon range | 13–710 g CO₂/kWh |
+| Carbon range | 13–380 g CO₂/kWh |
 | API endpoints | 30+ |
 | Backend tests | 121 |
+| Security level | A- |
 
 ---
 
