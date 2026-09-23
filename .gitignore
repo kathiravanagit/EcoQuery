@@ -7,7 +7,6 @@ venv/
 .venv/
 *.egg-info/
 backend/keys.db
-*.db
 
 # Build output
 frontend/dist

@@ -1,7 +1,6 @@
 import pytest
 import sys
 import os
-from unittest.mock import patch, AsyncMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -99,22 +98,17 @@ def test_chat_direct_knowledge_zero_llm(client):
 
 
 def test_chat_manual_model_selection_bypasses_knowledge(client):
-    with patch("routers.chat.provider_router.chat_completion", new_callable=AsyncMock) as mock_cc:
-        mock_cc.return_value = {
-            "content": "Photosynthesis is the process by which plants convert sunlight into glucose.",
-            "usage": {"prompt_tokens": 20, "completion_tokens": 30},
-        }
-        resp = client.post("/api/chat", json={
-            "message": "What is photosynthesis?",
-            "model_id": "deepseek-chat-v3-0324:free"
-        })
-        assert resp.status_code == 200
-        data = resp.json()
-        meta = data["metadata"]
-        assert meta["routing_mode"] == "manual"
-        assert meta["llm_used"] is True
-        assert meta["knowledge_match"] is False
-        assert meta["answer_source"] == "llm"
+    resp = client.post("/api/chat", json={
+        "message": "What is photosynthesis?",
+        "model_id": "deepseek-chat-v3-0324:free"
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    meta = data["metadata"]
+    assert meta["routing_mode"] == "manual"
+    assert meta["llm_used"] is True
+    assert meta["knowledge_match"] is False
+    assert meta["answer_source"] == "llm"
 
 
 def test_chat_stream_knowledge_direct(client):
