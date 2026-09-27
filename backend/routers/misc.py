@@ -99,6 +99,12 @@ async def health():
     return checks
 
 
+@router.get("/api/admin/provider-health")
+async def provider_health(current_user: dict = Depends(get_admin_user)):
+    from providers import provider_router
+    return await provider_router.check_health()
+
+
 @router.get("/api/audit")
 async def get_audit(
     current_user: dict = Depends(get_current_user),

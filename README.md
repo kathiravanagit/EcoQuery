@@ -133,12 +133,15 @@ EcoQuery sits between your application and LLM providers:
 - Node.js 18+
 - MongoDB Atlas (free tier works)
 - OpenRouter API key via `OPENROUTER_API_KEY`
+- Grok API key via `GROK_API_KEY`
+- Google API key via `GOOGLE_API_KEY`
+- For detailed deployment and provider config, see [docs/deployment.md](docs/deployment.md)
 
 ### Setup
 
 ```bash
 git clone https://github.com/kathiravanagit/EcoQuery.git
-cd eco-carbon
+cd ecoquery
 
 # Backend
 cd backend
@@ -173,7 +176,7 @@ VITE_API_URL=https://ecoquery.onrender.com  # Prod
 ## Testing
 
 ```bash
-# Backend (121 tests)
+# Backend (137 tests)
 cd backend
 python -m pytest tests/ -q
 
@@ -246,7 +249,7 @@ Push to `main` triggers GitHub Actions:
 | Regions | 13 |
 | Carbon range | 13–380 g CO₂/kWh |
 | API endpoints | 30+ |
-| Backend tests | 121 |
+| Backend tests | 137 |
 | Security level | A- |
 
 ---

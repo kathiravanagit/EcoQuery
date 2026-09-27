@@ -29,6 +29,14 @@ interface Metadata {
   cache_hit?: boolean;
   prompt_tokens?: number;
   completion_tokens?: number;
+  grid_source?: string;
+  measurement_type?: string;
+  grid_timestamp?: string;
+  energy_assumption_kwh_per_1000_tokens?: number;
+  uncertainty_range_g?: { min: number; max: number };
+  attempted_providers?: string[];
+  final_provider?: string;
+  fallback_reason?: string;
   what_if?: {
     baseline_model: string;
     baseline_region: string;
@@ -141,15 +149,52 @@ function EcoDecision({ meta }: { meta: Metadata }) {
                 <span className="eco-val">{reason}</span>
               </div>
               <div className="eco-insight-row">
-                <span className="eco-label">Carbon:</span>
+                <span className="eco-label">Estimated CO₂e impact:</span>
                 <span className="eco-val">
                   {meta.co2_estimated_g ?? 0}g ({meta.region || 'auto'})
                 </span>
               </div>
               <div className="eco-insight-row">
-                <span className="eco-label">Verification:</span>
-                <span className="eco-val highlight-green"><ShieldCheck size={13} /> {meta.verification_status || 'Recorded'}</span>
+                <span className="eco-label">Estimated emissions avoided compared with the selected baseline:</span>
+                <span className="eco-val">
+                  {meta.co2_saved_g ?? 0}g
+                </span>
               </div>
+              <div className="eco-insight-row">
+                <span className="eco-label">Model verification signal:</span>
+                <span className="eco-val highlight-green"><ShieldCheck size={13} /> {meta.verification_status === 'passed' ? 'passed' : (meta.verification_status || 'recorded')}</span>
+              </div>
+              {meta.grid_source && (
+                <div className="eco-insight-row">
+                  <span className="eco-label">Grid source:</span>
+                  <span className="eco-val">{meta.grid_source} ({meta.measurement_type}) - {meta.grid_timestamp ? new Date(meta.grid_timestamp).toLocaleTimeString() : ''}</span>
+                </div>
+              )}
+              {meta.energy_assumption_kwh_per_1000_tokens !== undefined && (
+                <div className="eco-insight-row">
+                  <span className="eco-label">Energy assumption:</span>
+                  <span className="eco-val">{meta.energy_assumption_kwh_per_1000_tokens} kWh/1K tokens</span>
+                </div>
+              )}
+              {meta.uncertainty_range_g && (
+                <div className="eco-insight-row">
+                  <span className="eco-label">Uncertainty range:</span>
+                  <span className="eco-val">{meta.uncertainty_range_g.min}g - {meta.uncertainty_range_g.max}g</span>
+                </div>
+              )}
+              {meta.fallback_reason && meta.final_provider && (
+                <div className="eco-insight-row">
+                  <span className="eco-label">Provider lineage:</span>
+                  <span className="eco-val">
+                    {meta.attempted_providers?.join(' -> ')} {'->'} {meta.final_provider} ({meta.fallback_reason})
+                  </span>
+                </div>
+              )}
+              {(isKnowledge || isCache) && (
+                <div className="eco-insight-row" style={{ gridColumn: "1 / -1", fontSize: "0.8em", color: "var(--text-muted)", marginTop: "4px" }}>
+                  This request was answered from the local knowledge layer. The estimated direct emissions are 0 g. The saved value represents the estimated emissions avoided by not sending the request to the baseline LLM.
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -450,14 +495,14 @@ const LiveDemo = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            <form className="chat-input-form" onSubmit={handleSend}>
+            <form className="chat-input-form" onSubmit={handleSend} aria-label="Chat input form">
               {attachedImages.length > 0 && (
-                <div className="attached-files">
+                <div className="attached-files" role="list" aria-label="Attached images">
                   {attachedImages.map((img, i) => (
-                    <div key={`img-${i}`} className="attached-file">
+                    <div key={`img-${i}`} className="attached-file" role="listitem">
                       <img src={`data:image/jpeg;base64,${img}`} alt={`Attached ${i}`} className="attached-image" />
-                      <button type="button" className="remove-file" aria-label="Remove file" onClick={() => removeFile(i)}>
-                        <X size={14} />
+                      <button type="button" className="remove-file" aria-label="Remove image" onClick={() => removeFile(i)}>
+                        <X size={14} aria-hidden="true" />
                       </button>
                     </div>
                   ))}
@@ -472,6 +517,7 @@ const LiveDemo = () => {
                   accept="image/*"
                   style={{ display: 'none' }}
                   aria-label="Upload file"
+                  tabIndex={-1}
                 />
                 <button
                   type="button"
@@ -480,7 +526,7 @@ const LiveDemo = () => {
                   title="Attach file or image"
                   aria-label="Attach file"
                 >
-                  <Paperclip size={16} />
+                  <Paperclip size={16} aria-hidden="true" />
                 </button>
                 <input
                   type="text"
@@ -490,9 +536,14 @@ const LiveDemo = () => {
                   aria-label="Chat message"
                 />
               </div>
-              <motion.button type="submit" aria-label="Send message" disabled={(!input.trim() && attachedImages.length === 0) || isTyping} whileHover={{ y: -2 }} whileTap={{ y: 0 }}>
-                <Send size={18} />
-              </motion.button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                  <motion.button type="button" onClick={handleSend} aria-label="Retry last message" title="Retry" disabled={isTyping} whileHover={{ y: -2 }} whileTap={{ y: 0 }} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0 12px', borderRadius: '8px', cursor: 'pointer' }}>
+                    Retry
+                  </motion.button>
+                  <motion.button type="submit" aria-label="Send message" disabled={(!input.trim() && attachedImages.length === 0) || isTyping} whileHover={{ y: -2 }} whileTap={{ y: 0 }}>
+                    <Send size={18} aria-hidden="true" />
+                  </motion.button>
+              </div>
             </form>
           </div>
         </motion.div>

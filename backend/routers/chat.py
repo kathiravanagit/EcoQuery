@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from datetime import datetime, timezone
 import time
 import logging
@@ -126,14 +126,17 @@ async def _resolve_user_email(request: Request) -> str:
 async def _build_routing(req: ChatRequest):
     classification = await classifier.classify(req.message)
     prompt_len = len(req.message)
-    routing = await route_query(classification["tier"], prompt_length=prompt_len)
+    routing_mode = req.routing_mode if req.routing_mode else "balanced"
+    if req.model_id:
+        routing_mode = "manual"
+        
+    routing = await route_query(classification["tier"], prompt_length=prompt_len, mode=routing_mode, confidence=classification["confidence"])
     region_info = routing["region"]
     model_sel = routing["model"]
     savings = routing["savings"]
 
     knowledge_res = {"matched": False, "confidence": 0.0, "answer": None, "stored_question": None, "tier": None}
     cache_res = {"matched": False, "confidence": 0.0, "answer": None, "stored_question": None, "tier": None}
-    routing_mode = "manual" if req.model_id else "eco"
 
     if not req.model_id and not req.images:
         # Step 1: Check 3000-question knowledge match first
@@ -233,13 +236,19 @@ def _build_metadata(
     if not llm_used:
         actual_model_name = "ecoquery-knowledge" if answer_source == "ecoquery_knowledge" else "ecoquery-stored-response"
 
-    return {
+    metadata = {
         "model_used": routed_model_display,
         "model_id": actual_model_name,
         "model_tier": "knowledge" if not llm_used else model_sel["tier"],
         "carbon_score": 0.0 if not llm_used else model_sel["carbon_score"],
         "region": "local-direct" if not llm_used else region_info["region"],
-        "energy_source": "zero-emission" if not llm_used else region_info["energy_source"],
+        "measurement_type": "estimated",
+        "grid_source": region_info.get("data_source", "Mock"),
+        "grid_timestamp": datetime.now(timezone.utc).isoformat(),
+        "grid_intensity_g_per_kwh": 0.0 if not llm_used else region_info.get("carbon_intensity_g_kwh", 0),
+        "energy_assumption_kwh_per_1000_tokens": 0.0 if not llm_used else savings.get("energy_assumption_kwh_per_1000_tokens", 0),
+        "uncertainty_range_g": {"min": 0, "max": 0} if not llm_used else savings.get("uncertainty_range_g", {"min": 0, "max": 0}),
+        "energy_source": "zero-emission" if not llm_used else region_info.get("energy_source", "Unknown"),
         "co2_estimated_g": 0.0 if not llm_used else savings["estimated_co2_g"],
         "co2_saved_g": worst_savings["estimated_co2_g"] if not llm_used else savings["saved_vs_baseline_g"],
         "tier": classification["tier"],
@@ -259,6 +268,13 @@ def _build_metadata(
         "llm_used": llm_used,
         "cache_hit": cache_hit,
         "is_local_inference": (model_sel["provider"] == "Ollama (Local)") or not llm_used,
+        "requested_model": model_sel["model"],
+        "requested_provider": "openrouter",
+        "attempted_providers": ["openrouter"],
+        "final_provider": model_sel["provider"],
+        "final_model": actual_model_name,
+        "fallback_reason": model_sel.get("reason", "Direct selection"),
+        "success": not is_mocked,
         "what_if": {
             "baseline_model": WORST_MODEL["model"],
             "baseline_region": "ap-south-1 (Mumbai)",
@@ -271,6 +287,7 @@ def _build_metadata(
             "actual_cost": api_cost,
         },
     }
+    return metadata
 
 
 async def _record_and_notify(
@@ -435,8 +452,6 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             messages=_build_messages(req),
             max_tokens=max_tokens,
         )
-        if result.get("error") == "ALL_KEYS_EXPIRED":
-            raise HTTPException(status_code=402, detail="All configured API keys have expired or reached their limits. Please update your API keys to continue.")
             
         reply_content = clean_response(result.get("content") or "") or ""
 
@@ -485,6 +500,13 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             )
     except Exception as e:
         logger.warning(f"LLM API call failed: {e}")
+        try:
+            error_data = json.loads(str(e))
+            if error_data.get("error_code") == "PROVIDER_UNAVAILABLE":
+                return JSONResponse(status_code=503, content=error_data)
+        except (ValueError, json.JSONDecodeError):
+            pass
+
         reply_content = (
             "I'm sorry, I encountered an error processing your request. "
             "Please try again or contact support if the issue persists."
@@ -621,10 +643,6 @@ async def chat_stream(req: ChatRequest, request: Request):
                 messages=_build_messages(req),
                 max_tokens=max_tokens,
             ):
-                if isinstance(token, dict) and token.get("error") == "ALL_KEYS_EXPIRED":
-                    full_reply = "All configured API keys have expired or reached their limits. Please update your API keys to continue."
-                    yield f"data: {json.dumps({'error': 'ALL_KEYS_EXPIRED'})}\n\n"
-                    break
                 if isinstance(token, dict) and "token" in token:
                     tok = token["token"]
                     full_reply += tok
@@ -634,6 +652,14 @@ async def chat_stream(req: ChatRequest, request: Request):
                     yield f"data: {json.dumps({'token': token})}\n\n"
         except Exception as e:
             logger.warning(f"LLM streaming failed: {e}")
+            try:
+                error_data = json.loads(str(e))
+                if error_data.get("error_code") == "PROVIDER_UNAVAILABLE":
+                    yield f"data: {json.dumps(error_data)}\n\n"
+                    return
+            except (ValueError, json.JSONDecodeError):
+                pass
+                
             is_mocked = True
             full_reply = "I'm sorry, I encountered an error processing your request. Please try again or contact support if the issue persists."
             yield f"data: {json.dumps({'token': full_reply})}\n\n"

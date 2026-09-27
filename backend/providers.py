@@ -2,6 +2,7 @@
 
 import logging
 from openai import AsyncOpenAI
+import json
 from key_manager import key_manager
 
 logger = logging.getLogger("EcoQuery.providers")
@@ -76,19 +77,22 @@ class ProviderRouter:
         # Distinguish missing provider configuration from exhausted credentials.
         if not grouped_keys:
             logger.error("No active external model provider keys are configured")
-            return {
-                "error": "ALL_KEYS_EXPIRED",
-                "content": "No external model provider is configured. Add an OpenRouter API key to the backend environment.",
-                "usage": {"prompt_tokens": 0, "completion_tokens": 0},
-            }
+            raise RuntimeError(json.dumps({
+                "success": False,
+                "error_code": "PROVIDER_UNAVAILABLE",
+                "message": "No configured provider was able to process this request.",
+                "attempted_providers": providers_to_try
+            }))
 
         # If we exhausted all keys
         logger.error(f"All API keys across all providers failed. Last error: {last_error}")
-        return {
-            "error": "ALL_KEYS_EXPIRED",
-            "content": "All configured API keys have expired or reached their limits. Please update your API keys to continue.",
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0}
-        }
+        raise RuntimeError(json.dumps({
+            "success": False,
+            "error_code": "PROVIDER_UNAVAILABLE",
+            "message": "All configured providers failed to process this request.",
+            "attempted_providers": providers_to_try,
+            "last_error": str(last_error) if last_error else "Unknown"
+        }))
 
     async def _call_provider(self, api_key, base_url, target_model, messages, max_tokens):
         client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
@@ -158,7 +162,55 @@ class ProviderRouter:
                     if any(code in str(e).lower() for code in ("401", "403", "expired", "invalid")):
                         key_manager.mark_key_inactive(key_id)
 
-        yield {"error": "ALL_KEYS_EXPIRED"}
-        raise RuntimeError("ALL_KEYS_EXPIRED")
+        raise RuntimeError(json.dumps({
+            "success": False,
+            "error_code": "PROVIDER_UNAVAILABLE",
+            "message": "All configured providers failed to stream this request.",
+            "attempted_providers": providers_to_try
+        }))
+
+    async def check_health(self) -> dict:
+        """Check the health of all supported providers."""
+        grouped_keys = key_manager.get_all_providers_keys()
+        providers = ["openrouter", "grok", "google"]
+        health = {}
+        
+        for provider in providers:
+            keys = grouped_keys.get(provider, [])
+            configured = len(keys) > 0
+            
+            target_model = "meta-llama/llama-4-scout" # default light model for testing
+            if provider == "grok":
+                target_model = "grok-beta"
+            elif provider == "google":
+                target_model = "gemini-1.5-pro"
+                
+            status = {
+                "configured": configured,
+                "authenticated": False,
+                "completion_test": False,
+                "model": target_model if configured else None
+            }
+            
+            if configured:
+                api_key = keys[0]["key_value"]
+                base_url = PROVIDER_BASE_URLS.get(provider)
+                try:
+                    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=10.0)
+                    response = await client.chat.completions.create(
+                        model=target_model,
+                        messages=[{"role": "user", "content": "Hello"}],
+                        max_tokens=5,
+                    )
+                    status["authenticated"] = True
+                    if response.choices and len(response.choices) > 0:
+                        status["completion_test"] = True
+                except Exception as e:
+                    logger.warning(f"Health check failed for {provider}: {e}")
+                    if not any(code in str(e).lower() for code in ("401", "403", "unauthorized", "invalid api key")):
+                        status["authenticated"] = True # It reached the server but failed completion
+            health[provider] = status
+            
+        return health
 
 provider_router = ProviderRouter()

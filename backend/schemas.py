@@ -14,6 +14,7 @@ class ChatRequest(BaseModel):
     files: Optional[List[dict]] = Field(default=None, max_length=3)  # [{name, content_type, data}]
     conversation: Optional[List[dict]] = Field(default=None, max_length=20)
     max_output_tokens: Optional[int] = Field(default=None, ge=1, le=4000)
+    routing_mode: Optional[str] = Field(default="balanced")
 
     @field_validator('images')
     @classmethod
