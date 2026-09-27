@@ -1,3 +1,5 @@
+import pytest
+
 import energy
 from energy import EnergyReading, measurement_type
 
@@ -14,12 +16,13 @@ def test_zero_energy_is_valid_measured_reading():
 
 
 def test_rapl_reading_is_converted_to_kwh(monkeypatch):
-    readings = iter([1_000_000, 4_600_000])
-    monkeypatch.setattr(energy, "_read_rapl_uj", lambda: next(readings))
+    # end() only samples the closing RAPL counter; the start value is passed in.
+    monkeypatch.setattr(energy, "_read_rapl_uj", lambda: 4_600_000)
     reading = energy.end(10.0, 1_000_000, None)
     assert reading is not None
     assert reading.source == "intel_rapl"
-    assert reading.energy_kwh == 0.001
+    # 3_600_000 µJ = 3.6 J = 0.000001 kWh
+    assert reading.energy_kwh == pytest.approx(0.000001)
 
 
 def test_invalid_or_negative_rapl_delta_is_unavailable(monkeypatch):

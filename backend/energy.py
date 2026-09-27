@@ -14,6 +14,9 @@ from typing import Optional
 
 logger = logging.getLogger("EcoQuery.energy")
 
+# Intel RAPL `energy_uj` is microjoules. 1 kWh = 3.6e12 µJ.
+UJ_PER_KWH = 3_600_000_000_000.0
+
 
 @dataclass(frozen=True)
 class EnergyReading:
@@ -64,7 +67,8 @@ def end(started_at: float, start_rapl_uj: Optional[int], nvml: Optional[object])
         elif start_rapl_uj is not None:
             end_rapl_uj = _read_rapl_uj()
             if end_rapl_uj is not None and end_rapl_uj >= start_rapl_uj:
-                return EnergyReading((end_rapl_uj - start_rapl_uj) / 3_600_000_000.0, "intel_rapl", started_at, ended_at)
+                energy_kwh = (end_rapl_uj - start_rapl_uj) / UJ_PER_KWH
+                return EnergyReading(energy_kwh, "intel_rapl", started_at, ended_at)
     except Exception as exc:
         logger.debug("Local energy telemetry unavailable: %s", exc)
     return None

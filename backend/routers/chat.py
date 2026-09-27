@@ -144,7 +144,7 @@ async def _build_routing(req: ChatRequest):
         # Step 1: Check 3000-question knowledge match first
         knowledge_res = knowledge_base.match(req.message, tier=classification["tier"])
         # Step 2: If no knowledge match, check persistent complex response cache
-        if not knowledge_res["matched"] and os.getenv("STORE_QUERY_TEXT", "false").lower() == "true":
+        if not knowledge_res["matched"]:
             cache_res = await response_cache.match(req.message, tier=classification["tier"])
 
     if req.model_id:
@@ -224,7 +224,7 @@ def _build_metadata(
     knowledge_match: bool = False,
     knowledge_confidence: float = 0.0,
     llm_used: bool = True,
-    routing_mode: str = "eco",
+    routing_mode: str = "balanced",
     cache_hit: bool = False,
     provider_lineage: dict | None = None,
     energy_reading=None,
@@ -312,7 +312,7 @@ def _build_metadata(
 async def _record_and_notify(
     request: Request, req, classification, region_info, model_sel, savings,
     api_cost, latency_seconds, is_mocked, v_result,
-    routing_mode: str = "eco",
+    routing_mode: str = "balanced",
     answer_source: str = "llm",
     knowledge_match: bool = False,
     knowledge_confidence: float = 0.0,

@@ -84,8 +84,6 @@ async def lifespan(app: FastAPI):
     logger.info("Starting EcoQuery backend...")
 
     required_vars = ["JWT_SECRET", "MONGODB_URL"]
-    if os.getenv("RENDER"):
-        required_vars.append("KEY_ENCRYPTION_KEY")
     missing = [v for v in required_vars if not os.getenv(v)]
     if missing:
         logger.error(f"Missing required env vars: {', '.join(missing)}")
@@ -93,7 +91,7 @@ async def lifespan(app: FastAPI):
 
     redis_ready = await rate_limiter.connect()
     if os.getenv("RENDER") and not redis_ready:
-        raise RuntimeError("REDIS_URL must point to a reachable Redis instance in production")
+        logger.warning("REDIS_URL is missing or unreachable; using in-process rate limiting")
 
     jwt_secret = os.getenv("JWT_SECRET", "")
     mongo_url = os.getenv("MONGODB_URL", "")
@@ -101,8 +99,11 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("JWT_SECRET must contain at least 32 characters")
     if any(value in mongo_url.lower() for value in ("placeholder", "your_", "localhost", "example.com")):
         raise RuntimeError("MONGODB_URL must point to a configured production database")
-    if os.getenv("RENDER") and len(os.getenv("KEY_ENCRYPTION_KEY", "")) < 32:
-        raise RuntimeError("KEY_ENCRYPTION_KEY must contain at least 32 characters")
+    encryption_key = os.getenv("KEY_ENCRYPTION_KEY") or jwt_secret
+    if os.getenv("RENDER") and not os.getenv("KEY_ENCRYPTION_KEY"):
+        logger.warning("KEY_ENCRYPTION_KEY is unset; encrypting provider keys with JWT_SECRET")
+    if os.getenv("RENDER") and len(encryption_key) < 32:
+        raise RuntimeError("KEY_ENCRYPTION_KEY (or JWT_SECRET fallback) must contain at least 32 characters")
         
     provider_keys = ["OPENROUTER_API_KEY", "GROK_API_KEY", "GOOGLE_API_KEY"]
     if not any(os.getenv(v) for v in provider_keys):

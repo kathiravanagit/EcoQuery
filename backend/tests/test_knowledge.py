@@ -77,7 +77,7 @@ def test_chat_direct_knowledge_zero_llm(client):
     assert meta["llm_used"] is False
     assert meta["knowledge_match"] is True
     assert meta["knowledge_confidence"] >= 0.7
-    assert meta["routing_mode"] == "eco"
+    assert meta["routing_mode"] == "balanced"
     assert meta["api_cost"] == 0.0
     assert meta["co2_estimated_g"] == 0.0
 

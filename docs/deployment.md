@@ -35,7 +35,7 @@ For quick sharing without strict SLAs.
 Production requires secure secrets management and robust infrastructure.
 - **Backend:** ECS or Google Cloud Run for auto-scaling.
 - **Database:** MongoDB Atlas Dedicated cluster.
-- **Security:** Secrets MUST be stored in a vault or Render secrets. Production requires `KEY_ENCRYPTION_KEY`, `REDIS_URL`, a strong `JWT_SECRET`, and real MongoDB/provider credentials. Rotate any credentials that appeared in old Git history.
+- **Security:** Secrets MUST be stored in a vault or Render secrets. Production requires a strong `JWT_SECRET` and real MongoDB/provider credentials. Set `KEY_ENCRYPTION_KEY` (32+ characters) for dedicated provider-key encryption; if it is omitted on Render, the API falls back to `JWT_SECRET`. Set `REDIS_URL` for distributed rate limiting; without it the process limiter is used. Rotate any credentials that appeared in old Git history.
 
 ### Provider Fallback Behavior
 EcoQuery seamlessly routes across providers. If a provider fails, the system returns a 503 error with structured JSON and lineage. The frontend gracefully handles this or automatically retries with a fallback provider.

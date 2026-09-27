@@ -13,7 +13,7 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: KEY_ENCRYPTION_KEY
-        sync: false
+        generateValue: true
       - key: REDIS_URL
         sync: false
       - key: ELECTRICITY_MAPS_API_KEY

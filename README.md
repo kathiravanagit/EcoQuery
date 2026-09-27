@@ -8,7 +8,7 @@ A consumer-side middleware that selects a capable AI model using carbon-intensit
 
 See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the estimation formula, routing policy, evaluation protocol, data-source provenance, and verification limitations.
 
-Production configuration requires MongoDB, a strong JWT secret, `KEY_ENCRYPTION_KEY` for provider-key encryption, and `REDIS_URL` for distributed rate limiting. Provider credentials must be rotated if they were ever committed to repository history; removing the current database file does not rewrite old Git objects.
+Production configuration requires MongoDB, a strong JWT secret (32+ characters), and at least one provider key. Set `KEY_ENCRYPTION_KEY` for dedicated provider-key encryption; Render can fall back to `JWT_SECRET` if it is omitted. Set `REDIS_URL` for distributed rate limiting. Provider credentials must be rotated if they were ever committed to repository history; removing the current database file does not rewrite old Git objects.
 
 Run `python scripts/provider_diagnostics.py` inside the deployed environment to independently test OpenRouter, Grok, and Google credentials. The diagnostic reports provider, model, status, latency, and redacted failure type without printing secrets.
 

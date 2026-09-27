@@ -4,9 +4,17 @@ import time
 import verifier
 from unittest.mock import AsyncMock, patch
 import pytest
+from rate_limit import rate_limiter
 
 # Bump time past the 30s warmup so verification tests work deterministically
 verifier.SERVER_START_TIME = time.time() - 60
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    rate_limiter.local.clear()
+    yield
+    rate_limiter.local.clear()
 
 
 @pytest.fixture(autouse=True)
