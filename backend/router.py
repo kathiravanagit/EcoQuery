@@ -49,8 +49,10 @@ def select_model(tier: str, region_code: str, carbon_intensity: float, mode: str
     for c in candidates:
         # Quality risk: higher for lower capabilities if tier demands more
         quality_risk = 0.0
-        if tier == "complex" and c["capability"] != "high": quality_risk = 10.0
-        elif tier == "medium" and c["capability"] == "low": quality_risk = 5.0
+        if tier == "complex" and c["capability"] != "high":
+            quality_risk = 10.0
+        elif tier == "medium" and c["capability"] == "low":
+            quality_risk = 5.0
         
         # Carbon cost
         energy_per_1k = 0.0002 * (c["carbon_score"] / 3.0)

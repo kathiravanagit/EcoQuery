@@ -18,11 +18,14 @@ router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 def is_safe_url(url: str) -> bool:
     try:
         parsed = urlparse(url)
-        if parsed.scheme not in ("http", "https"): return False
-        if parsed.port and parsed.port not in (80, 443): return False
+        if parsed.scheme not in ("http", "https"):
+            return False
+        if parsed.port and parsed.port not in (80, 443):
+            return False
         
         hostname = parsed.hostname
-        if not hostname: return False
+        if not hostname:
+            return False
         
         ip = socket.gethostbyname(hostname)
         ip_obj = ipaddress.ip_address(ip)
