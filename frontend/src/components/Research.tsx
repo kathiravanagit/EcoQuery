@@ -32,7 +32,7 @@ const Research = () => {
           <div><span className="transparency-value">13</span><span>g CO₂/kWh</span><small>lowest reference region</small></div>
           <div><span className="transparency-value">13</span><span>regions</span><small>compared before routing</small></div>
           <div><span className="transparency-value">SHA-256</span><span>integrity hash</span><small>attached to audit records</small></div>
-          <div><span className="transparency-value">0 g</span><span>when knowledge matches</span><small>inference avoided entirely</small></div>
+          <div><span className="transparency-value">0 g direct estimate</span><span>when knowledge matches</span><small>no external LLM inference; total electricity is not zero</small></div>
         </motion.div>
 
         <div className="research-content">

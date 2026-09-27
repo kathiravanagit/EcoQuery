@@ -4,9 +4,13 @@
 
 ## Carbon-Aware AI Query Routing & Integrity Verification
 
-A consumer-side middleware that selects the greenest available AI model based on real-time carbon intensity data, while independently verifying that the requested model wasn't silently substituted.
+A consumer-side middleware that selects a capable AI model using carbon-intensity data and records auditable routing provenance. Vercel hosts the frontend; the FastAPI API runs on Render. CO₂e values are estimates unless telemetry or provider-reported energy is available.
 
 See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the estimation formula, routing policy, evaluation protocol, data-source provenance, and verification limitations.
+
+Production configuration requires MongoDB, a strong JWT secret, `KEY_ENCRYPTION_KEY` for provider-key encryption, and `REDIS_URL` for distributed rate limiting. Provider credentials must be rotated if they were ever committed to repository history; removing the current database file does not rewrite old Git objects.
+
+Run `python scripts/provider_diagnostics.py` inside the deployed environment to independently test OpenRouter, Grok, and Google credentials. The diagnostic reports provider, model, status, latency, and redacted failure type without printing secrets.
 
 **Live:** [eco2query.vercel.app](https://eco2query.vercel.app) · **Backend:** [ecoquery.onrender.com](https://ecoquery.onrender.com)
 
@@ -249,8 +253,8 @@ Push to `main` triggers GitHub Actions:
 | Regions | 13 |
 | Carbon range | 13–380 g CO₂/kWh |
 | API endpoints | 30+ |
-| Backend tests | 137 |
-| Security level | A- |
+| Backend tests | Run `pytest` in the configured backend environment |
+| Security assessment | No independent security rating claimed |
 
 ---
 

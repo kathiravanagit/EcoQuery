@@ -28,7 +28,15 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pip install ruff
       - run: ruff check . --select E,F --ignore E501
-      - run: python -m pytest --maxfail=1 --disable-warnings -q || echo "No tests found"
+      - name: Run backend tests with isolated configuration
+        env:
+          JWT_SECRET: test-jwt-secret-with-at-least-32-characters
+          KEY_ENCRYPTION_KEY: test-key-encryption-secret
+          MONGODB_URL: mongodb://127.0.0.1:27017/ecoquery-test
+          OPENROUTER_API_KEY: test-openrouter-key
+          GROK_API_KEY: test-grok-key
+          GOOGLE_API_KEY: test-google-key
+        run: python -m pytest --maxfail=1 --disable-warnings -q
 
   lint-test-frontend:
     name: Lint & Test Frontend

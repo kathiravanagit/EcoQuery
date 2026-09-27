@@ -17,6 +17,8 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://ecoquery.onrender.com/api/$1" },
+    { "source": "/health", "destination": "https://ecoquery.onrender.com/health" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }

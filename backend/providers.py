@@ -3,6 +3,7 @@
 import logging
 from openai import AsyncOpenAI
 import json
+import time
 from key_manager import key_manager
 
 logger = logging.getLogger("EcoQuery.providers")
@@ -42,6 +43,7 @@ class ProviderRouter:
         providers_to_try = ["openrouter", "grok", "google"]
         
         last_error = None
+        attempts = []
         for provider in providers_to_try:
             keys = grouped_keys.get(provider, [])
             if not keys:
@@ -61,13 +63,25 @@ class ProviderRouter:
                 base_url = PROVIDER_BASE_URLS.get(provider)
                 
                 try:
+                    started_at = time.perf_counter()
                     result = await self._call_provider(api_key, base_url, target_model, messages, max_tokens)
                     if result.get("content"):
+                        attempts.append({"provider": provider, "model": target_model, "status": "success", "latency_seconds": round(time.perf_counter() - started_at, 3)})
                         key_manager.log_usage(key_id, provider, target_model, result.get("usage", {}).get("completion_tokens", 0), "success")
                         logger.info(f"Successfully generated with {provider} using model {target_model}")
+                        result["provider_lineage"] = {
+                            "requested_provider": "openrouter",
+                            "requested_model": model_id,
+                            "attempted_providers": attempts,
+                            "final_provider": provider,
+                            "final_model": target_model,
+                            "fallback_reason": "provider fallback" if len(attempts) > 1 else None,
+                            "success": True,
+                        }
                         return result
                 except Exception as e:
                     last_error = e
+                    attempts.append({"provider": provider, "model": target_model, "status": "failed", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": type(e).__name__})
                     logger.warning(f"Key {key_id} for {provider} failed: {e}")
                     key_manager.log_usage(key_id, provider, target_model, 0, f"error: {str(e)[:50]}")
                     
@@ -81,7 +95,8 @@ class ProviderRouter:
                 "success": False,
                 "error_code": "PROVIDER_UNAVAILABLE",
                 "message": "No configured provider was able to process this request.",
-                "attempted_providers": providers_to_try
+                "attempted_providers": providers_to_try,
+                "provider_attempts": []
             }))
 
         # If we exhausted all keys
@@ -91,7 +106,8 @@ class ProviderRouter:
             "error_code": "PROVIDER_UNAVAILABLE",
             "message": "All configured providers failed to process this request.",
             "attempted_providers": providers_to_try,
-            "last_error": str(last_error) if last_error else "Unknown"
+            "provider_attempts": attempts,
+            "last_failure_reason": type(last_error).__name__ if last_error else "Unknown"
         }))
 
     async def _call_provider(self, api_key, base_url, target_model, messages, max_tokens):
@@ -120,6 +136,7 @@ class ProviderRouter:
         """Streaming chat completion with strict fallback routing."""
         grouped_keys = key_manager.get_all_providers_keys()
         providers_to_try = ["openrouter", "grok", "google"]
+        attempts = []
         
         for provider in providers_to_try:
             keys = grouped_keys.get(provider, [])
@@ -136,6 +153,7 @@ class ProviderRouter:
                 base_url = PROVIDER_BASE_URLS.get(provider)
                 
                 try:
+                    started_at = time.perf_counter()
                     client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
                     stream = await client.chat.completions.create(
                         model=target_model,
@@ -153,10 +171,21 @@ class ProviderRouter:
                             yield {"token": token}
                             
                     if emitted:
+                        attempts.append({"provider": provider, "model": target_model, "status": "success", "latency_seconds": round(time.perf_counter() - started_at, 3)})
                         key_manager.log_usage(key_id, provider, target_model, 10, "success") # Approx tokens for stream
+                        yield {"provider_lineage": {
+                            "requested_provider": "openrouter",
+                            "requested_model": model_id,
+                            "attempted_providers": attempts,
+                            "final_provider": provider,
+                            "final_model": target_model,
+                            "fallback_reason": "provider fallback" if len(attempts) > 1 else None,
+                            "success": True,
+                        }}
                         return
                         
                 except Exception as e:
+                    attempts.append({"provider": provider, "model": target_model, "status": "failed", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": type(e).__name__})
                     logger.warning(f"Streaming failed for {provider} key {key_id}: {e}")
                     key_manager.log_usage(key_id, provider, target_model, 0, f"error: {str(e)[:50]}")
                     if any(code in str(e).lower() for code in ("401", "403", "expired", "invalid")):
@@ -166,17 +195,17 @@ class ProviderRouter:
             "success": False,
             "error_code": "PROVIDER_UNAVAILABLE",
             "message": "All configured providers failed to stream this request.",
-            "attempted_providers": providers_to_try
+            "attempted_providers": providers_to_try,
+            "provider_attempts": attempts
         }))
 
     async def check_health(self) -> dict:
         """Check the health of all supported providers."""
-        grouped_keys = key_manager.get_all_providers_keys()
         providers = ["openrouter", "grok", "google"]
         health = {}
         
         for provider in providers:
-            keys = grouped_keys.get(provider, [])
+            keys = key_manager.get_active_keys(provider)
             configured = len(keys) > 0
             
             target_model = "meta-llama/llama-4-scout" # default light model for testing
@@ -195,6 +224,7 @@ class ProviderRouter:
             if configured:
                 api_key = keys[0]["key_value"]
                 base_url = PROVIDER_BASE_URLS.get(provider)
+                started_at = time.perf_counter()
                 try:
                     client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=10.0)
                     response = await client.chat.completions.create(
@@ -205,8 +235,12 @@ class ProviderRouter:
                     status["authenticated"] = True
                     if response.choices and len(response.choices) > 0:
                         status["completion_test"] = True
+                    status["latency_seconds"] = round(time.perf_counter() - started_at, 3)
+                    status["failure_reason"] = None
                 except Exception as e:
                     logger.warning(f"Health check failed for {provider}: {e}")
+                    status["latency_seconds"] = round(time.perf_counter() - started_at, 3)
+                    status["failure_reason"] = type(e).__name__
                     if not any(code in str(e).lower() for code in ("401", "403", "unauthorized", "invalid api key")):
                         status["authenticated"] = True # It reached the server but failed completion
             health[provider] = status

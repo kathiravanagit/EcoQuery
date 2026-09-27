@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from datetime import datetime, timezone, timedelta
 import os
@@ -24,6 +24,18 @@ from email_service import email_service, otp_store
 logger = logging.getLogger("EcoQuery.auth.router")
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+def _set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        "ecoquery_access_token",
+        token,
+        httponly=True,
+        secure=os.getenv("FRONTEND_URL", "").startswith("https://"),
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60,
+        path="/",
+    )
 
 # In-memory store for OAuth state parameters (with expiry)
 _oauth_states: dict[str, datetime] = {}
@@ -57,7 +69,7 @@ def _cleanup_states():
 
 
 @router.post("/signup", response_model=AuthResponse)
-async def signup(req: SignupRequest):
+async def signup(req: SignupRequest, response: Response):
     existing = await auth_db.find_user_by_email(req.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -83,15 +95,17 @@ async def signup(req: SignupRequest):
     await email_service.send_confirmation(req.email, verify_token)
 
     token = create_access_token({"sub": req.email})
+    _set_auth_cookie(response, token)
     return AuthResponse(access_token=token, user={"email": req.email, "display_name": req.display_name})
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(req: LoginRequest):
+async def login(req: LoginRequest, response: Response):
     user = await auth_db.find_user_by_email(req.email)
     if not user or not verify_password(req.password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_access_token({"sub": req.email})
+    _set_auth_cookie(response, token)
     return AuthResponse(access_token=token, user={"email": user["email"], "display_name": user["display_name"]})
 
 
@@ -202,7 +216,7 @@ async def google_callback(request: Request, code: str, state: str = ""):
 
 
 @router.get("/exchange")
-async def exchange_code(code: str):
+async def exchange_code(code: str, response: Response):
     """Exchange a short-lived auth code for a JWT token."""
     from auth import auth_db
     if not auth_db.available or auth_db.oauth_codes_collection is None:
@@ -223,6 +237,7 @@ async def exchange_code(code: str):
     token = doc.get("token")
     if not token:
         raise HTTPException(status_code=400, detail="Invalid or expired code")
+    _set_auth_cookie(response, token)
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -235,6 +250,12 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "email_verified": current_user.get("email_verified", False),
         "role": current_user.get("role", "user"),
     }
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie("ecoquery_access_token", path="/")
+    return {"success": True}
 
 
 @router.patch("/profile")

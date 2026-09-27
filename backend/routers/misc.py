@@ -69,11 +69,23 @@ async def get_carbon_regions():
     return region
 
 
+@router.get("/health")
+async def service_health():
+    """Minimal liveness endpoint for Render and load balancers."""
+    return {"status": "ok", "service_alive": True}
+
+
 @router.get("/api/health")
 async def health():
     from auth import auth_db
     checks = {
         "status": "ok",
+        "service_alive": True,
+        "database_connected": bool(ledger.available and auth_db.available),
+        "carbon_source_reachable": False,
+        "provider_configured": any(os.getenv(key) for key in ("OPENROUTER_API_KEY", "GROK_API_KEY", "GOOGLE_API_KEY")),
+        "provider_authenticated": None,
+        "provider_completion_test": None,
         "ledger_connected": ledger.available,
         "auth_db_connected": auth_db.available,
     }
@@ -90,11 +102,14 @@ async def health():
             async with httpx.AsyncClient(timeout=3) as client:
                 r = await client.get("https://api.electricitymap.org/v3/carbon-intensity/latest?zone=SE", headers={"auth-token": em_key})
                 checks["electricity_maps_reachable"] = r.status_code == 200
+                checks["carbon_source_reachable"] = r.status_code == 200
         except Exception:
             checks["electricity_maps_reachable"] = False
     or_key = os.getenv("OPENROUTER_API_KEY", "")
     checks["openrouter_configured"] = or_key.startswith("sk-or-")
     if not checks["ledger_connected"] or not checks["auth_db_connected"]:
+        checks["status"] = "degraded"
+    if not checks["provider_configured"]:
         checks["status"] = "degraded"
     return checks
 

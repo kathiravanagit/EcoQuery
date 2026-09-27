@@ -24,7 +24,7 @@ const Privacy = () => {
             <p>Carbon intensity data is fetched from third-party APIs (Electricity Maps) and cached temporarily. No personally identifiable information is shared with these services.</p>
 
             <h2>Audit Trail</h2>
-            <p>Aggregated carbon savings data may be used for platform analytics. Individual query audit logs are retained for compliance purposes only.</p>
+            <p>Aggregated estimated CO₂e data may be used for platform analytics. New audit entries redact raw prompt text by default; operators may enable explicit retention for documented use cases and deletion/export requests.</p>
 
             <h2>Third-Party Services</h2>
             <p>Queries are processed through OpenAI or OpenRouter APIs. Data handling by these providers is subject to their respective privacy policies.</p>

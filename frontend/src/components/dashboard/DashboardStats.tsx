@@ -37,7 +37,7 @@ const DashboardStats = React.memo(({ stats, cert }: Props) => {
       <div className="dashboard-card">
         <Leaf size={24} style={{ color: 'var(--accent)' }} />
         <div className="dashboard-card-value">{stats?.total_co2_saved_g || 0}g</div>
-        <div className="dashboard-card-label">CO₂ Saved</div>
+        <div className="dashboard-card-label">Estimated CO₂e Avoided</div>
       </div>
       <div className="dashboard-card">
         <DollarSign size={24} style={{ color: 'var(--accent)' }} />

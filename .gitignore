@@ -25,6 +25,7 @@ lerna-debug.log*
 .env
 .env.local
 .env.*.local
+backend/keys.db
 
 # Deployment
 .vercel

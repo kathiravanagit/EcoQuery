@@ -20,17 +20,16 @@ const AuthCallback = () => {
     let cancelled = false;
     const completeSignIn = async () => {
       try {
-        const response = await fetch(`${API}/api/auth/exchange?code=${encodeURIComponent(code)}`);
+        const response = await fetch(`${API}/api/auth/exchange?code=${encodeURIComponent(code)}`, { credentials: 'include' });
         const data = await response.json();
         if (!response.ok || !data.access_token) {
           throw new Error(data.detail || 'Sign in failed. Please try again.');
         }
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('remember', 'true');
-        const userResponse = await fetch(`${API}/api/auth/me`, {
+        sessionStorage.setItem('token', data.access_token);
+        const userResponse = await fetch(`${API}/api/auth/me`, { credentials: 'include',
           headers: { Authorization: `Bearer ${data.access_token}` }
         });
-        if (userResponse.ok) localStorage.setItem('user', JSON.stringify(await userResponse.json()));
+        if (userResponse.ok) sessionStorage.setItem('user', JSON.stringify(await userResponse.json()));
         if (!cancelled) {
           window.dispatchEvent(new Event('auth-callback'));
           navigate('/');

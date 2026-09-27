@@ -34,7 +34,8 @@ interface Metadata {
   grid_timestamp?: string;
   energy_assumption_kwh_per_1000_tokens?: number;
   uncertainty_range_g?: { min: number; max: number };
-  attempted_providers?: string[];
+  uncertainty_components?: Record<string, number>;
+  attempted_providers?: Array<{ provider?: string; model?: string; status?: string; failure_reason?: string }>;
   final_provider?: string;
   fallback_reason?: string;
   what_if?: {
@@ -55,6 +56,8 @@ interface Message {
   content: string
   metadata?: Metadata
   images?: string[]
+  error?: boolean
+  retryPrompt?: string
 }
 
 import { EASE_FN } from '../constants';
@@ -86,8 +89,8 @@ function EcoDecision({ meta }: { meta: Metadata }) {
   const route = meta.model_id || meta.model_used;
   
   let reason = 'Suitable capability + lower-carbon route';
-  if (isKnowledge) reason = 'Direct knowledge match (Zero emissions)';
-  else if (isCache) reason = 'Stored complex response (Zero emissions)';
+  if (isKnowledge) reason = 'Direct knowledge match (no external LLM inference)';
+  else if (isCache) reason = 'Stored complex response (no external LLM inference)';
   else if (meta.routing_mode === 'manual') reason = 'User-selected override';
 
   return (
@@ -100,7 +103,7 @@ function EcoDecision({ meta }: { meta: Metadata }) {
         </div>
         <div className="eco-proof-stat">
           <strong>{isKnowledge || isCache ? '0 g' : `${meta.co2_estimated_g ?? 0} g`}</strong>
-          <span>estimated CO₂</span>
+          <span><span className={`measurement-badge ${meta.measurement_type || 'estimated'}`}>{meta.measurement_type === 'measured' ? 'Measured' : meta.measurement_type === 'provider_reported' ? 'Provider-reported' : 'Estimated'}</span> CO₂e</span>
         </div>
       </div>
       <button
@@ -182,11 +185,17 @@ function EcoDecision({ meta }: { meta: Metadata }) {
                   <span className="eco-val">{meta.uncertainty_range_g.min}g - {meta.uncertainty_range_g.max}g</span>
                 </div>
               )}
+              {meta.uncertainty_components && Object.keys(meta.uncertainty_components).length > 0 && (
+                <div className="eco-insight-row">
+                  <span className="eco-label">Uncertainty inputs:</span>
+                  <span className="eco-val">{Object.entries(meta.uncertainty_components).map(([key, value]) => `${key} ${(value * 100).toFixed(0)}%`).join(' · ')}</span>
+                </div>
+              )}
               {meta.fallback_reason && meta.final_provider && (
                 <div className="eco-insight-row">
                   <span className="eco-label">Provider lineage:</span>
                   <span className="eco-val">
-                    {meta.attempted_providers?.join(' -> ')} {'->'} {meta.final_provider} ({meta.fallback_reason})
+                    {meta.attempted_providers?.map((attempt) => attempt.provider || 'unknown').join(' -> ') || 'unknown'} {'->'} {meta.final_provider} ({meta.fallback_reason})
                   </span>
                 </div>
               )}
@@ -347,6 +356,10 @@ const LiveDemo = () => {
             });
             return;
           }
+          if (data.error_code) {
+            setMessages(prev => [...prev, { role: 'assistant', content: `Provider unavailable (${data.error_code}).`, error: true, retryPrompt: userMsg }]);
+            return;
+          }
           if (data.token) {
             currentReply += data.token;
             setMessages(prev => {
@@ -380,7 +393,7 @@ const LiveDemo = () => {
         }
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to the routing backend. Please ensure the backend server is running.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'The routing provider is unavailable.', error: true, retryPrompt: userMsg }]);
     } finally {
       setIsTyping(false);
       setRoutingStage('');
@@ -446,6 +459,11 @@ const LiveDemo = () => {
                       </div>
                     )}
                     <p>{msg.content}</p>
+                    {msg.error && msg.retryPrompt && (
+                      <button type="button" className="retry-button" onClick={() => setInput(msg.retryPrompt || '')}>
+                        Retry
+                      </button>
+                    )}
 
                     {msg.metadata && (
                       <motion.div className="message-metadata-wrapper" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>

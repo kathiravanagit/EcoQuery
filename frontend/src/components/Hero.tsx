@@ -72,7 +72,7 @@ const Hero = () => {
               <div className="decision-node">
                 <MapPin size={16} />
                 <span>Impact</span>
-                <strong>0 g CO₂</strong>
+                <strong>0 g direct estimate</strong>
               </div>
             </div>
             <div className="decision-footer">

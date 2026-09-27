@@ -27,7 +27,7 @@ const faqCategories = [
       },
       {
         question: 'How does EcoQuery reduce AI carbon emissions?',
-        answer: 'EcoQuery uses real-time carbon intensity data from the Electricity Maps API to route queries to the greenest available data centers. For example, data centers in Sweden (13 g/kWh) produce 98% less CO₂ than those in India (700 g/kWh).'
+        answer: 'EcoQuery uses Electricity Maps data when configured, with static baselines as fallback, to choose a lower-intensity capable route. Regional comparisons are estimates and depend on the source timestamp and baseline.'
       },
       {
         question: 'Is EcoQuery free to use?',
@@ -44,7 +44,7 @@ const faqCategories = [
     items: [
       {
         question: 'How does the carbon-aware routing work?',
-        answer: 'When you send a query, EcoQuery: (1) Classifies the query complexity, (2) Checks real-time carbon intensity for available data centers, (3) Routes to the greenest provider, (4) Logs the carbon savings in a hash-chained, tamper-evident audit trail.'
+        answer: 'When you send a query, EcoQuery: (1) classifies complexity, (2) checks available grid-intensity data, (3) routes to a capable provider using the selected mode, and (4) records estimated CO₂e and provenance in the audit trail.'
       },
       {
         question: 'Does routing to green data centers affect response quality?',
@@ -56,7 +56,7 @@ const faqCategories = [
       },
       {
         question: 'How accurate is the carbon tracking?',
-        answer: 'EcoQuery uses real-time data from the Electricity Maps API combined with IEA baselines. All estimates are clearly marked as calculated values. The system includes an independent verification engine that audits carbon savings.'
+        answer: 'EcoQuery uses Electricity Maps data when configured and IEA/static baselines otherwise. Results are marked measured, provider-reported, or estimated. Verification is a behavioral signal, not cryptographic proof of emissions.'
       }
     ] as FAQItem[]
   },

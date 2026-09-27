@@ -4,12 +4,17 @@ services:
     runtime: python
     region: ohio
     plan: free
+    healthCheckPath: /health
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.12
       - key: JWT_SECRET
+        sync: false
+      - key: KEY_ENCRYPTION_KEY
+        sync: false
+      - key: REDIS_URL
         sync: false
       - key: ELECTRICITY_MAPS_API_KEY
         sync: false

@@ -33,6 +33,12 @@ def test_health_endpoint(client):
     assert "status" in data
     assert "ledger_connected" in data
 
+
+def test_liveness_endpoint(client):
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json()["service_alive"] is True
+
 def test_chat_endpoint(client):
     resp = client.post("/api/chat", json={"message": "Hello"})
     assert resp.status_code == 200
@@ -51,6 +57,13 @@ def test_chat_long_message(client):
     msg = "a" * 5000
     resp = client.post("/api/chat", json={"message": msg})
     assert resp.status_code == 422
+
+
+def test_routing_modes_are_validated():
+    from schemas import ChatRequest
+
+    assert ChatRequest(message="hi", routing_mode="performance").routing_mode == "fast"
+    assert ChatRequest(message="hi", routing_mode="low-cost").routing_mode == "low-cost"
 
 
 def test_stats_endpoint(client):

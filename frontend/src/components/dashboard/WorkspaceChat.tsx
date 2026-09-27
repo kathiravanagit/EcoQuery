@@ -28,12 +28,27 @@ interface Metadata {
   knowledge_confidence?: number;
   llm_used?: boolean;
   cache_hit?: boolean;
+  measurement_type?: 'measured' | 'provider_reported' | 'estimated';
+  energy_kwh?: number;
+  energy_measurement_source?: string;
+  grid_source?: string;
+  grid_timestamp?: string;
+  carbon_formula?: string;
+  carbon_assumptions?: string[];
+  requested_provider?: string;
+  attempted_providers?: Array<{ provider?: string; model?: string; status?: string; failure_reason?: string }>;
+  final_provider?: string;
+  final_model?: string;
+  fallback_reason?: string;
+  uncertainty_components?: Record<string, number>;
 }
 
 interface Message {
   role: string
   content: string
   metadata?: Metadata
+  error?: boolean
+  retryPrompt?: string
 }
 
 function formatTier(tier?: string): string {
@@ -49,10 +64,11 @@ function EcoDecision({ meta }: { meta: Metadata }) {
   const isCache = meta.answer_source === 'ecoquery_cache';
   const llmRequired = meta.llm_used ? 'Yes' : 'No';
   const route = meta.model_id || meta.model_used;
+  const measurementLabel = meta.measurement_type === 'measured' ? 'Measured' : meta.measurement_type === 'provider_reported' ? 'Provider-reported' : 'Estimated';
   
   let reason = 'Suitable capability + lower-carbon route';
-  if (isKnowledge) reason = 'Direct knowledge match (Zero emissions)';
-  else if (isCache) reason = 'Stored complex response (Zero emissions)';
+  if (isKnowledge) reason = 'Direct knowledge match (no external LLM inference)';
+  else if (isCache) reason = 'Stored complex response (no external LLM inference)';
   else if (meta.routing_mode === 'manual') reason = 'User-selected override';
 
   return (
@@ -104,9 +120,16 @@ function EcoDecision({ meta }: { meta: Metadata }) {
             <div className="eco-decision-row">
               <span className="eco-decision-label">Carbon:</span>
               <span className="eco-decision-value">
+                <span className={`measurement-badge ${meta.measurement_type || 'estimated'}`}>{measurementLabel}</span>{' '}
                 {meta.co2_estimated_g ?? 0}g ({meta.region || 'auto'})
               </span>
             </div>
+            <div className="eco-decision-row"><span className="eco-decision-label">Energy:</span><span className="eco-decision-value">{meta.energy_kwh == null ? 'Unavailable' : `${meta.energy_kwh} kWh`} ({meta.energy_measurement_source || 'estimate'})</span></div>
+            <div className="eco-decision-row"><span className="eco-decision-label">Grid source:</span><span className="eco-decision-value">{meta.grid_source || 'Unavailable'}</span></div>
+            <div className="eco-decision-row"><span className="eco-decision-label">Final provider:</span><span className="eco-decision-value">{meta.final_provider || 'None'}</span></div>
+            <div className="eco-decision-row"><span className="eco-decision-label">Fallback:</span><span className="eco-decision-value">{meta.fallback_reason || 'None'}</span></div>
+            {meta.uncertainty_components && <div className="eco-decision-row"><span className="eco-decision-label">Uncertainty inputs:</span><span className="eco-decision-value">{Object.entries(meta.uncertainty_components).map(([key, value]) => `${key} ${(value * 100).toFixed(0)}%`).join(' · ')}</span></div>}
+            {isKnowledge && <div className="eco-disclaimer">0 g direct estimate means no external LLM inference; it does not mean total application electricity was zero.</div>}
           </motion.div>
         )}
       </AnimatePresence>
@@ -203,6 +226,16 @@ const WorkspaceChat = ({ token }: Props) => {
                 });
                 break;
               }
+              if (data.error_code) {
+                setMessages(prev => {
+                  const newMsgs = [...prev];
+                  newMsgs[newMsgs.length - 1].content = `Provider unavailable (${data.error_code}). Please retry later.`;
+                  newMsgs[newMsgs.length - 1].error = true;
+                  newMsgs[newMsgs.length - 1].retryPrompt = userMsg;
+                  return newMsgs;
+                });
+                break;
+              }
               if (data.token) {
                 currentReply += data.token;
                 setMessages(prev => {
@@ -229,7 +262,7 @@ const WorkspaceChat = ({ token }: Props) => {
       if (e.message?.includes('402')) {
         setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.' }]);
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'An error occurred connecting to the backend.' }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: 'The provider is unavailable. Please retry later.', error: true, retryPrompt: userMsg }]);
       }
     } finally {
       setIsTyping(false);
@@ -264,6 +297,11 @@ const WorkspaceChat = ({ token }: Props) => {
         {messages.map((msg, idx) => (
           <div key={idx} className={`workspace-message ${msg.role}`}>
             <p>{msg.content}</p>
+            {msg.error && msg.retryPrompt && (
+              <button type="button" className="workspace-retry-button" onClick={() => setInput(msg.retryPrompt || '')}>
+                Retry
+              </button>
+            )}
             {msg.metadata && (
               <>
                 <div className="workspace-token-info">

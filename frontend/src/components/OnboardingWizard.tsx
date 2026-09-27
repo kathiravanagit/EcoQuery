@@ -10,7 +10,7 @@ const steps = [
   {
     icon: <Terminal size={32} />,
     title: 'Welcome to EcoQuery',
-    description: 'Carbon-aware LLM routing that reduces your AI emissions without sacrificing quality.',
+    description: 'Carbon-aware LLM routing that estimates lower CO₂e while preserving capability safeguards.',
     code: '$ ecoquery --init',
   },
   {
@@ -22,13 +22,13 @@ const steps = [
   {
     icon: <Zap size={32} />,
     title: 'Real-Time Tracking',
-    description: 'Monitor your carbon savings, API costs, and query analytics in a live dashboard.',
+    description: 'Monitor estimated CO₂e, API costs, provenance, and query analytics in a live dashboard.',
     code: '$ ecoquery --stats --live',
   },
   {
     icon: <Shield size={32} />,
     title: 'Verified Impact',
-    description: 'Independent verification ensures your carbon savings are real, not just estimates.',
+    description: 'Verification records a behavioral signal; emissions remain estimated unless telemetry is available.',
     code: '$ ecoquery --verify --all',
   },
 ];

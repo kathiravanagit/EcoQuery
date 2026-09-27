@@ -246,6 +246,25 @@
   color: var(--color-success);
 }
 
+.measurement-badge {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.measurement-badge.measured { color: #166534; background: #dcfce7; }
+.measurement-badge.provider_reported { color: #1e40af; background: #dbeafe; }
+.measurement-badge.estimated { color: #92400e; background: #fef3c7; }
+
+.eco-disclaimer {
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .token-limit-indicator {
   font-size: 0.75rem;
   color: var(--text-muted);
@@ -259,6 +278,17 @@
   margin-top: 0.5rem;
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.workspace-retry-button {
+  align-self: flex-start;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--accent);
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
 }
 
 @keyframes fadeIn {

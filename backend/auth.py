@@ -6,12 +6,12 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorClient
 from jose import JWTError, jwt
 import bcrypt as _bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 
 logger = logging.getLogger("EcoQuery.auth")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 SECRET_KEY = os.getenv("JWT_SECRET")
 if not SECRET_KEY:
@@ -147,12 +147,15 @@ def create_access_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+async def get_current_user(request: Request, token: Optional[str] = Depends(oauth2_scheme)) -> dict:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = token or request.cookies.get("ecoquery_access_token")
+    if not token:
+        raise credentials_exception
     # Try API key first (starts with eq_)
     if token.startswith("eq_"):
         from shared import ORG_API_KEYS

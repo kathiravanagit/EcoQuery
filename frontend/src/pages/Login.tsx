@@ -29,7 +29,7 @@ const Login = () => {
     try {
       if (rememberMe) localStorage.setItem('saved_email', email);
       else localStorage.removeItem('saved_email');
-      await login(email, password);
+      await login(email, password, rememberMe);
       toast('success', 'Welcome back!');
       navigate('/');
     } catch (err: unknown) {

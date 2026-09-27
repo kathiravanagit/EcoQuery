@@ -26,7 +26,7 @@ AI inference is projected to consume more energy than training by 2027. Yet most
 1. **Query Classification:** A lightweight classifier determines query complexity
 2. **Carbon Intensity Check:** Real-time data from Electricity Maps API
 3. **Smart Routing:** Queries are sent to the greenest available data center
-4. **Verification:** Independent audit logs prove the carbon savings
+4. **Verification:** Audit logs preserve the routing decision and its assumptions
 
 **The Impact:**
 
@@ -52,7 +52,7 @@ print(response.metadata.carbon_score) # 9.2/10
 
 **Why It Matters:**
 
-Companies are under increasing pressure to report and reduce their AI carbon footprint. Carbon-aware routing provides a measurable, verifiable way to do this without changing your AI models or infrastructure.
+Companies are under increasing pressure to understand their AI carbon footprint. Carbon-aware routing provides an auditable estimate without changing your AI models or infrastructure.
     `
   },
   {

@@ -30,3 +30,5 @@ python benchmark.py
 ```
 
 The benchmark uses 10 fixed prompts per tier, a fixed regional intensity input, model latency constants, and the estimator in `backend/router.py`. It does not call external providers, measure actual hardware energy, or verify answer quality. For a research-grade production experiment, run matched prompts repeatedly against each strategy and report success rate, latency distribution, model/version, carbon-data source, failures, and uncertainty intervals.
+
+The live harness is `python scripts/live_benchmark.py --runs 3 --output benchmark-live.json`. It uses 100 prompts, actual provider calls, five strategies, optional judge-model quality scoring, and reports mean, median, p95, standard deviation, confidence intervals, failure rate, and carbon-estimate fields. It must be run in an environment with deliberately configured test credentials; no live results are claimed by this checked-in snapshot.

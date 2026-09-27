@@ -5,6 +5,7 @@ import time
 import logging
 import json
 import re
+import os
 from jose import JWTError, jwt
 
 from schemas import ChatRequest, ChatResponse
@@ -18,6 +19,7 @@ from ledger import ledger
 from verifier import verifier
 from websocket_manager import ws_manager
 from providers import provider_router
+from energy import begin as begin_energy_sample, end as end_energy_sample, measurement_type as get_measurement_type
 from green_provider import PROVIDER_REGIONS
 
 logger = logging.getLogger("EcoQuery.chat")
@@ -102,9 +104,9 @@ def _selection_for_model(openrouter_id: str, current: dict) -> dict:
 
 async def _resolve_user_email(request: Request) -> str:
     auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
+    token = auth_header[7:] if auth_header.startswith("Bearer ") else request.cookies.get("ecoquery_access_token", "")
+    if not token:
         return ""
-    token = auth_header[7:]
     if token.startswith("eq_"):
         try:
             user = None
@@ -142,7 +144,7 @@ async def _build_routing(req: ChatRequest):
         # Step 1: Check 3000-question knowledge match first
         knowledge_res = knowledge_base.match(req.message, tier=classification["tier"])
         # Step 2: If no knowledge match, check persistent complex response cache
-        if not knowledge_res["matched"]:
+        if not knowledge_res["matched"] and os.getenv("STORE_QUERY_TEXT", "false").lower() == "true":
             cache_res = await response_cache.match(req.message, tier=classification["tier"])
 
     if req.model_id:
@@ -224,6 +226,8 @@ def _build_metadata(
     llm_used: bool = True,
     routing_mode: str = "eco",
     cache_hit: bool = False,
+    provider_lineage: dict | None = None,
+    energy_reading=None,
 ):
     worst_savings = compute_savings(WORST_MODEL["carbon_score"], WORST_INTENSITY, prompt_length=prompt_len)
     routed_model_display = f"{model_sel['provider']} {model_sel['model']} via {region_info['region']} ({region_info['energy_source']})"
@@ -236,21 +240,35 @@ def _build_metadata(
     if not llm_used:
         actual_model_name = "ecoquery-knowledge" if answer_source == "ecoquery_knowledge" else "ecoquery-stored-response"
 
+    measurement_status = get_measurement_type(reading=energy_reading, provider_reported=False)
+    co2e_value = round(energy_reading.energy_kwh * region_info.get("carbon_intensity_g_kwh", 0), 4) if energy_reading else (0.0 if not llm_used else savings["estimated_co2_g"])
     metadata = {
         "model_used": routed_model_display,
         "model_id": actual_model_name,
         "model_tier": "knowledge" if not llm_used else model_sel["tier"],
         "carbon_score": 0.0 if not llm_used else model_sel["carbon_score"],
         "region": "local-direct" if not llm_used else region_info["region"],
-        "measurement_type": "estimated",
+        "measurement_type": measurement_status,
+        "energy_kwh": energy_reading.energy_kwh if energy_reading else (0.0 if not llm_used else savings.get("energy_kwh")),
+        "energy_measurement_source": energy_reading.source if energy_reading else ("none" if not llm_used else "model-calibration-estimate"),
         "grid_source": region_info.get("data_source", "Mock"),
-        "grid_timestamp": datetime.now(timezone.utc).isoformat(),
+        "grid_timestamp": region_info.get("grid_timestamp"),
         "grid_intensity_g_per_kwh": 0.0 if not llm_used else region_info.get("carbon_intensity_g_kwh", 0),
         "energy_assumption_kwh_per_1000_tokens": 0.0 if not llm_used else savings.get("energy_assumption_kwh_per_1000_tokens", 0),
+        "calibration_version": None if not llm_used else savings.get("calibration_version"),
+        "calibration_source": None if not llm_used else savings.get("calibration_source"),
         "uncertainty_range_g": {"min": 0, "max": 0} if not llm_used else savings.get("uncertainty_range_g", {"min": 0, "max": 0}),
+        "uncertainty_components": {} if not llm_used else savings.get("uncertainty_components", {}),
         "energy_source": "zero-emission" if not llm_used else region_info.get("energy_source", "Unknown"),
-        "co2_estimated_g": 0.0 if not llm_used else savings["estimated_co2_g"],
-        "co2_saved_g": worst_savings["estimated_co2_g"] if not llm_used else savings["saved_vs_baseline_g"],
+        "carbon_formula": "energy_kwh × grid_intensity_g_per_kwh",
+        "carbon_assumptions": [
+            "Cloud-provider energy is estimated unless the provider reports energy directly.",
+            "Region and grid intensity may be inferred from the selected routing region.",
+        ] if llm_used else ["No external LLM inference was used; total application electricity is not measured by this result."],
+        "carbon_baseline": {"model": WORST_MODEL["model"], "region": "ap-south-1 (Mumbai)", "grid_intensity_g_per_kwh": WORST_INTENSITY},
+        "co2e_g": co2e_value,
+        "co2_estimated_g": co2e_value,
+        "co2_saved_g": worst_savings["estimated_co2_g"] if not llm_used else round(max(0.0, worst_savings["estimated_co2_g"] - co2e_value), 4),
         "tier": classification["tier"],
         "confidence": round(classification["confidence"], 3),
         "is_mocked": is_mocked,
@@ -269,11 +287,12 @@ def _build_metadata(
         "cache_hit": cache_hit,
         "is_local_inference": (model_sel["provider"] == "Ollama (Local)") or not llm_used,
         "requested_model": model_sel["model"],
-        "requested_provider": "openrouter",
-        "attempted_providers": ["openrouter"],
-        "final_provider": model_sel["provider"],
-        "final_model": actual_model_name,
-        "fallback_reason": model_sel.get("reason", "Direct selection"),
+        "requested_provider": (provider_lineage or {}).get("requested_provider", "openrouter"),
+        "attempted_providers": (provider_lineage or {}).get("attempted_providers", []),
+        "final_provider": (provider_lineage or {}).get("final_provider", model_sel["provider"]),
+        "final_model": (provider_lineage or {}).get("final_model", actual_model_name),
+        "fallback_reason": (provider_lineage or {}).get("fallback_reason") or model_sel.get("reason", "Direct selection"),
+        "quality_safeguard": model_sel.get("quality_safeguard"),
         "success": not is_mocked,
         "what_if": {
             "baseline_model": WORST_MODEL["model"],
@@ -281,8 +300,8 @@ def _build_metadata(
             "baseline_co2_g": worst_savings["estimated_co2_g"],
             "actual_model": actual_model_name,
             "actual_region": "local-direct" if not llm_used else region_info["region"],
-            "actual_co2_g": 0.0 if not llm_used else savings["estimated_co2_g"],
-            "co2_saved_g": worst_savings["estimated_co2_g"] if not llm_used else round(worst_savings["estimated_co2_g"] - savings["estimated_co2_g"], 4),
+            "actual_co2_g": co2e_value,
+            "co2_saved_g": round(max(0.0, worst_savings["estimated_co2_g"] - co2e_value), 4),
             "baseline_cost": 0.0,
             "actual_cost": api_cost,
         },
@@ -299,22 +318,26 @@ async def _record_and_notify(
     knowledge_confidence: float = 0.0,
     llm_used: bool = True,
     cache_hit: bool = False,
+    provider_lineage: dict | None = None,
+    energy_reading=None,
 ):
     user_email = await _resolve_user_email(request)
     zero_llm_savings = compute_savings(WORST_MODEL["carbon_score"], WORST_INTENSITY, prompt_length=len(req.message))
     saved_vs_baseline = savings["saved_vs_baseline_g"] if llm_used else zero_llm_savings["estimated_co2_g"]
     model_name = model_sel["model"] if llm_used else ("ecoquery-knowledge" if answer_source == "ecoquery_knowledge" else "ecoquery-stored-response")
     provider_name = model_sel["provider"] if llm_used else ("EcoQuery Knowledge" if answer_source == "ecoquery_knowledge" else "EcoQuery Stored Response")
+    co2e_value = round(energy_reading.energy_kwh * region_info.get("carbon_intensity_g_kwh", 0), 4) if energy_reading else (0.0 if not llm_used else savings["estimated_co2_g"])
 
     await ledger.record_query({
-        "query": req.message, "tier": classification["tier"],
+        "query": req.message if os.getenv("STORE_QUERY_TEXT", "false").lower() == "true" else "[redacted]",
+        "tier": classification["tier"],
         "model_used": model_name,
         "model_provider": provider_name,
         "model_tier": "knowledge" if not llm_used else model_sel["tier"],
         "carbon_score": 0.0 if not llm_used else model_sel["carbon_score"],
         "region": "local-direct" if not llm_used else region_info["region"],
         "energy_source": "zero-emission" if not llm_used else region_info["energy_source"],
-        "co2_estimated": 0.0 if not llm_used else savings["estimated_co2_g"],
+        "co2_estimated": co2e_value,
         "co2_saved_vs_baseline": saved_vs_baseline,
         "is_mocked": is_mocked, "classifier_method": classification["method"],
         "classifier_confidence": classification["confidence"],
@@ -330,7 +353,17 @@ async def _record_and_notify(
         "knowledge_confidence": knowledge_confidence,
         "llm_used": llm_used,
         "cache_hit": cache_hit,
-        "is_local_inference": (model_sel["provider"] == "Ollama (Local)") or not llm_used
+        "is_local_inference": (model_sel["provider"] == "Ollama (Local)") or not llm_used,
+        "measurement_type": get_measurement_type(reading=energy_reading, provider_reported=False),
+        "energy_kwh": energy_reading.energy_kwh if energy_reading else (0.0 if not llm_used else savings.get("energy_kwh")),
+        "energy_measurement_source": energy_reading.source if energy_reading else ("none" if not llm_used else "model-calibration-estimate"),
+        "calibration_version": savings.get("calibration_version"),
+        "requested_provider": (provider_lineage or {}).get("requested_provider", "openrouter"),
+        "requested_model": (provider_lineage or {}).get("requested_model", model_name),
+        "attempted_providers": (provider_lineage or {}).get("attempted_providers", []),
+        "final_provider": (provider_lineage or {}).get("final_provider", provider_name),
+        "final_model": (provider_lineage or {}).get("final_model", model_name),
+        "fallback_reason": (provider_lineage or {}).get("fallback_reason"),
     }, user_email=user_email)
 
     if user_email:
@@ -345,7 +378,7 @@ async def _record_and_notify(
             "query": req.message[:100], "tier": classification["tier"],
             "model": model_name,
             "region": "local-direct" if not llm_used else region_info["region"],
-            "co2_g": 0.0 if not llm_used else savings["estimated_co2_g"],
+            "co2_g": co2e_value,
             "co2_saved_g": saved_vs_baseline,
             "api_cost": api_cost,
             "answer_source": answer_source,
@@ -358,7 +391,7 @@ async def _record_and_notify(
             "model": model_name,
             "tier": classification["tier"],
             "region": "local-direct" if not llm_used else region_info["region"],
-            "co2_estimated_g": 0.0 if not llm_used else savings["estimated_co2_g"],
+            "co2_estimated_g": co2e_value,
             "answer_source": answer_source,
             "llm_used": llm_used,
             "cache_hit": cache_hit,
@@ -368,6 +401,8 @@ async def _record_and_notify(
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest, request: Request):
     user_email = await _resolve_user_email(request)
+    if os.getenv("RENDER") and not user_email:
+        raise HTTPException(status_code=401, detail="Authentication is required for the direct chat API")
     if user_email:
         user = await auth_db.find_user_by_email(user_email)
         if user and user.get("tokens_used", 0) >= 100000:
@@ -440,6 +475,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     prompt_tokens = max(5, int(prompt_len / 4.0))
     output_tokens = 40
     is_mocked = False
+    provider_lineage = None
+    energy_started_at, energy_start_rapl, energy_nvml = begin_energy_sample()
 
     user_email = await _resolve_user_email(request)
     max_tokens = 600
@@ -454,6 +491,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         )
             
         reply_content = clean_response(result.get("content") or "") or ""
+        provider_lineage = result.get("provider_lineage")
 
         # Fallback chain: if primary returns empty, try next models
         if not reply_content:
@@ -478,7 +516,11 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                     continue
 
         if not reply_content:
-            reply_content = "No response generated."
+            return JSONResponse(status_code=502, content={
+                "success": False,
+                "error_code": "PROVIDER_EMPTY_RESPONSE",
+                "message": "The configured provider returned no usable response.",
+            })
 
         usage = result.get("usage", {})
         prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
@@ -488,7 +530,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             api_cost = round((prompt_tokens * rate / 1000) + (output_tokens * rate / 1000), 6)
 
         # Store successful response in persistent cache for future queries
-        if reply_content and not reply_content.startswith("I'm sorry") and not req.images:
+        if reply_content and not reply_content.startswith("I'm sorry") and not req.images and os.getenv("STORE_QUERY_TEXT", "false").lower() == "true":
             await response_cache.store(
                 question=req.message,
                 answer=reply_content,
@@ -502,22 +544,22 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         logger.warning(f"LLM API call failed: {e}")
         try:
             error_data = json.loads(str(e))
-            if error_data.get("error_code") == "PROVIDER_UNAVAILABLE":
+            if error_data.get("error_code"):
                 return JSONResponse(status_code=503, content=error_data)
         except (ValueError, json.JSONDecodeError):
             pass
-
-        reply_content = (
-            "I'm sorry, I encountered an error processing your request. "
-            "Please try again or contact support if the issue persists."
-        )
-        is_mocked = True
+        return JSONResponse(status_code=502, content={
+            "success": False,
+            "error_code": "PROVIDER_REQUEST_FAILED",
+            "message": "The configured provider failed to process this request.",
+        })
 
     latency_seconds = round(time.time() - start_time, 3)
+    energy_reading = end_energy_sample(energy_started_at, energy_start_rapl, energy_nvml) if model_sel.get("provider") == "Ollama (Local)" else None
     v_result = verifier.verify_completion(
         model_id=target_model, prompt_tokens=prompt_tokens,
         completion_tokens=output_tokens, latency_seconds=latency_seconds,
-        reported_co2_g=savings["estimated_co2_g"]
+        reported_co2_g=round(energy_reading.energy_kwh * region_info.get("carbon_intensity_g_kwh", 0), 4) if energy_reading else savings["estimated_co2_g"]
     )
 
     await _record_and_notify(
@@ -525,7 +567,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         api_cost, latency_seconds, is_mocked, v_result,
         routing_mode=routing_mode, answer_source="llm",
         knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True,
-        cache_hit=False
+        cache_hit=False, provider_lineage=provider_lineage, energy_reading=energy_reading
     )
 
     if user_email:
@@ -538,7 +580,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             v_result, api_cost, latency_seconds, is_mocked, output_tokens, prompt_tokens,
             answer_source="llm", knowledge_match=False,
             knowledge_confidence=knowledge_res["confidence"], llm_used=True, routing_mode=routing_mode,
-            cache_hit=False
+            cache_hit=False, provider_lineage=provider_lineage, energy_reading=energy_reading
         )
     )
 
@@ -628,6 +670,7 @@ async def chat_stream(req: ChatRequest, request: Request):
     output_tokens = 40
     is_mocked = False
     full_reply = ""
+    provider_lineage = None
     start_time = time.time()
 
     user_email = await _resolve_user_email(request)
@@ -636,7 +679,7 @@ async def chat_stream(req: ChatRequest, request: Request):
         max_tokens = req.max_output_tokens or 200
 
     async def generate():
-        nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply
+        nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply, provider_lineage
         try:
             async for token in provider_router.stream_completion(
                 model_id=target_model,
@@ -650,6 +693,8 @@ async def chat_stream(req: ChatRequest, request: Request):
                 elif isinstance(token, str):
                     full_reply += token
                     yield f"data: {json.dumps({'token': token})}\n\n"
+                elif isinstance(token, dict) and "provider_lineage" in token:
+                    provider_lineage = token["provider_lineage"]
         except Exception as e:
             logger.warning(f"LLM streaming failed: {e}")
             try:
@@ -660,9 +705,8 @@ async def chat_stream(req: ChatRequest, request: Request):
             except (ValueError, json.JSONDecodeError):
                 pass
                 
-            is_mocked = True
-            full_reply = "I'm sorry, I encountered an error processing your request. Please try again or contact support if the issue persists."
-            yield f"data: {json.dumps({'token': full_reply})}\n\n"
+            yield f"data: {json.dumps({'success': False, 'error_code': 'PROVIDER_UNAVAILABLE', 'message': 'No configured provider was able to process this request.'})}\n\n"
+            return
 
         cleaned_reply = clean_response(full_reply)
         output_tokens = len(cleaned_reply.split())
@@ -675,7 +719,7 @@ async def chat_stream(req: ChatRequest, request: Request):
         )
 
         # Store in cache if successful
-        if cleaned_reply and not cleaned_reply.startswith("I'm sorry") and not req.images:
+        if cleaned_reply and not cleaned_reply.startswith("I'm sorry") and not req.images and os.getenv("STORE_QUERY_TEXT", "false").lower() == "true":
             await response_cache.store(
                 question=req.message,
                 answer=cleaned_reply,
@@ -691,7 +735,7 @@ async def chat_stream(req: ChatRequest, request: Request):
             api_cost, latency_seconds, is_mocked, v_result,
             routing_mode=routing_mode, answer_source="llm",
             knowledge_match=False, knowledge_confidence=knowledge_res["confidence"], llm_used=True,
-            cache_hit=False
+            cache_hit=False, provider_lineage=provider_lineage
         )
 
         if user_email:
@@ -702,7 +746,7 @@ async def chat_stream(req: ChatRequest, request: Request):
             v_result, api_cost, latency_seconds, is_mocked, output_tokens, prompt_tokens,
             answer_source="llm", knowledge_match=False,
             knowledge_confidence=knowledge_res["confidence"], llm_used=True, routing_mode=routing_mode,
-            cache_hit=False
+            cache_hit=False, provider_lineage=provider_lineage
         )})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")

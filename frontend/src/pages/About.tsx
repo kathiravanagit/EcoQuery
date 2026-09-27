@@ -6,7 +6,7 @@ import './Pages.css';
 const About = () => {
   const values = [
     { icon: Leaf, title: 'Sustainability First', desc: 'Every query routed to minimize carbon impact without compromising quality.' },
-    { icon: Target, title: 'Radical Transparency', desc: 'Open-source methodology and verifiable audit trails for every decision.' },
+    { icon: Target, title: 'Radical Transparency', desc: 'Open methodology and audit metadata for every routing decision.' },
     { icon: Users, title: 'Developer-Centric', desc: 'Simple API integration that works with your existing LLM infrastructure.' },
     { icon: TrendingUp, title: 'Continuous Improvement', desc: 'Models and routing algorithms improve over time as grid data evolves.' },
   ];
@@ -30,7 +30,7 @@ const About = () => {
               AI inference is projected to consume more energy than training by 2027. Yet most optimization tools focus only on the training phase. EcoQuery was built to close this gap by intelligently routing queries to the most carbon-efficient model and region in real-time.
             </p>
             <p>
-              Founded on peer-reviewed research, we provide the first verifiable, real-time carbon-aware routing layer for LLM inference.
+              EcoQuery combines zero-inference knowledge matching, carbon-aware routing, provider fallback, grid provenance, and audit metadata. Carbon values are estimates unless hardware telemetry or provider-reported data is available.
             </p>
           </div>
 

@@ -16,6 +16,17 @@ class ChatRequest(BaseModel):
     max_output_tokens: Optional[int] = Field(default=None, ge=1, le=4000)
     routing_mode: Optional[str] = Field(default="balanced")
 
+    @field_validator('routing_mode')
+    @classmethod
+    def validate_routing_mode(cls, value):
+        if value is None:
+            return "balanced"
+        aliases = {"performance": "fast", "budget": "low-cost"}
+        normalized = aliases.get(value.lower(), value.lower())
+        if normalized not in {"green", "balanced", "quality", "fast", "low-cost"}:
+            raise ValueError('routing_mode must be green, balanced, quality, fast, or low-cost')
+        return normalized
+
     @field_validator('images')
     @classmethod
     def validate_images(cls, images):

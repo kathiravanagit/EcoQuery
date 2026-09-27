@@ -3,6 +3,10 @@ import sqlite3
 import datetime
 import logging
 import uuid
+import base64
+import hashlib
+
+from cryptography.fernet import Fernet, InvalidToken
 
 logger = logging.getLogger("EcoQuery.key_manager")
 
@@ -11,7 +15,21 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "keys.db")
 class KeyManager:
     def __init__(self, db_path=DB_PATH):
         self.db_path = db_path
+        encryption_secret = os.getenv("KEY_ENCRYPTION_KEY") or os.getenv("JWT_SECRET") or "ecoquery-development-only-key"
+        derived_key = base64.urlsafe_b64encode(hashlib.sha256(encryption_secret.encode()).digest())
+        self._fernet = Fernet(derived_key)
         self._init_db()
+
+    def _encrypt(self, value: str) -> str:
+        return "enc:" + self._fernet.encrypt(value.encode()).decode()
+
+    def _decrypt(self, value: str) -> str | None:
+        try:
+            if not value.startswith("enc:"):
+                return None
+            return self._fernet.decrypt(value[4:].encode()).decode()
+        except (InvalidToken, UnicodeDecodeError):
+            return None
 
     def get_connection(self):
         return sqlite3.connect(self.db_path, check_same_thread=False)
@@ -48,8 +66,18 @@ class KeyManager:
                 )
             ''')
             conn.commit()
-            
+            self._migrate_plaintext_keys(cursor)
+            conn.commit()
             self._seed_initial_keys()
+
+    def _migrate_plaintext_keys(self, cursor):
+        """Encrypt legacy rows in place; plaintext values are never returned."""
+        cursor.execute("SELECT id, key_value FROM api_keys WHERE key_value NOT LIKE 'enc:%'")
+        legacy_rows = cursor.fetchall()
+        for key_id, key_value in legacy_rows:
+            cursor.execute("UPDATE api_keys SET key_value = ? WHERE id = ?", (self._encrypt(key_value), key_id))
+        if legacy_rows:
+            logger.warning("Encrypted %d legacy provider key(s) at rest", len(legacy_rows))
 
     def _seed_initial_keys(self):
         """Seed the database with keys from environment/user if empty."""
@@ -81,7 +109,7 @@ class KeyManager:
             cursor.execute('''
                 INSERT INTO api_keys (id, key_value, provider, role, daily_limit)
                 VALUES (?, ?, ?, ?, ?)
-            ''', (key_id, key_value, provider, role, daily_limit))
+            ''', (key_id, self._encrypt(key_value), provider, role, daily_limit))
             conn.commit()
         return key_id
 
@@ -94,7 +122,16 @@ class KeyManager:
                 cursor.execute("SELECT * FROM api_keys WHERE is_active = 1 AND provider = ?", (provider,))
             else:
                 cursor.execute("SELECT * FROM api_keys WHERE is_active = 1")
-            return [dict(row) for row in cursor.fetchall()]
+            keys = []
+            for row in cursor.fetchall():
+                item = dict(row)
+                decrypted = self._decrypt(item["key_value"])
+                if decrypted is None:
+                    logger.error("Skipping provider key %s because it cannot be decrypted", item["id"])
+                    continue
+                item["key_value"] = decrypted
+                keys.append(item)
+            return keys
             
     def check_rate_limit(self, key_id: str) -> bool:
         """Check if the key has exceeded its daily limit."""

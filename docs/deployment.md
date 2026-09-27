@@ -9,6 +9,8 @@ Run the app locally with live reloading for both frontend and backend.
 ```
 MONGODB_URL=mongodb://localhost:27017/ecoquery
 JWT_SECRET=local_secret_key
+KEY_ENCRYPTION_KEY=local-development-secret
+REDIS_URL=redis://localhost:6379/0
 OPENROUTER_API_KEY=your_key
 GROK_API_KEY=your_key
 GOOGLE_API_KEY=your_key
@@ -33,7 +35,7 @@ For quick sharing without strict SLAs.
 Production requires secure secrets management and robust infrastructure.
 - **Backend:** ECS or Google Cloud Run for auto-scaling.
 - **Database:** MongoDB Atlas Dedicated cluster.
-- **Security:** Ensure `is_safe_url` is enabled for webhooks. Secrets MUST be stored in a vault (e.g. AWS Secrets Manager).
+- **Security:** Secrets MUST be stored in a vault or Render secrets. Production requires `KEY_ENCRYPTION_KEY`, `REDIS_URL`, a strong `JWT_SECRET`, and real MongoDB/provider credentials. Rotate any credentials that appeared in old Git history.
 
 ### Provider Fallback Behavior
 EcoQuery seamlessly routes across providers. If a provider fails, the system returns a 503 error with structured JSON and lineage. The frontend gracefully handles this or automatically retries with a fallback provider.

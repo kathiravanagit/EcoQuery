@@ -448,6 +448,29 @@
   font-size: 0.65rem;
 }
 
+.measurement-badge {
+  display: inline-block;
+  padding: 0.12rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.measurement-badge.measured { color: #166534; background: #dcfce7; }
+.measurement-badge.provider_reported { color: #1e40af; background: #dbeafe; }
+.measurement-badge.estimated { color: #92400e; background: #fef3c7; }
+
+.retry-button {
+  align-self: flex-start;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--accent);
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
 .eco-insight-header {
   width: 100%;
   display: flex;
@@ -544,4 +567,3 @@
   .eco-proof-main > span:last-child { white-space: normal; }
   .eco-proof-stat { min-width: 62px; }
 }
-

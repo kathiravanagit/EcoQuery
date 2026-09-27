@@ -96,7 +96,7 @@ const DashboardAnalytics = ({ analytics, analyticsPeriod, setAnalyticsPeriod, ti
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
         {[
           { label: 'Total Queries', value: totalQueries, color: 'var(--accent)' },
-          { label: 'CO2 Saved', value: `${totalCo2.toFixed(2)}g`, color: '#16a34a' },
+          { label: 'Estimated CO₂e Avoided', value: `${totalCo2.toFixed(2)}g`, color: '#16a34a' },
           { label: 'Avg Latency', value: `${avgLatency}s`, color: '#3b82f6' },
         ].map(s => (
           <div key={s.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem 1rem' }}>

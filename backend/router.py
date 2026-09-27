@@ -4,10 +4,14 @@ Always routes with carbon-first priority.
 """
 
 import logging
+import math
 from carbon import get_carbon_optimal_region
+from calibration import CALIBRATION_VERSION, get_calibration
 from models import CARBON_MODELS
 
 logger = logging.getLogger("EcoQuery.router")
+
+SUPPORTED_ROUTING_MODES = ("green", "balanced", "quality", "fast", "low-cost")
 
 MODEL_LATENCY = {
     "nemotron-3-ultra-550b-a55b:free": 2.0,
@@ -22,6 +26,7 @@ MODEL_LATENCY = {
 
 def select_model(tier: str, region_code: str, carbon_intensity: float, mode: str = "balanced", confidence: float = 1.0, prompt_length: int = 50) -> dict:
     candidates = list(CARBON_MODELS)
+    original_candidate_count = len(candidates)
     
     # 1. Quality Safeguard
     # The router should not choose a smaller model merely because it is greener.
@@ -32,14 +37,16 @@ def select_model(tier: str, region_code: str, carbon_intensity: float, mode: str
         
     if not candidates:
         candidates = list(CARBON_MODELS) # fallback if filtered out too strictly
+    quality_safeguard_applied = len(candidates) != original_candidate_count
         
     # Weights: (w1_quality, w2_carbon, w3_latency, w4_cost, w5_risk)
+    mode = {"performance": "fast", "budget": "low-cost"}.get(mode, mode)
     weights = {
         "green": (1.0, 5.0, 1.0, 1.0, 1.0),
         "balanced": (2.0, 2.0, 1.0, 1.0, 1.0),
         "fast": (1.0, 1.0, 5.0, 1.0, 1.0),
         "quality": (5.0, 1.0, 1.0, 1.0, 1.0),
-        "budget": (1.0, 1.0, 1.0, 5.0, 1.0),
+        "low-cost": (1.0, 1.0, 1.0, 5.0, 1.0),
     }
     w1, w2, w3, w4, w5 = weights.get(mode, weights["balanced"])
     
@@ -83,21 +90,34 @@ def select_model(tier: str, region_code: str, carbon_intensity: float, mode: str
         "tier": chosen["tier"],
         "carbon_score": chosen["carbon_score"],
         "estimated_latency_s": estimated_latency,
-        "reason": f"Objective score: {round(best_score, 2)} (Mode: {mode})"
+        "reason": f"Objective score: {round(best_score, 2)} (Mode: {mode})",
+        "quality_safeguard": {
+            "applied": quality_safeguard_applied,
+            "minimum_capability": "high" if tier == "complex" or (tier == "medium" and confidence < 0.75) else "medium",
+            "escalation_reason": "Capability threshold protected answer quality" if quality_safeguard_applied else None,
+        },
     }
 
 
 def compute_savings(model_carbon_score: int | float, region_intensity: float, prompt_length: int = 50) -> dict:
     estimated_tokens = max(10, int((prompt_length / 4.0) * 2.5))
-    energy_per_1k_kwh = 0.0002 * (model_carbon_score / 3.0)
+    calibration = get_calibration(model_carbon_score)
+    energy_per_1k_kwh = calibration.energy_kwh_per_1000_tokens
     energy_used_kwh = (estimated_tokens / 1000.0) * energy_per_1k_kwh
     estimated_co2_g = round(energy_used_kwh * region_intensity, 4)
     baseline_energy_kwh = (estimated_tokens / 1000.0) * 0.001
     baseline_co2_g = round(baseline_energy_kwh * 475.0, 4)
     saved_vs_baseline_g = max(0.0, round(baseline_co2_g - estimated_co2_g, 4))
     
-    uncertainty_min = round(estimated_co2_g * 0.5, 4)
-    uncertainty_max = round(estimated_co2_g * 2.0, 4)
+    uncertainty_relative = math.sqrt(sum(value ** 2 for value in (
+        calibration.token_relative_uncertainty,
+        calibration.model_relative_uncertainty,
+        calibration.grid_relative_uncertainty,
+        calibration.region_relative_uncertainty,
+        calibration.fallback_relative_uncertainty,
+    )))
+    uncertainty_min = round(max(0.0, estimated_co2_g * (1.0 - uncertainty_relative)), 4)
+    uncertainty_max = round(estimated_co2_g * (1.0 + uncertainty_relative), 4)
 
     return {
         "estimated_co2_g": estimated_co2_g,
@@ -105,6 +125,15 @@ def compute_savings(model_carbon_score: int | float, region_intensity: float, pr
         "baseline_g": baseline_co2_g,
         "estimated_tokens": estimated_tokens,
         "energy_assumption_kwh_per_1000_tokens": round(energy_per_1k_kwh, 6),
+        "calibration_version": CALIBRATION_VERSION,
+        "calibration_source": calibration.source,
+        "uncertainty_components": {
+            "token_estimation": calibration.token_relative_uncertainty,
+            "model_energy": calibration.model_relative_uncertainty,
+            "grid_intensity": calibration.grid_relative_uncertainty,
+            "provider_region": calibration.region_relative_uncertainty,
+            "fallback_behavior": calibration.fallback_relative_uncertainty,
+        },
         "uncertainty_range_g": {
             "min": uncertainty_min,
             "max": uncertainty_max
