@@ -25,7 +25,7 @@ async def load_org(org_id: str):
     if org:
         return org
     coll = await get_orgs_collection()
-    if coll:
+    if coll is not None:
         org = await coll.find_one({"id": org_id})
         if org:
             org.pop("_id", None)
@@ -50,7 +50,7 @@ async def create_org(req: OrgCreateRequest, current_user: dict = Depends(get_cur
     }
     ORGANIZATIONS[org_id] = org
     coll = await get_orgs_collection()
-    if coll:
+    if coll is not None:
         try:
             await coll.insert_one(dict(org))
         except Exception as exc:
@@ -64,7 +64,7 @@ async def create_org(req: OrgCreateRequest, current_user: dict = Depends(get_cur
 async def list_orgs(current_user: dict = Depends(get_current_user)):
     user_orgs = [o for o in ORGANIZATIONS.values() if current_user["email"] in o.get("members", [])]
     coll = await get_orgs_collection()
-    if coll:
+    if coll is not None:
         stored_orgs = await coll.find({"members": current_user["email"]}).to_list(length=1000)
         for org in stored_orgs:
             org.pop("_id", None)
@@ -112,7 +112,7 @@ async def join_org(token: str, current_user: dict = Depends(get_current_user)):
     if current_user["email"] not in org["members"]:
         org["members"].append(current_user["email"])
         coll = await get_orgs_collection()
-        if coll:
+        if coll is not None:
             await coll.update_one({"id": org["id"]}, {"$set": {"members": org["members"]}})
     return {"status": "ok", "org": org}
 
@@ -126,7 +126,7 @@ async def remove_member(org_id: str, email: str, current_user: dict = Depends(ge
         raise HTTPException(status_code=400, detail="Cannot remove the owner")
     org["members"] = [m for m in org["members"] if m != email]
     coll = await get_orgs_collection()
-    if coll:
+    if coll is not None:
         await coll.update_one({"id": org_id}, {"$set": {"members": org["members"]}})
     return {"status": "ok"}
 
@@ -141,7 +141,7 @@ async def generate_org_api_key(org_id: str, current_user: dict = Depends(get_cur
     ORG_API_KEYS.setdefault(org_id, org.get("api_keys", [])).append(key_record)
     org["api_keys"] = ORG_API_KEYS[org_id]
     coll = await get_orgs_collection()
-    if coll:
+    if coll is not None:
         await coll.update_one({"id": org_id}, {"$set": {"api_keys": org["api_keys"]}})
     return {"api_key": key}
 
@@ -213,7 +213,7 @@ async def update_member_role(org_id: str, email: str, role: str, current_user: d
     
     org.setdefault("roles", {})[email] = role
     coll = await get_orgs_collection()
-    if coll:
+    if coll is not None:
         await coll.update_one({"id": org_id}, {"$set": {f"roles.{email}": role}})
     
     return {"status": "ok", "email": email, "role": role, "org_id": org_id}
