@@ -6,6 +6,7 @@ interface AnalyticsDataPoint {
   date: string;
   count: number;
   co2_saved: number;
+  co2_emitted?: number;
   avg_latency: number;
 }
 
@@ -64,6 +65,7 @@ const DashboardAnalytics = ({ analytics, analyticsPeriod, setAnalyticsPeriod, ti
   const chartData = analytics.filter(d => d.count > 0);
   const totalQueries = chartData.reduce((s, d) => s + (d.count || 0), 0);
   const totalCo2 = chartData.reduce((s, d) => s + (d.co2_saved || 0), 0);
+  const totalCo2Emitted = chartData.reduce((s, d) => s + (d.co2_emitted || 0), 0);
   const avgLatency = chartData.length ? (chartData.reduce((s, d) => s + (d.avg_latency || 0), 0) / chartData.length).toFixed(1) : '0';
 
   const formatXAxis = (val: string) => {
@@ -93,9 +95,10 @@ const DashboardAnalytics = ({ analytics, analyticsPeriod, setAnalyticsPeriod, ti
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
         {[
           { label: 'Total Queries', value: totalQueries, color: 'var(--accent)' },
+          { label: 'Actual CO₂e Emitted', value: `${totalCo2Emitted.toFixed(2)}g`, color: '#dc2626' },
           { label: 'Estimated CO₂e Avoided', value: `${totalCo2.toFixed(2)}g`, color: '#16a34a' },
           { label: 'Avg Latency', value: `${avgLatency}s`, color: '#3b82f6' },
         ].map(s => (
@@ -119,12 +122,14 @@ const DashboardAnalytics = ({ analytics, analyticsPeriod, setAnalyticsPeriod, ti
                 <YAxis stroke="var(--text-secondary)" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip period={analyticsPeriod} />} />
                 <Line type="monotone" dataKey="count" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: '#16a34a' }} activeDot={{ r: 5 }} name="Queries" />
+                <Line type="monotone" dataKey="co2_emitted" stroke="#dc2626" strokeWidth={2} dot={{ r: 3, fill: '#dc2626' }} activeDot={{ r: 5 }} name="CO2 Emitted (g)" />
                 <Line type="monotone" dataKey="co2_saved" stroke="#ca8a04" strokeWidth={2} dot={{ r: 3, fill: '#ca8a04' }} activeDot={{ r: 5 }} name="CO2 Saved (g)" />
               </LineChart>
             </ResponsiveContainer>
           )}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '0.5rem' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.7rem', color: 'var(--text-secondary)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />Queries</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.7rem', color: 'var(--text-secondary)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />CO2 Emitted</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.7rem', color: 'var(--text-secondary)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ca8a04', display: 'inline-block' }} />CO2 Saved</span>
           </div>
         </div>

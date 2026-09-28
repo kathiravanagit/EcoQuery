@@ -6,6 +6,7 @@ interface QueryRecord {
   query?: string;
   model_used?: string;
   region?: string;
+  co2_estimated?: number;
   co2_saved_vs_baseline?: number;
   tier?: string;
   latency_seconds?: number;
@@ -119,6 +120,7 @@ const DashboardQueries = ({ token }: Props) => {
               <div className="dashboard-query-meta">
                 <span className="meta-tag">{q.model_used}</span>
                 <span className="meta-tag">{q.region}</span>
+                {q.co2_estimated != null && <span className="meta-tag">{q.co2_estimated}g CO₂ used</span>}
                 <span className="meta-tag savings">+{q.co2_saved_vs_baseline}g CO₂</span>
                 <span className="meta-tag">{q.tier}</span>
                 {q.latency_seconds ? <span className="meta-tag">{q.latency_seconds}s</span> : null}

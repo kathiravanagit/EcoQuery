@@ -27,9 +27,10 @@ async def get_analytics(current_user: dict = Depends(get_current_user), period: 
             key = f"{iso[0]}-W{iso[1]:02d}"
         else:
             key = dt.strftime("%Y-%m")
-        bucket = buckets.setdefault(key, {"queries": 0, "co2_saved_g": 0.0, "green": 0})
+        bucket = buckets.setdefault(key, {"queries": 0, "co2_saved_g": 0.0, "co2_emitted_g": 0.0, "green": 0})
         bucket["queries"] += 1
         bucket["co2_saved_g"] += r.get("co2_saved_vs_baseline", 0)
+        bucket["co2_emitted_g"] += r.get("co2_estimated", 0)
         if r.get("model_tier") == "green":
             bucket["green"] += 1
     result = [{"period": k, **v} for k, v in sorted(buckets.items())]

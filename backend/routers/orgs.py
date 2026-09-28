@@ -157,6 +157,7 @@ async def get_org_sustainability(org_id: str, current_user: dict = Depends(get_c
     
     total = len(records)
     total_co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
+    total_co2_emitted = sum(r.get("co2_estimated", 0) for r in records)
     total_cost = sum(r.get("api_cost", 0) for r in records)
     green = sum(1 for r in records if r.get("model_tier") == "green")
     
@@ -172,6 +173,7 @@ async def get_org_sustainability(org_id: str, current_user: dict = Depends(get_c
         "summary": {
             "total_queries": total,
             "total_co2_saved_g": round(total_co2, 4),
+            "total_co2_emitted_g": round(total_co2_emitted, 4),
             "total_api_cost_usd": round(total_cost, 6),
             "green_query_percent": round((green / total * 100), 1) if total else 0,
         },
@@ -230,6 +232,7 @@ async def get_org_dashboard(org_id: str, current_user: dict = Depends(get_curren
     
     total = len(all_records)
     total_co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in all_records)
+    total_co2_emitted = sum(r.get("co2_estimated", 0) for r in all_records)
     total_cost = sum(r.get("api_cost", 0) for r in all_records)
     avg_latency = sum(r.get("latency_seconds", 0) for r in all_records) / total if total else 0
     green = sum(1 for r in all_records if r.get("model_tier") == "green")
@@ -249,6 +252,7 @@ async def get_org_dashboard(org_id: str, current_user: dict = Depends(get_curren
         "summary": {
             "total_queries": total,
             "total_co2_saved_g": round(total_co2, 4),
+            "total_co2_emitted_g": round(total_co2_emitted, 4),
             "total_api_cost_usd": round(total_cost, 6),
             "avg_latency_s": round(avg_latency, 3),
             "green_query_percent": round((green / total * 100), 1) if total else 0,

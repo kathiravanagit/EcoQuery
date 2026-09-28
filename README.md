@@ -180,7 +180,7 @@ VITE_API_URL=https://ecoquery.onrender.com  # Prod
 ## Testing
 
 ```bash
-# Backend (137 tests)
+# Backend (150 tests)
 cd backend
 python -m pytest tests/ -q
 

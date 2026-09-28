@@ -27,6 +27,7 @@ const DashboardRealtime = React.memo(({ events }: Props) => {
           {events.map((e, i) => (
             <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
               <span style={{ color: 'var(--text-secondary)' }}>{e.time}</span>
+              <span className="meta-tag">{e.co2_g}g CO₂ used</span>
               <span className="meta-tag savings">+{e.co2_saved_g}g CO₂</span>
               <span className="meta-tag">{e.model}</span>
               <span className="meta-tag">{e.tier}</span>

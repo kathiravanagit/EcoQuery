@@ -4,6 +4,7 @@ import { BarChart3, Leaf, DollarSign, Server, Clock, Shield } from 'lucide-react
 interface Stats {
   total_queries?: number;
   total_co2_saved_g?: number;
+  total_co2_emitted_g?: number;
   total_api_cost?: number;
   latest_queries?: Record<string, unknown>[];
   green_query_percent?: number;
@@ -38,6 +39,11 @@ const DashboardStats = React.memo(({ stats, cert }: Props) => {
         <Leaf size={24} style={{ color: 'var(--accent)' }} />
         <div className="dashboard-card-value">{stats?.total_co2_saved_g || 0}g</div>
         <div className="dashboard-card-label">Estimated CO₂e Avoided</div>
+      </div>
+      <div className="dashboard-card">
+        <Leaf size={24} style={{ color: 'var(--color-warning)' }} />
+        <div className="dashboard-card-value">{stats?.total_co2_emitted_g || 0}g</div>
+        <div className="dashboard-card-label">Actual CO₂e Emitted</div>
       </div>
       <div className="dashboard-card">
         <DollarSign size={24} style={{ color: 'var(--accent)' }} />

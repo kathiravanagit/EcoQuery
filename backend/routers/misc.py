@@ -177,6 +177,7 @@ async def get_user_stats(current_user: dict = Depends(get_current_user)):
     records, _ = await ledger.get_audit_log(limit=1000, skip=0, user_email=current_user["email"])
     total = len(records)
     co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
+    co2_emitted = sum(r.get("co2_estimated", 0) for r in records)
     cost = sum(r.get("api_cost", 0) for r in records)
     queries_by_tier: dict[str, int] = {}
     queries_by_model: dict[str, int] = {}
@@ -193,6 +194,7 @@ async def get_user_stats(current_user: dict = Depends(get_current_user)):
     return {
         "total_queries": total,
         "total_co2_saved_g": round(co2, 3),
+        "total_co2_emitted_g": round(co2_emitted, 3),
         "total_api_cost": round(cost, 6),
         "avg_latency_s": round(total_latency / total, 3) if total else 0,
         "queries_by_tier": queries_by_tier,
@@ -207,6 +209,7 @@ async def get_sustainability_report(current_user: dict = Depends(get_current_use
     records, _ = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
     total = len(records)
     total_co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
+    total_co2_emitted = sum(r.get("co2_estimated", 0) for r in records)
     total_cost = sum(r.get("api_cost", 0) for r in records)
     green = sum(1 for r in records if r.get("model_tier") == "green")
     balanced = sum(1 for r in records if r.get("model_tier") == "balanced")
@@ -230,6 +233,8 @@ async def get_sustainability_report(current_user: dict = Depends(get_current_use
             "total_queries": total,
             "total_co2_saved_g": round(total_co2, 4),
             "total_co2_saved_kg": round(total_co2 / 1000, 6),
+            "total_co2_emitted_g": round(total_co2_emitted, 4),
+            "total_co2_emitted_kg": round(total_co2_emitted / 1000, 6),
             "total_api_cost_usd": round(total_cost, 6),
             "green_query_percent": round((green / total * 100), 1) if total else 0,
             "avg_queries_per_day": round(total / 30, 1),
@@ -264,6 +269,7 @@ async def get_sustainability_report(current_user: dict = Depends(get_current_use
             f"  Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n"
             f"{'='*50}\n\n"
             f"  QUERIES ROUTED: {total}\n"
+            f"  CO₂ EMITTED: {round(total_co2_emitted, 4)}g ({round(total_co2_emitted/1000, 6)} kg)\n"
             f"  CO₂ SAVED: {round(total_co2, 4)}g ({round(total_co2/1000, 6)} kg)\n"
             f"  API COST: ${round(total_cost, 6)}\n"
             f"  GREEN QUERY RATE: {round((green / total * 100), 1) if total else 0}%\n\n"
@@ -322,12 +328,14 @@ async def get_certificate(current_user: dict = Depends(get_current_user)):
     records, _ = await ledger.get_audit_log(limit=10000, skip=0, user_email=current_user["email"])
     total_queries = len(records)
     total_co2 = sum(r.get("co2_saved_vs_baseline", 0) for r in records)
+    total_co2_emitted = sum(r.get("co2_estimated", 0) for r in records)
     green_queries = sum(1 for r in records if r.get("model_tier") == "green")
     return {
         "user": current_user["email"],
         "display_name": current_user.get("display_name", ""),
         "total_queries": total_queries,
         "total_co2_saved_g": round(total_co2, 3),
+        "total_co2_emitted_g": round(total_co2_emitted, 3),
         "green_query_percent": round((green_queries / total_queries * 100), 1) if total_queries else 0,
         "certificate": (
             f"EcoQuery Celebrates You!\n"
@@ -335,6 +343,7 @@ async def get_certificate(current_user: dict = Depends(get_current_user)):
             f"User: {current_user.get('display_name', current_user['email'])}\n"
             f"Email: {current_user['email']}\n"
             f"Queries Routed: {total_queries}\n"
+            f"CO\u2082 Emitted: {round(total_co2_emitted, 3)}g\n"
             f"CO\u2082 Saved: {round(total_co2, 3)}g\n"
             f"Green Query Rate: {round((green_queries / total_queries * 100), 1) if total_queries else 0}%\n"
             f"Issued: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n"

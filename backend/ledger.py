@@ -137,6 +137,7 @@ class VerificationLedger:
                 {"$group": {
                     "_id": None,
                     "total_co2": {"$sum": "$co2_saved_vs_baseline"},
+                    "total_co2_emitted": {"$sum": "$co2_estimated"},
                     "total_cost": {"$sum": "$api_cost"},
                     "avg_latency": {"$avg": "$latency_seconds"},
                     "green_count": {"$sum": {"$cond": [{"$eq": ["$model_tier", "green"]}, 1, 0]}},
@@ -149,13 +150,14 @@ class VerificationLedger:
                 return {
                     "total_queries": total,
                     "total_co2_saved_g": round(result[0].get("total_co2", 0), 3),
+                    "total_co2_emitted_g": round(result[0].get("total_co2_emitted", 0), 3),
                     "total_api_cost": round(result[0].get("total_cost", 0), 6),
                     "avg_latency_s": round(result[0].get("avg_latency", 0), 3),
                     "flagged_queries": result[0].get("flagged_count", 0),
                     "green_query_pct": green_pct,
                 }
-            return {"total_queries": total, "total_co2_saved_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0}
-        return {"total_queries": 0, "total_co2_saved_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0}
+            return {"total_queries": total, "total_co2_saved_g": 0, "total_co2_emitted_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0}
+        return {"total_queries": 0, "total_co2_saved_g": 0, "total_co2_emitted_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0}
 
     async def get_analytics(self, user_email: str = "", days: int = 30) -> dict:
         if not self.available or self.collection is None:
@@ -173,6 +175,7 @@ class VerificationLedger:
                 "_id": {"$substr": ["$timestamp", 0, 10]},
                 "count": {"$sum": 1},
                 "co2_saved": {"$sum": "$co2_saved_vs_baseline"},
+                "co2_emitted": {"$sum": "$co2_estimated"},
                 "avg_latency": {"$avg": "$latency_seconds"},
             }},
             {"$sort": {"_id": 1}}
@@ -194,7 +197,7 @@ class VerificationLedger:
         queries_by_model = {m["_id"]: {"count": m["count"], "avg_latency": round(m.get("avg_latency", 0), 2)} for m in model_data if m["_id"]}
 
         return {
-            "queries_by_day": [{"date": d["_id"], "count": d["count"], "co2_saved": round(d.get("co2_saved", 0), 3), "avg_latency": round(d.get("avg_latency", 0), 2)} for d in daily],
+            "queries_by_day": [{"date": d["_id"], "count": d["count"], "co2_saved": round(d.get("co2_saved", 0), 3), "co2_emitted": round(d.get("co2_emitted", 0), 3), "avg_latency": round(d.get("avg_latency", 0), 2)} for d in daily],
             "queries_by_tier": queries_by_tier,
             "queries_by_model": queries_by_model,
         }

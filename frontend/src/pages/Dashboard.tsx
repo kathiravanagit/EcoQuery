@@ -52,16 +52,16 @@ const ListSkeleton = () => (
 );
 
 interface Stats {
-  total_queries?: number; total_co2_saved_g?: number; total_api_cost?: number;
-  latest_queries?: { query?: string; model_used?: string; region?: string; co2_saved_vs_baseline?: number; tier?: string; latency_seconds?: number; verification_status?: string; api_cost?: number }[];
+  total_queries?: number; total_co2_saved_g?: number; total_co2_emitted_g?: number; total_api_cost?: number;
+  latest_queries?: { query?: string; model_used?: string; region?: string; co2_estimated?: number; co2_saved_vs_baseline?: number; tier?: string; latency_seconds?: number; verification_status?: string; api_cost?: number }[];
   green_query_percent?: number;
   avg_latency_s?: number; flagged_queries?: number;
   queries_by_tier?: Record<string, number>; queries_by_model?: Record<string, number>;
 }
 interface Model { id: string; provider: string; tier: string; carbon_score: number; description: string; }
-interface Cert { display_name?: string; user?: string; total_queries?: number; total_co2_saved_g?: number; green_query_percent?: number; }
+interface Cert { display_name?: string; user?: string; total_queries?: number; total_co2_saved_g?: number; total_co2_emitted_g?: number; green_query_percent?: number; }
 interface Badge { id: string; name: string; description: string; icon: string; earned_at: string; }
-interface AnalyticsPoint { date: string; count: number; co2_saved: number; avg_latency: number; }
+interface AnalyticsPoint { date: string; count: number; co2_saved: number; co2_emitted?: number; avg_latency: number; }
 interface RealtimeEvent { query: string; tier: string; model: string; region: string; co2_g: number; co2_saved_g: number; api_cost: number; time: string; }
 
 const Dashboard = () => {
