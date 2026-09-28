@@ -125,6 +125,57 @@ async def _resolve_user_email(request: Request) -> str:
     return ""
 
 
+# Two independent switches, because the two endpoints serve different callers:
+#
+#   /api/chat        The documented programmatic API (README shows an
+#                    `Authorization: Bearer eq_...` header). No frontend
+#                    caller uses it anonymously, so anonymous access defaults
+#                    to OFF and locks down in every environment.
+#   /api/chat/stream Powers the public homepage demo (LiveDemo.tsx posts with
+#                    no auth header), so anonymous access defaults to ON.
+#
+# Before these existed the policy was implicit and drifted: /api/chat
+# 401'd anonymous callers on Render while /api/chat/stream accepted them, and
+# neither had a switch. Both now flow through _require_chat_access() below so
+# the shared quota check cannot diverge; only `allow_anonymous` differs.
+#
+# Anonymous calls on either endpoint are independently bounded by the stricter
+# unauthenticated /api/chat* rate-limit bucket in main.py.
+def _env_flag(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() == "true"
+
+
+# Defaults are named constants so tests can assert them directly — a silent
+# flip of either one would change the public API's auth posture.
+DEFAULT_ALLOW_ANONYMOUS_CHAT = False       # /api/chat — locked down
+DEFAULT_ALLOW_ANONYMOUS_CHAT_STREAM = True  # /api/chat/stream — public demo
+
+_ALLOW_ANONYMOUS_CHAT = _env_flag("ALLOW_ANONYMOUS_CHAT", DEFAULT_ALLOW_ANONYMOUS_CHAT)
+_ALLOW_ANONYMOUS_CHAT_STREAM = _env_flag("ALLOW_ANONYMOUS_CHAT_STREAM", DEFAULT_ALLOW_ANONYMOUS_CHAT_STREAM)
+
+
+async def _require_chat_access(request: Request, *, allow_anonymous: bool) -> str:
+    """Shared authentication + quota policy for both chat endpoints.
+
+    Returns the authenticated user's email, or "" for an anonymous caller.
+    Raises 401 when anonymous access is disallowed for this endpoint, 402 when
+    the user is over quota.
+    """
+    email = await _resolve_user_email(request)
+    if not email:
+        if not allow_anonymous:
+            raise HTTPException(status_code=401, detail="Authentication is required for the chat API")
+        return ""
+
+    user = await auth_db.find_user_by_email(email)
+    if user and user.get("tokens_used", 0) >= 100000:
+        raise HTTPException(status_code=402, detail="Token limit of 100K reached.")
+    return email
+
+
 async def _build_routing(req: ChatRequest):
     classification = await classifier.classify(req.message)
     prompt_len = len(req.message)
@@ -400,13 +451,7 @@ async def _record_and_notify(
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest, request: Request):
-    user_email = await _resolve_user_email(request)
-    if os.getenv("RENDER") and not user_email:
-        raise HTTPException(status_code=401, detail="Authentication is required for the direct chat API")
-    if user_email:
-        user = await auth_db.find_user_by_email(user_email)
-        if user and user.get("tokens_used", 0) >= 100000:
-            raise HTTPException(status_code=402, detail="Token limit of 100K reached.")
+    user_email = await _require_chat_access(request, allow_anonymous=_ALLOW_ANONYMOUS_CHAT)
 
     start_time = time.time()
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
@@ -587,11 +632,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
-    user_email = await _resolve_user_email(request)
-    if user_email:
-        user = await auth_db.find_user_by_email(user_email)
-        if user and user.get("tokens_used", 0) >= 100000:
-            raise HTTPException(status_code=402, detail="Token limit of 100K reached.")
+    user_email = await _require_chat_access(request, allow_anonymous=_ALLOW_ANONYMOUS_CHAT_STREAM)
 
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
 

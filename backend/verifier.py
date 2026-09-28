@@ -18,7 +18,25 @@ logger = logging.getLogger("EcoQuery.verifier")
 SERVER_START_TIME = time.time()
 WARMUP_SECONDS = 30
 
+# Thresholds describe *end-to-end* handler latency (classification + carbon
+# lookup + provider failover + generation), which is what verify_completion()
+# is passed — not bare model generation time.
+#
+# Every model here is free-tier via OpenRouter, so generation is slow and
+# variable. Thresholds are keyed by the ids in models.CARBON_MODELS; entries
+# below that don't exist in the catalog are kept only for back-compat with
+# older ledger records.
 ESTIMATED_THRESHOLDS: Dict[str, Dict[str, float]] = {
+    # ── Actual EcoQuery catalog ───────────────────────────────────────────
+    "nemotron-3-ultra-550b-a55b:free": {"min_tps": 8.0, "max_tps": 150.0, "expected_tps": 45.0, "avg_latency_s": 10.0},
+    "nemotron-3-super-120b-a12b:free": {"min_tps": 15.0, "max_tps": 220.0, "expected_tps": 70.0, "avg_latency_s": 7.5},
+    "llama-4-scout": {"min_tps": 30.0, "max_tps": 350.0, "expected_tps": 130.0, "avg_latency_s": 5.0},
+    "gpt-oss-120b:free": {"min_tps": 20.0, "max_tps": 250.0, "expected_tps": 80.0, "avg_latency_s": 7.0},
+    "deepseek-chat-v3-0324:free": {"min_tps": 20.0, "max_tps": 250.0, "expected_tps": 75.0, "avg_latency_s": 7.0},
+    "gemma-4-31b:free": {"min_tps": 25.0, "max_tps": 280.0, "expected_tps": 100.0, "avg_latency_s": 5.5},
+    "gpt-oss-20b:free": {"min_tps": 30.0, "max_tps": 300.0, "expected_tps": 120.0, "avg_latency_s": 5.0},
+
+    # ── Legacy / non-catalog models (historical ledger records only) ──────
     "gpt-4o": {"min_tps": 20.0, "max_tps": 90.0, "expected_tps": 50.0, "avg_latency_s": 2.5},
     "gpt-4o-mini": {"min_tps": 60.0, "max_tps": 180.0, "expected_tps": 110.0, "avg_latency_s": 1.0},
     "gpt-4.5": {"min_tps": 10.0, "max_tps": 45.0, "expected_tps": 25.0, "avg_latency_s": 5.0},
@@ -34,7 +52,27 @@ ESTIMATED_THRESHOLDS: Dict[str, Dict[str, float]] = {
     "llama-3.1-405b": {"min_tps": 5.0, "max_tps": 25.0, "expected_tps": 12.0, "avg_latency_s": 8.0},
 }
 
-DEFAULT_THRESHOLD = {"min_tps": 15.0, "max_tps": 250.0, "expected_tps": 60.0, "avg_latency_s": 2.0}
+# Unknown model: assume free-tier end-to-end latency, not the 2.0s a paid
+# hosted API would see. The old 2.0s default flagged every request that took
+# over 6s, which was most of them (production average ~7.9s).
+DEFAULT_THRESHOLD = {"min_tps": 15.0, "max_tps": 250.0, "expected_tps": 60.0, "avg_latency_s": 8.0}
+
+
+def _threshold_key(model_id: str) -> str:
+    """Map an OpenRouter id (`vendor/model`) or catalog id onto a threshold key.
+
+    verify_completion() is called with model_sel["openrouter_id"] from the chat
+    router, so without this every lookup missed and fell through to
+    DEFAULT_THRESHOLD regardless of what was configured above.
+    """
+    if not model_id:
+        return model_id
+    bare = model_id.split("/")[-1].strip()
+    # `meta-llama/llama-4-scout` → `llama-4-scout`, which is the catalog id.
+    for candidate in (model_id, bare):
+        if candidate in ESTIMATED_THRESHOLDS:
+            return candidate
+    return bare
 
 
 class VerificationEngine:
@@ -61,7 +99,7 @@ class VerificationEngine:
             }
 
         observed_tps = round(completion_tokens / latency_seconds, 2)
-        threshold = ESTIMATED_THRESHOLDS.get(model_id, DEFAULT_THRESHOLD)
+        threshold = ESTIMATED_THRESHOLDS.get(_threshold_key(model_id), DEFAULT_THRESHOLD)
         latency_ratio = latency_seconds / threshold["avg_latency_s"] if threshold["avg_latency_s"] > 0 else 1.0
 
         if is_warmup:

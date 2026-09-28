@@ -18,7 +18,7 @@ Run `python scripts/provider_diagnostics.py` inside the deployed environment to 
 
 ## Problem
 
-LLM inference costs — both financial and environmental — are significant and invisible to users. Carbon intensity varies 30x across data regions (13 g CO₂/kWh in Sweden vs 380 g CO₂/kWh in Virginia), and consumers have no way to verify that the model they requested was actually used.
+LLM inference costs — both financial and environmental — are significant and invisible to users. Carbon intensity varies more than 50x across data regions (13 g CO₂/kWh on the Nordic grid vs 710 g CO₂/kWh on the Indian grid), and consumers have no way to verify that the model they requested was actually used.
 
 ## Solution
 
@@ -103,6 +103,11 @@ EcoQuery sits between your application and LLM providers:
 | `GET` | `/api/carbon/regions` | Real-time carbon intensity |
 | `GET` | `/api/health` | Deep health check |
 
+`POST /api/chat` requires a `Bearer` token unless `ALLOW_ANONYMOUS_CHAT=true`.
+`POST /api/chat/stream` accepts anonymous callers by default so the public
+homepage demo works; set `ALLOW_ANONYMOUS_CHAT_STREAM=false` to require login
+there too. Anonymous callers on either endpoint get the stricter rate limit.
+
 ### Auth & User
 
 | Method | Path | Description |
@@ -147,10 +152,12 @@ EcoQuery sits between your application and LLM providers:
 git clone https://github.com/kathiravanagit/EcoQuery.git
 cd ecoquery
 
+# Create .env at the REPO ROOT (backend/main.py loads ../.env), not in backend/
+cp .env.example .env  # Edit with your keys
+
 # Backend
 cd backend
 pip install -r requirements.txt
-cp .env.example .env  # Edit with your keys
 uvicorn main:app --reload
 
 # Frontend (new terminal)
@@ -164,15 +171,17 @@ npm run dev
 ```env
 # Backend
 JWT_SECRET=your-random-secret
-OPENROUTER_API_KEY=sk-or-...          # OpenRouter key (preferred)
-OPENROUTER_API_KEY=sk-or-...          # OpenRouter API key
+OPENROUTER_API_KEY=sk-or-...          # OpenRouter key (at least one provider)
+GROK_API_KEY=...                      # Optional failover provider
 ELECTRICITY_MAPS_API_KEY=em_...       # Optional (uses static fallback)
 MONGODB_URL=mongodb+srv://...         # Optional (degrades without)
 ALLOWED_ORIGINS=https://eco2query.vercel.app,http://localhost:5173
+ALLOW_ANONYMOUS_CHAT=false             # POST /api/chat (Bearer API) — locked by default
+ALLOW_ANONYMOUS_CHAT_STREAM=true       # POST /api/chat/stream — public homepage demo
 
-# Frontend
+# Frontend (set exactly one)
 VITE_API_URL=http://localhost:8000     # Dev
-VITE_API_URL=https://ecoquery.onrender.com  # Prod
+# VITE_API_URL=https://ecoquery.onrender.com  # Prod
 ```
 
 ---
@@ -251,7 +260,7 @@ Push to `main` triggers GitHub Actions:
 | Metric | Value |
 |--------|-------|
 | Regions | 13 |
-| Carbon range | 13–380 g CO₂/kWh |
+| Carbon range | 13–710 g CO₂/kWh (static IEA baselines; live Electricity Maps values are typically 28–710) |
 | API endpoints | 30+ |
 | Backend tests | Run `pytest` in the configured backend environment |
 | Security assessment | No independent security rating claimed |

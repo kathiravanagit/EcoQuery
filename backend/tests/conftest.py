@@ -1,10 +1,19 @@
 """Pytest configuration — patches server warmup so verifier tests are deterministic."""
 
+import os
 import time
 import verifier
 from unittest.mock import AsyncMock, patch
 import pytest
 from rate_limit import rate_limiter
+
+# /api/chat requires auth by default (DEFAULT_ALLOW_ANONYMOUS_CHAT is False).
+# The handler/routing/cache suites below post to it anonymously because they
+# are testing response behaviour, not the auth gate — so permit anonymous
+# access for the whole run. The gate itself is asserted explicitly in
+# test_chat_access_policy.py. Must be set before `from main import app`
+# happens, since routers.chat reads it at import time.
+os.environ.setdefault("ALLOW_ANONYMOUS_CHAT", "true")
 
 # Bump time past the 30s warmup so verification tests work deterministically
 verifier.SERVER_START_TIME = time.time() - 60

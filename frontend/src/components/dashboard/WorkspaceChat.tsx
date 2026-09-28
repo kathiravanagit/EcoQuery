@@ -4,44 +4,7 @@ import { Send, Leaf, ChevronDown, ChevronUp, RefreshCw, AlertCircle } from 'luci
 import { API_URL as API } from '../../config';
 import './WorkspaceChat.css';
 import { EASE_FN } from '../../constants';
-
-interface Metadata {
-  model_used?: string;
-  model_id?: string;
-  model_tier?: string;
-  carbon_score?: number;
-  region?: string;
-  energy_source?: string;
-  co2_estimated_g?: number;
-  co2_saved_g?: number;
-  tier?: string;
-  confidence?: number;
-  api_cost?: number;
-  latency_seconds?: number;
-  estimated_latency_s?: number;
-  verification_status?: string;
-  verification_reason?: string;
-  observed_tps?: number;
-  routing_mode?: string;
-  answer_source?: string;
-  knowledge_match?: boolean;
-  knowledge_confidence?: number;
-  llm_used?: boolean;
-  cache_hit?: boolean;
-  measurement_type?: 'measured' | 'provider_reported' | 'estimated';
-  energy_kwh?: number;
-  energy_measurement_source?: string;
-  grid_source?: string;
-  grid_timestamp?: string;
-  carbon_formula?: string;
-  carbon_assumptions?: string[];
-  requested_provider?: string;
-  attempted_providers?: Array<{ provider?: string; model?: string; status?: string; failure_reason?: string }>;
-  final_provider?: string;
-  final_model?: string;
-  fallback_reason?: string;
-  uncertainty_components?: Record<string, number>;
-}
+import { Metadata, consumeSSE } from '../../sse';
 
 interface Message {
   role: string
@@ -199,65 +162,33 @@ const WorkspaceChat = ({ token }: Props) => {
       });
 
       if (!response.body) throw new Error('No readable stream');
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      
-      let currentReply = '';
-      let meta: Metadata | undefined;
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.substring(6));
-              if (data.error === 'ALL_KEYS_EXPIRED') {
-                setMessages(prev => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
-                  return newMsgs;
-                });
-                break;
-              }
-              if (data.error_code) {
-                setMessages(prev => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1].content = `Provider unavailable (${data.error_code}). Please retry later.`;
-                  newMsgs[newMsgs.length - 1].error = true;
-                  newMsgs[newMsgs.length - 1].retryPrompt = userMsg;
-                  return newMsgs;
-                });
-                break;
-              }
-              if (data.token) {
-                currentReply += data.token;
-                setMessages(prev => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1].content = currentReply;
-                  return newMsgs;
-                });
-              }
-              if (data.done) {
-                meta = data.metadata;
-                setMessages(prev => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1].metadata = meta;
-                  return newMsgs;
-                });
-              }
-            } catch (e) {
-              console.error('Error parsing SSE', e);
-            }
-          }
-        }
-      }
+      await consumeSSE(response.body, {
+        onText: (text) => setMessages(prev => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1].content = text;
+          return newMsgs;
+        }),
+        onMetadata: (metadata) => setMessages(prev => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1].metadata = metadata;
+          return newMsgs;
+        }),
+        onKeysExpired: () => setMessages(prev => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
+          return newMsgs;
+        }),
+        onError: (code) => setMessages(prev => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1].content = `Provider unavailable (${code}). Please retry later.`;
+          newMsgs[newMsgs.length - 1].error = true;
+          newMsgs[newMsgs.length - 1].retryPrompt = userMsg;
+          return newMsgs;
+        }),
+      });
     } catch (e: any) {
       if (e.message?.includes('402')) {
         setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.' }]);

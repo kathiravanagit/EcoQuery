@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Activity, Leaf, GitBranch, ShieldCheck, BarChart3, Globe } from 'lucide-react';
+import { API_URL } from '../config';
 import './HowItWorks.css';
 
 const steps = [
@@ -36,15 +37,25 @@ const steps = [
   },
 ];
 
-const regionData = [
-  { name: 'Stockholm', intensity: 13, source: 'Hydro/Wind', pct: 3 },
-  { name: 'Paris', intensity: 56, source: 'Nuclear', pct: 12 },
-  { name: 'São Paulo', intensity: 75, source: 'Hydro', pct: 16 },
-  { name: 'Oregon', intensity: 80, source: 'Hydro/Wind', pct: 17 },
-  { name: 'London', intensity: 220, source: 'Gas/Wind', pct: 46 },
-  { name: 'Frankfurt', intensity: 350, source: 'Coal/Gas', pct: 74 },
-  { name: 'Virginia', intensity: 380, source: 'Gas/Coal', pct: 80 },
+// Last-known values, used only if /api/carbon/regions is unreachable so the
+// section still renders. The component labels this state explicitly rather
+// than presenting the numbers as live.
+const fallbackRegions = [
+  { name: 'Stockholm', intensity: 34, source: 'Hydro/Wind/Solar' },
+  { name: 'Paris', intensity: 35, source: 'Nuclear' },
+  { name: 'São Paulo', intensity: 75, source: 'Hydro' },
+  { name: 'Oregon', intensity: 80, source: 'Hydro/Wind' },
+  { name: 'London', intensity: 212, source: 'Gas/Wind' },
+  { name: 'Frankfurt', intensity: 380, source: 'Coal/Gas' },
+  { name: 'N. Virginia', intensity: 380, source: 'Gas/Coal' },
 ];
+
+interface LiveRegion {
+  intensity: number;
+  name: string;
+  source?: string;
+  country?: string;
+}
 
 import { EASE_FN } from '../constants';
 
@@ -56,6 +67,30 @@ const fadeUp = {
 };
 
 const HowItWorks = () => {
+  const [regions, setRegions] = useState(() => fallbackRegions);
+  const [live, setLive] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_URL}/api/carbon/regions`)
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data) => {
+        const all = data?.all_regions as Record<string, LiveRegion> | undefined;
+        if (cancelled || !all) return;
+        const rows = Object.values(all)
+          .filter(r => r && typeof r.intensity === 'number')
+          .sort((a, b) => a.intensity - b.intensity)
+          .map(r => ({ name: r.name, intensity: r.intensity, source: r.source ?? 'Grid' }));
+        if (rows.length) {
+          setRegions(rows);
+          setLive(true);
+        }
+      })
+      .catch(() => { /* keep fallback values and the static-data label */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const maxIntensity = Math.max(...regions.map(r => r.intensity), 1);
   return (
     <section id="how-it-works" className="section how-it-works-section">
       <div className="container">
@@ -137,9 +172,11 @@ const HowItWorks = () => {
             padding: '1.5rem', maxWidth: 600, margin: '0 auto',
           }}>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center' }}>
-              Real-time carbon intensity (g CO₂/kWh) across regions. Lower is greener
+              {live
+                ? 'Live grid carbon intensity (g CO₂/kWh) across regions. Lower is greener.'
+                : 'Latest cached grid carbon intensity (g CO₂/kWh) — live feed unavailable.'}
             </p>
-            {regionData.map((r, i) => (
+            {regions.map((r, i) => (
               <motion.div key={r.name} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }} transition={{ delay: i * 0.08 }}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '0.8rem' }}
@@ -148,7 +185,7 @@ const HowItWorks = () => {
                 <div style={{ flex: 1, height: 8, background: 'var(--bg-secondary)', borderRadius: 4, overflow: 'hidden' }}>
                   <motion.div 
                     initial={{ width: 0 }}
-                    whileInView={{ width: `${r.pct}%` }}
+                    whileInView={{ width: `${Math.round((r.intensity / maxIntensity) * 100)}%` }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.8, delay: i * 0.08 }}
                     style={{ 

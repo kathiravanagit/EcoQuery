@@ -101,6 +101,75 @@ def _normalize_text(text: str) -> str:
     return text
 
 
+# Words that carry no intent on their own. Used to decide whether a query is
+# genuinely *about* a stored key, or merely mentions it inside a larger request.
+_QUESTION_FILLER = {
+    "a", "an", "the", "is", "are", "was", "were", "be", "being", "been",
+    "what", "what's", "whats", "which", "who", "whom", "whose", "where",
+    "when", "why", "how", "do", "does", "did", "can", "could", "would",
+    "will", "shall", "should", "may", "might", "please", "tell", "me",
+    "about", "explain", "describe", "define", "give", "show", "list",
+    "i", "you", "we", "they", "it", "this", "that", "these", "those",
+    "want", "know", "need", "get", "on", "of", "for", "to", "in", "and",
+    "or", "with", "from", "your", "my", "some", "any",
+}
+
+# Markers that indicate the prompt contains more than one intent. A canned
+# knowledge answer must never be returned for these — the model has to handle
+# every part of the request, not just the fragment we happen to have an entry for.
+_COMPOUND_MARKERS = (
+    "\n", ";", " and then ", " then ", " also ", " as well as ",
+    ", and ", " plus ", " after that ", " afterwards ",
+)
+
+
+def _content_words(text: str) -> list[str]:
+    """Normalized words with question filler stripped out."""
+    return [w for w in _normalize_text(text).split() if w not in _QUESTION_FILLER]
+
+
+def _is_compound_query(query: str) -> bool:
+    """True when the prompt asks for more than one thing."""
+    lower = query.lower()
+    if any(marker in lower for marker in _COMPOUND_MARKERS):
+        return True
+    # Two or more sentence-ending clauses also counts as compound.
+    sentences = [s for s in re.split(r"[.!?]+", query) if _content_words(s)]
+    return len(sentences) > 1
+
+
+def _direct_answer_match(query: str, key: str) -> bool:
+    """True only when the query is *about* `key`, not merely mentioning it.
+
+    A bare substring test is far too loose: "Write a haiku about mountains and
+    then explain the photosynthesis light reactions" contains "photosynthesis"
+    and the word "explain", and used to swallow the whole request. We require
+    the query to be a short, single-intent question whose content words are
+    essentially the key itself.
+    """
+    if _is_compound_query(query):
+        return False
+
+    query_norm = _normalize_text(query)
+    key_norm = _normalize_text(key)
+    if not key_norm:
+        return False
+
+    # Containment plus: the query must not carry meaningful words the key lacks.
+    if key_norm not in query_norm:
+        return False
+
+    q_words = _content_words(query_norm)
+    if not q_words:
+        return False
+    k_words = set(_content_words(key_norm))
+
+    # Allow a small amount of framing ("who was the prime minister of japan"
+    # vs a key of "prime minister of japan"), but nothing substantive.
+    extra = [w for w in q_words if w not in k_words and w not in {"was", "is", "the"}]
+    return len(extra) <= max(1, len(q_words) // 4)
+
+
 def _extract_core_concept(text: str) -> str:
     """Extract primary subject or concept from common question phrasing."""
     lower = text.lower().strip()
@@ -253,14 +322,16 @@ class KnowledgeBase:
         if not self._is_loaded or not self._vectorizer or self._tfidf_matrix is None or not query.strip():
             return {"matched": False, "confidence": 0.0, "answer": None, "stored_question": None, "tier": None}
 
-        # 1. Exact / normalized concept lookup (fastest & 100% confidence)
+        # 1. Exact / normalized concept lookup (fastest & highest confidence).
+        #    Only exact concept equality here — loose substring/keyword matching
+        #    is handled by _direct_answer_match, which rejects compound prompts.
         query_norm = _normalize_text(query)
         core_concept = _extract_core_concept(query)
         core_norm = _normalize_text(core_concept)
 
         for key, ans in KNOWLEDGE_ANSWERS.items():
             key_norm = _normalize_text(key)
-            if key_norm == core_norm or key_norm == query_norm or (len(key_norm) > 3 and key_norm in query_norm and any(w in query_norm for w in ["what", "explain", "describe", "define", "tell"])):
+            if key_norm == core_norm or key_norm == query_norm or _direct_answer_match(query, key):
                 return {
                     "matched": True,
                     "confidence": 0.98,
@@ -283,13 +354,26 @@ class KnowledgeBase:
             best_tier = self._tiers[best_idx]
             best_answer = self._answers[best_idx]
 
-            # Require significant semantic confidence threshold (>= 0.70)
-            # and verify keyword overlap to prevent false positives on generic query structure
-            q_words = set(_normalize_text(query).split())
-            stored_words = set(_normalize_text(best_question).split())
-            common_non_stopwords = [w for w in (q_words & stored_words) if len(w) > 3]
+            # A canned knowledge answer must never absorb a compound prompt —
+            # the model still has to handle the other parts of the request.
+            if _is_compound_query(query):
+                return {
+                    "matched": False,
+                    "confidence": round(best_score, 2),
+                    "answer": None,
+                    "stored_question": best_question,
+                    "tier": best_tier,
+                }
 
-            if best_score >= 0.85 or (best_score >= 0.68 and len(common_non_stopwords) >= 1):
+            # Require significant semantic confidence (>= 0.85), or >= 0.72 with
+            # genuine content-word overlap. A single shared keyword is not
+            # evidence of a match — generic queries used to slip through on one
+            # word and get answered with an unrelated stored answer.
+            q_words = set(_content_words(query))
+            stored_words = set(_content_words(best_question))
+            common_non_stopwords = q_words & stored_words
+
+            if best_score >= 0.85 or (best_score >= 0.72 and len(common_non_stopwords) >= 2):
                 confidence = round(min(0.99, max(0.70, best_score)), 2)
                 return {
                     "matched": True,

@@ -15,6 +15,22 @@ PROVIDER_BASE_URLS = {
     "google": "https://generativelanguage.googleapis.com/v1beta/openai/"
 }
 
+# Model used when the selected OpenRouter id is not valid on a provider's own
+# API. `gemini-1.5-pro` was retired from the OpenAI-compatible surface and now
+# returns 404, which made every Google failover attempt fail instantly instead
+# of serving as a fallback. `gemini-flash-latest` is Google's rolling alias and
+# stays current without a code change.
+PROVIDER_FALLBACK_MODELS = {
+    "grok": "grok-beta",
+    "google": "gemini-flash-latest",
+}
+
+
+def provider_target_model(provider: str, model_id: str) -> str:
+    """Model id to send to `provider`, falling back to its own family model."""
+    return PROVIDER_FALLBACK_MODELS.get(provider, model_id)
+
+
 class ProviderRouter:
     def __init__(self):
         pass
@@ -53,13 +69,7 @@ class ProviderRouter:
                 key_id = key_data["id"]
                 api_key = key_data["key_value"]
                 
-                # Determine model based on provider
-                target_model = model_id
-                if provider == "grok":
-                    target_model = "grok-beta" # Grok generic model
-                elif provider == "google":
-                    target_model = "gemini-1.5-pro" # Google generic model
-                
+                target_model = provider_target_model(provider, model_id)
                 base_url = PROVIDER_BASE_URLS.get(provider)
                 
                 try:
@@ -144,11 +154,7 @@ class ProviderRouter:
                 key_id = key_data["id"]
                 api_key = key_data["key_value"]
                 
-                target_model = model_id
-                if provider == "grok":
-                    target_model = "grok-beta"
-                elif provider == "google":
-                    target_model = "gemini-1.5-pro"
+                target_model = provider_target_model(provider, model_id)
                 
                 base_url = PROVIDER_BASE_URLS.get(provider)
                 
@@ -208,11 +214,7 @@ class ProviderRouter:
             keys = key_manager.get_active_keys(provider)
             configured = len(keys) > 0
             
-            target_model = "meta-llama/llama-4-scout" # default light model for testing
-            if provider == "grok":
-                target_model = "grok-beta"
-            elif provider == "google":
-                target_model = "gemini-1.5-pro"
+            target_model = provider_target_model(provider, "meta-llama/llama-4-scout")
                 
             status = {
                 "configured": configured,

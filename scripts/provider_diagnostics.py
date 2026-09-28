@@ -6,15 +6,19 @@ Usage from the repository root:
 
 import asyncio
 import os
+import sys
 import time
 
 from openai import AsyncOpenAI
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+from providers import PROVIDER_BASE_URLS, PROVIDER_FALLBACK_MODELS  # noqa: E402
+
 
 TARGETS = {
-    "openrouter": ("OPENROUTER_API_KEY", "https://openrouter.ai/api/v1", "meta-llama/llama-4-scout"),
-    "grok": ("GROK_API_KEY", "https://api.x.ai/v1", "grok-beta"),
-    "google": ("GOOGLE_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-1.5-pro"),
+    "openrouter": ("OPENROUTER_API_KEY", PROVIDER_BASE_URLS["openrouter"], "meta-llama/llama-4-scout"),
+    "grok": ("GROK_API_KEY", PROVIDER_BASE_URLS["grok"], PROVIDER_FALLBACK_MODELS["grok"]),
+    "google": ("GOOGLE_API_KEY", PROVIDER_BASE_URLS["google"], PROVIDER_FALLBACK_MODELS["google"]),
 }
 
 
@@ -34,7 +38,13 @@ async def check(provider: str, env_name: str, base_url: str, model: str) -> dict
         )
         result.update({"status": "ok" if response.choices else "no_completion", "failure_reason": None})
     except Exception as exc:  # diagnostic output must never include the credential
-        result.update({"status": "failed", "failure_reason": type(exc).__name__})
+        # Include the HTTP status where available: a 404 means the model id is
+        # wrong (a code bug), while 429/503 mean the key or quota is the problem.
+        status_code = getattr(exc, "status_code", None)
+        reason = type(exc).__name__
+        if status_code is not None:
+            reason = f"{reason}({status_code})"
+        result.update({"status": "failed", "failure_reason": reason})
     result["latency_seconds"] = round(time.perf_counter() - started, 3)
     return result
 

@@ -3,53 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, ShieldCheck, Zap } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
-
-interface Metadata {
-  model_used?: string;
-  model_id?: string;
-  model_tier?: string;
-  carbon_score?: number;
-  region?: string;
-  energy_source?: string;
-  co2_estimated_g?: number;
-  co2_saved_g?: number;
-  tier?: string;
-  confidence?: number;
-  api_cost?: number;
-  latency_seconds?: number;
-  estimated_latency_s?: number;
-  verification_status?: string;
-  verification_reason?: string;
-  observed_tps?: number;
-  routing_mode?: string;
-  answer_source?: string;
-  knowledge_match?: boolean;
-  knowledge_confidence?: number;
-  llm_used?: boolean;
-  cache_hit?: boolean;
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  grid_source?: string;
-  measurement_type?: string;
-  grid_timestamp?: string;
-  energy_assumption_kwh_per_1000_tokens?: number;
-  uncertainty_range_g?: { min: number; max: number };
-  uncertainty_components?: Record<string, number>;
-  attempted_providers?: Array<{ provider?: string; model?: string; status?: string; failure_reason?: string }>;
-  final_provider?: string;
-  fallback_reason?: string;
-  what_if?: {
-    baseline_model: string;
-    baseline_region: string;
-    baseline_co2_g: number;
-    actual_model: string;
-    actual_region: string;
-    actual_co2_g: number;
-    co2_saved_g: number;
-    baseline_cost: number;
-    actual_cost: number;
-  };
-}
+import { Metadata, consumeSSE } from '../sse';
 
 interface Message {
   role: string
@@ -334,64 +288,27 @@ const LiveDemo = () => {
       });
       
       if (!response.body) throw new Error('No readable stream');
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      
-      let currentReply = '';
-      let meta: Metadata | undefined;
-      let sseBuffer = '';
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
-      const processSseFrame = (frame: string) => {
-        const dataLine = frame.split('\n').find(line => line.startsWith('data: '));
-        if (!dataLine) return;
-        try {
-          const data = JSON.parse(dataLine.substring(6));
-          if (data.error === 'ALL_KEYS_EXPIRED') {
-            setMessages(prev => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
-              return newMsgs;
-            });
-            return;
-          }
-          if (data.error_code) {
-            setMessages(prev => [...prev, { role: 'assistant', content: `Provider unavailable (${data.error_code}).`, error: true, retryPrompt: userMsg }]);
-            return;
-          }
-          if (data.token) {
-            currentReply += data.token;
-            setMessages(prev => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1].content = currentReply;
-              return newMsgs;
-            });
-          }
-          if (data.done) {
-            meta = data.metadata;
-            setMessages(prev => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1].metadata = meta;
-              return newMsgs;
-            });
-          }
-        } catch (error) {
-          console.error('Error parsing SSE', error);
-        }
-      };
-
-      while (true) {
-        const { value, done } = await reader.read();
-        sseBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-        const frames = sseBuffer.replace(/\r\n/g, '\n').split('\n\n');
-        sseBuffer = frames.pop() || '';
-        frames.forEach(processSseFrame);
-        if (done) {
-          processSseFrame(sseBuffer);
-          break;
-        }
-      }
+      await consumeSSE(response.body, {
+        onText: (text) => setMessages(prev => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1].content = text;
+          return newMsgs;
+        }),
+        onMetadata: (metadata) => setMessages(prev => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1].metadata = metadata;
+          return newMsgs;
+        }),
+        onKeysExpired: () => setMessages(prev => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
+          return newMsgs;
+        }),
+        onError: (code) => setMessages(prev => [...prev, { role: 'assistant', content: `Provider unavailable (${code}).`, error: true, retryPrompt: userMsg }]),
+      });
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'The routing provider is unavailable.', error: true, retryPrompt: userMsg }]);
     } finally {

@@ -7,8 +7,9 @@ Usage:
     python backend/train_classifier.py
 
 Output:
-    backend/models/vectorizer.pkl   — fitted CountVectorizer / TfidfVectorizer
-    backend/models/classifier.pkl   — trained sklearn pipeline
+    backend/models/pipeline.pkl      — fitted TF-IDF + LogisticRegression pipeline.
+                                       This is the only artifact backend/classifier.py
+                                       loads at runtime.
     backend/models/training_data.csv — the generated dataset (for inspection / replacement)
 """
 
@@ -277,21 +278,14 @@ def main():
     logger.info("Test accuracy: %.2f%%", acc * 100)
     logger.info("\n" + classification_report(y_test, y_pred, target_names=["simple", "medium", "complex"]))
 
-    # Export
-    vectorizer_path = os.path.join(MODEL_DIR, "vectorizer.pkl")
-    model_path = os.path.join(MODEL_DIR, "classifier.pkl")
-
-    # Export the fitted TF-IDF separately so classifier.py can inspect it if needed
-    joblib.dump(pipeline.named_steps["tfidf"], vectorizer_path)
-    joblib.dump(pipeline.named_steps["clf"], model_path)
-
-    # Also export the full pipeline for convenience
+    # Export — pipeline.pkl is the single artifact backend/classifier.py loads.
+    # Earlier revisions also dumped classifier.pkl and vectorizer.pkl (the
+    # individual steps), but nothing ever opened them, so they were redundant
+    # copies that could drift out of sync with the pipeline that is used.
     pipeline_path = os.path.join(MODEL_DIR, "pipeline.pkl")
     joblib.dump(pipeline, pipeline_path)
 
-    logger.info("Exported model files:")
-    logger.info("  vectorizer  → %s", vectorizer_path)
-    logger.info("  classifier  → %s", model_path)
+    logger.info("Exported model file:")
     logger.info("  pipeline    → %s", pipeline_path)
 
 

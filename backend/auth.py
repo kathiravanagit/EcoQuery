@@ -97,20 +97,6 @@ class AuthDB:
             return True
         return False
 
-    async def list_users(self, skip: int = 0, limit: int = 100) -> list:
-        if self.available and self.collection is not None:
-            cursor = self.collection.find().skip(skip).limit(limit)
-            users = await cursor.to_list(length=limit)
-            for u in users:
-                u["_id"] = str(u["_id"])
-            return users
-        return []
-
-    async def count_users(self) -> int:
-        if self.available and self.collection is not None:
-            return await self.collection.count_documents({})
-        return 0
-
     async def create_reset_token(self, email: str) -> Optional[str]:
         if self.available and self.reset_collection is not None:
             token = secrets.token_urlsafe(32)

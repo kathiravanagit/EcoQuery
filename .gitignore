@@ -49,3 +49,5 @@ backups/
 
 .vercel
 .env*
+# The template must stay tracked — README's setup step copies it.
+!.env.example

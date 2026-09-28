@@ -117,7 +117,7 @@ const Research = () => {
               <div>
                 <span className="transparency-value">{stats!.avg_latency_s.toFixed(3)}s</span>
                 <span>Avg Latency</span>
-                <small>routing overhead per query</small>
+                <small>full request time, incl. provider generation</small>
               </div>
             </>
           ) : (

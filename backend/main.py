@@ -155,10 +155,13 @@ configured_origins.update({
     "https://eco2query.vercel.app",
 })
 
+# Origins are an explicit allowlist only. A broad regex (e.g. any *.vercel.app)
+# would let any Vercel project read credentialed responses, so we deliberately
+# do not configure allow_origin_regex. Every deployed frontend origin must be
+# listed in ALLOWED_ORIGINS.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(configured_origins),
-    allow_origin_regex=r"https://[a-zA-Z0-9-]+\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -170,8 +173,9 @@ app.middleware("http")(rate_limit_middleware)
 async def security_headers_middleware(request: Request, call_next):
     if request.method not in {"GET", "HEAD", "OPTIONS"} and request.cookies.get("ecoquery_access_token"):
         origin = request.headers.get("Origin", "")
-        allowed = origin in configured_origins or origin.startswith("https://") and origin.endswith(".vercel.app")
-        if origin and not allowed:
+        # Cookie-authenticated writes must come from a known origin. Mirrors the
+        # CORS allowlist exactly — no wildcard suffix matching.
+        if origin and origin not in configured_origins:
             from fastapi.responses import JSONResponse
             return JSONResponse(status_code=403, content={"detail": "CSRF origin rejected"})
     response = await call_next(request)
@@ -181,6 +185,7 @@ async def security_headers_middleware(request: Request, call_next):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 
