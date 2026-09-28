@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Leaf, Zap, Globe, BarChart3, TrendingDown, Activity } from 'lucide-react';
+import { Leaf, Globe, BarChart3, TrendingDown, Activity } from 'lucide-react';
 import './Research.css';
 import { API_URL as API } from '../config';
 import { EASE_FN } from '../constants';
