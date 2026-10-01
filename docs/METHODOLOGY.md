@@ -33,21 +33,29 @@ The API response and audit metadata expose the method/source where available (`e
 
 ## Routing policy
 
-EcoQuery currently uses a carbon-first policy:
+EcoQuery routes each request through these stages:
 
 1. Classify the request as simple, medium, or complex.
-2. Filter models by the minimum capability required for that tier.
-3. Prefer candidates with the lowest model carbon score.
-4. Break ties using estimated latency.
+2. Drop candidates below the capability floor for that tier (`complex`, and `medium` below 0.75 confidence, require high-capability models).
+3. Score every surviving candidate with the weighted sum below, using the selected region's grid carbon intensity.
+4. Select the lowest-scoring candidate.
 5. Estimate CO2e using the selected model and the current greenest region.
 
-The selected model includes a human-readable reason, and the route metadata includes the tier, model, provider, region, energy source, carbon intensity, and carbon-data method. Supported modes are `green`, `balanced`, `quality`, `fast`, and `low-cost`. This is not a universal claim that the route is best for every objective: a carbon-first choice can be slower or more expensive.
+The selected model includes a human-readable reason, and the route metadata includes the tier, model, provider, region, energy source, carbon intensity, and carbon-data method. Supported modes are `green`, `balanced`, `quality`, `fast`, and `low-cost`. This is not a universal claim that the route is best for every objective: a carbon-weighted choice can be slower or more expensive.
+
+The score is:
 
 ```text
-score = alpha * normalized_carbon + beta * normalized_latency + gamma * normalized_cost
+total_score = w1 * quality_risk
+            + w2 * estimated_carbon
+            + w3 * latency
+            + w4 * cost
+            + w5 * provider_risk
 ```
 
-with weights reported alongside each experiment.
+`(w1, w2, w3, w4, w5)` are selected by mode: `green` (1, 5, 1, 1, 1), `balanced` (2, 2, 1, 1, 1), `fast` (1, 1, 5, 1, 1), `quality` (5, 1, 1, 1, 1), and `low-cost` (1, 1, 1, 5, 1). Lower is better.
+
+The five terms are **not normalized** before weighting, so each term's raw magnitude matters as much as its weight. Measured across realistic inputs: `quality_risk` is 0, 5, or 10; `latency` is 1.0–2.5; `provider_risk` is 1.0 or 2.0; `cost` is 0.001–0.010; and `estimated_carbon` ranges from 0.0002 to about 1.7. Because `prompt_length` is `len(message)`, the carbon term scales linearly with the message's character count and the grid's carbon intensity: a short prompt on a clean grid contributes under 0.01, while a long prompt on a carbon-intensive grid can reach `latency`'s scale. The weights above are therefore not directly comparable across terms, and a change of mode does not always change which model wins.
 
 ## Evaluation protocol
 
@@ -75,9 +83,7 @@ The current checked-in snapshot is summarized in [EVALUATION.md](EVALUATION.md).
 
 ## Provider fallback and audit limitations
 
-Provider fallback can change the actual model or provider after the initial route is selected. Responses now expose requested model/provider, attempted provider records, final model/provider, latency, and redacted failure reasons. Provider keys themselves are never included in this lineage.
-
-Until that instrumentation is added, audit consumers should treat provider identity and carbon values as the final observed application route, not as a complete causal history of every failed attempt. A complete record should contain:
+Provider fallback can change the actual model or provider after the initial route is selected. Responses expose requested model/provider, attempted provider records with redacted failure reasons, final model/provider, and latency. Provider keys themselves are never included in this lineage. A record contains:
 
 ```text
 requested model/provider
@@ -86,6 +92,8 @@ fallback: yes/no
 failure reason/status
 final carbon estimate and data source
 ```
+
+This is a record of *which* provider answered, not a measurement of the energy it consumed. Audit consumers should treat provider identity and carbon values as the final observed application route rather than as metered hardware data.
 
 ## Model-integrity verification
 
