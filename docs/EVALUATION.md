@@ -6,28 +6,35 @@ This snapshot is generated from the checked-in `backend/benchmark_results.json` 
 
 | Strategy | Queries | Estimated CO2e (g) | Average latency (s) | Estimated carbon reduction vs fixed baseline |
 | --- | ---: | ---: | ---: | ---: |
-| Always largest | 30 | 0.0922 | 2.000 | 77.6% |
-| Always smallest | 30 | 0.0114 | 1.000 | 97.2% |
-| EcoQuery carbon-aware | 30 | 0.0409 | 1.333 | 90.0% |
+| Always largest | 30 | 0.0922 | 2.500 | 77.6% |
+| Always smallest | 30 | 0.0114 | 0.900 | 97.2% |
+| EcoQuery carbon-aware | 30 | 0.0374 | 1.533 | 90.9% |
 
 The simulation shows the policy tradeoff: EcoQuery uses a larger model for higher-capability tiers, so it is not expected to beat an always-smallest strategy on estimated CO2e alone. Its purpose is to satisfy the classifier's capability requirement while choosing the lowest-carbon suitable candidate.
+
+Relative to always-largest, the router cuts estimated CO2e by 59% (0.0922 g → 0.0374 g) while accepting 40% more latency (2.500 s → 1.533 s). Its average selected carbon score is 2.7, against 8.0 for the always-largest strategy.
 
 ## EcoQuery model choices (current catalog)
 
 | Query tier | Selected model |
 | --- | --- |
 | Simple | `lfm-2.5-2.6b:free` |
-| Medium | `qwen3.8-27b:free` |
+| Medium | `north-mini-code:free` |
 | Complex | `nemotron-3-super-120b-a12b:free` |
 
 A `medium` query with classifier confidence below 0.75 is escalated to the
 `complex` selection, since the router only trusts its own tier guess when the
 classifier is confident.
 
-The measurement tables above were produced against an earlier catalog whose
-model ids have since been retired by OpenRouter, so they are kept as a
-historical record rather than a description of the current run. Re-run
-`python benchmark.py` to refresh both together.
+This snapshot was regenerated against the current catalog and the normalized
+scoring in `backend/router.py`, so the model ids above are live OpenRouter
+ids rather than retired ones. Two things it still does not establish: it
+contains no measured energy (see the limitations below), and the
+`classifier_accuracy` block in `backend/benchmark_results.json` is unchanged
+by a re-run — it stays a 30-prompt figure because accuracy depends on the
+classifier itself, not on routing.
+
+Re-run `python benchmark.py` after any change to the router or the catalog.
 
 ## Reproducible run
 

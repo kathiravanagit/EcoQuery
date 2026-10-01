@@ -47,15 +47,31 @@ The score is:
 
 ```text
 total_score = w1 * quality_risk
-            + w2 * estimated_carbon
-            + w3 * latency
-            + w4 * cost
-            + w5 * provider_risk
+            + w2 * normalize(estimated_carbon,  0,      0.10667)
+            + w3 * normalize(latency,           0.9,    2.5)
+            + w4 * normalize(cost,              0.001,  0.008)
+            + w5 * normalize(provider_risk,     1.0,    2.0)
 ```
 
 `(w1, w2, w3, w4, w5)` are selected by mode: `green` (1, 5, 1, 1, 1), `balanced` (2, 2, 1, 1, 1), `fast` (1, 1, 5, 1, 1), `quality` (5, 1, 1, 1, 1), and `low-cost` (1, 1, 1, 5, 1). Lower is better.
 
-The five terms are **not normalized** before weighting, so each term's raw magnitude matters as much as its weight. Measured across realistic inputs: `quality_risk` is 0, 5, or 10; `latency` is 1.0–2.5; `provider_risk` is 1.0 or 2.0; `cost` is 0.001–0.010; and `estimated_carbon` ranges from 0.0002 to about 1.7. Because `prompt_length` is `len(message)`, the carbon term scales linearly with the message's character count and the grid's carbon intensity: a short prompt on a clean grid contributes under 0.01, while a long prompt on a carbon-intensive grid can reach `latency`'s scale. The weights above are therefore not directly comparable across terms, and a change of mode does not always change which model wins.
+Each term is mapped onto a **fixed** reference range before its weight is applied, so a weight of 5 carries the same influence whichever term it multiplies. The references are constants and are never derived from the candidate set: `carbon_intensity` multiplies every candidate's carbon term equally, so normalizing across the candidates would cancel the grid intensity out entirely and leave routing blind to how dirty the grid is. `CARBON_REFERENCE_G` (0.10667 g) is the carbon of the largest catalog model for a 500-character message on a 400 gCO2e/kWh grid, sized so the catalog's carbon spread (0.875) is comparable to its latency spread (1.0).
+
+The ranges are deliberately not clamped. A long message on a carbon-intensive grid really does emit more than the reference, and clamping would stop the carbon term from discriminating exactly when the difference is largest.
+
+`quality_risk` is 0.25 when a candidate's capability is below the tier's ideal — `simple` aims at `medium`, `medium` and `complex` aim at `high` — and 0 otherwise. The capability floor in stage 2 already enforces the tier's *minimum*, so this term is what lets `quality` mode prefer a more capable model over a greener one. As a result `quality` mode never selects a less capable model than `balanced`.
+
+### What each mode can actually decide
+
+The web UI does not expose a mode switch: every deployed request uses the default `balanced`, so the other four modes are reachable only through the API.
+
+Measured across all tiers, modes, prompt lengths and a 10–1000 gCO2e/kWh intensity sweep, the selected model differs by mode in **14 of 27** cells. Before normalization it differed in 3 of 27: latency spanned 1.6 in raw units while carbon spanned 0.09 and cost 0.007, so latency decided every route, and `quality_risk` and `provider_risk` were respectively always zero (the capability floor removed every model it would have penalized) and always 2.0 (the catalog contains no self-hosted model).
+
+### Limit: intensity can only flip a genuine conflict
+
+Grid intensity scales the carbon term of every candidate equally, so it changes the outcome only where carbon and latency *disagree*. In the current seven-model catalog those two properties correlate at **r = +0.887** — the greener model is also the faster one almost everywhere — and `lfm-2.5-2.6b` is simultaneously the greenest, fastest and cheapest model available. The catalog contains just three green-but-slow pairs (`nemotron-3-super-120b`/`dots-3-note`, `nemotron-3-nano-omni`/`qwen3.8-27b`, `north-mini-code`/`qwen3.8-27b`) and none at all between the `complex` tier's two candidates.
+
+The intensity sweep therefore changes the selected model in **5 of 45** tier × mode × prompt-length cells. This is a property of the catalog, not of the weights: adding a deliberately green-but-slow model would raise it, and no reweighting can. Note also that `green` and `low-cost` are *supposed* to be intensity-invariant — each always selects the greenest or cheapest eligible model, whatever the grid.
 
 ## Evaluation protocol
 

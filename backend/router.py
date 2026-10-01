@@ -1,6 +1,9 @@
 """
 Carbon-aware model router for EcoQuery.
-Always routes with carbon-first priority.
+
+Routes by a weighted score over five normalized terms: capability, carbon,
+latency, cost and provider risk. Which term dominates depends on the routing
+mode, so carbon is *not* always the deciding factor -- see docs/METHODOLOGY.md.
 """
 
 import logging
@@ -24,6 +27,52 @@ MODEL_LATENCY = {
     "qwen3.8-27b:free": 1.4,
     "lfm-2.5-2.6b:free": 0.9,
 }
+
+
+# Fixed reference scales for the scoring terms.
+#
+# select_model sums five terms that have incompatible natural units (grams,
+# seconds, dollars, an ordinal capability rank), so each term is mapped onto a
+# FIXED reference range before its mode weight is applied. Without this the
+# weights are meaningless: measured against the raw units, latency spanned 1.6
+# while carbon spanned 0.09 and cost 0.007, so latency decided every route
+# regardless of mode.
+#
+# The references must be fixed constants, never derived from the candidate
+# set. carbon_intensity multiplies every candidate's carbon term equally, so a
+# per-call min-max normalization would cancel the grid intensity out completely
+# and leave the router blind to how dirty the grid is.
+_SCORES = [m["carbon_score"] for m in CARBON_MODELS]
+
+# Carbon (g) of the largest catalog model for a 500-character message on a
+# 400 gCO2e/kWh grid. Sized so the catalog's carbon spread (~0.875) is
+# comparable to the latency spread (1.0) at that reference condition, which is
+# what lets the carbon and latency weights trade off against each other.
+CARBON_REFERENCE_G = (500 / 1000.0) * 0.0002 * (max(_SCORES) / 3.0) * 400.0
+
+LATENCY_REFERENCE_S = (min(MODEL_LATENCY.values()), max(MODEL_LATENCY.values()))
+COST_REFERENCE = (0.001 * min(_SCORES), 0.001 * max(_SCORES))
+PROVIDER_RISK_REFERENCE = (1.0, 2.0)  # self-hosted, hosted
+
+CAPABILITY_RANK = {"low": 0, "medium": 1, "high": 2}
+# Capability each tier is aiming for, one step above the floor the filter
+# enforces. quality_risk penalizes models that fall short of it, which is the
+# only thing the `quality` mode (w1 = 5) has to decide with -- the floor has
+# already removed everything below the tier's minimum.
+CAPABILITY_IDEAL = {"simple": "medium", "medium": "high", "complex": "high"}
+QUALITY_RISK_PENALTY = 0.25
+
+
+def _normalize(value: float, low: float, high: float) -> float:
+    """Map a raw term onto its fixed reference range. Lower is better.
+
+    Deliberately not clamped: a long prompt on a carbon-intensive grid really
+    does emit more than the reference, and clamping would stop that term from
+    discriminating between candidates exactly when it matters most.
+    """
+    if high == low:
+        return 0.0
+    return (value - low) / (high - low)
 
 
 def select_model(tier: str, region_code: str, carbon_intensity: float, mode: str = "balanced", confidence: float = 1.0, prompt_length: int = 50) -> dict:
@@ -56,13 +105,15 @@ def select_model(tier: str, region_code: str, carbon_intensity: float, mode: str
     chosen = candidates[0]
     
     for c in candidates:
-        # Quality risk: higher for lower capabilities if tier demands more
-        quality_risk = 0.0
-        if tier == "complex" and c["capability"] != "high":
-            quality_risk = 10.0
-        elif tier == "medium" and c["capability"] == "low":
-            quality_risk = 5.0
-        
+        # Quality risk: capability below the tier's ideal. The capability
+        # floor above already enforces the tier's *minimum*, so this term
+        # only separates survivors from each other -- it is what lets
+        # `quality` mode prefer a more capable model over a greener one.
+        ideal_rank = CAPABILITY_RANK[CAPABILITY_IDEAL.get(tier, "medium")]
+        quality_risk = (QUALITY_RISK_PENALTY
+                        if CAPABILITY_RANK[c["capability"]] < ideal_rank
+                        else 0.0)
+
         # Carbon cost
         energy_per_1k = 0.0002 * (c["carbon_score"] / 3.0)
         estimated_carbon = (prompt_length / 1000.0) * energy_per_1k * carbon_intensity
@@ -76,8 +127,14 @@ def select_model(tier: str, region_code: str, carbon_intensity: float, mode: str
         # Provider failure risk (could be dynamic, fixed for now)
         provider_risk = 1.0 if c["provider"] == "Ollama (Local)" else 2.0
         
-        total_score = (w1 * quality_risk) + (w2 * estimated_carbon) + (w3 * latency) + (w4 * cost) + (w5 * provider_risk)
-        
+        total_score = (
+            w1 * quality_risk
+            + w2 * _normalize(estimated_carbon, 0.0, CARBON_REFERENCE_G)
+            + w3 * _normalize(latency, *LATENCY_REFERENCE_S)
+            + w4 * _normalize(cost, *COST_REFERENCE)
+            + w5 * _normalize(provider_risk, *PROVIDER_RISK_REFERENCE)
+        )
+
         if total_score < best_score:
             best_score = total_score
             chosen = c
