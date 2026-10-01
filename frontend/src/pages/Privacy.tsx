@@ -27,7 +27,7 @@ const Privacy = () => {
             <p>Aggregated estimated CO₂e data may be used for platform analytics. New audit entries redact raw prompt text by default; operators may enable explicit retention for documented use cases and deletion/export requests.</p>
 
             <h2>Third-Party Services</h2>
-            <p>Queries are processed through OpenAI or OpenRouter APIs. Data handling by these providers is subject to their respective privacy policies.</p>
+            <p>Queries are processed through OpenRouter, Google (Gemini), and xAI (Grok) APIs, depending on which provider serves the request. Data handling by these providers is subject to their respective privacy policies.</p>
 
             <p className="legal-date">Last updated: July 2026</p>
           </div>
