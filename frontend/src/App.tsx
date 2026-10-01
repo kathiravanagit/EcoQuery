@@ -12,6 +12,7 @@ import ImpactStats from './components/ImpactStats';
 import LiveDemo from './components/LiveDemo';
 import Research from './components/Research';
 import Footer from './components/Footer';
+import CookieBanner from './components/CookieBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { PageSkeleton } from './components/Skeleton';
 
@@ -107,6 +108,8 @@ function AppContent() {
         </Routes>
       </AnimatePresence>
       <Footer />
+      {/* Outside AnimatePresence so the consent bar survives navigation. */}
+      <CookieBanner />
     </div>
   );
 }
