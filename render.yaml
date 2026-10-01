@@ -24,6 +24,13 @@ services:
         sync: false
       - key: GOOGLE_API_KEY
         sync: false
+      # Last-resort failover, tried only when OpenRouter and Google both fail.
+      # xAI bills per token, so this key spends credit only during a double
+      # outage. GROK_MODEL is deliberately absent: the code defaults it to
+      # grok-4-fast, and declaring it here with sync:false would create an
+      # *empty* variable, which the code cannot tell apart from a real value.
+      - key: GROK_API_KEY
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

@@ -29,8 +29,11 @@ PROVIDER_BASE_URLS = {
 PROVIDER_FALLBACK_MODELS = {
     "google": "gemini-flash-latest",
     # Overridable because the health probe is the only thing that can confirm
-    # an xAI model id, and that needs a credited account to reach.
-    "grok": os.getenv("GROK_MODEL", "grok-4-fast"),
+    # an xAI model id, and that needs a credited account to reach. The `or` is
+    # load-bearing: `os.getenv(k, default)` only applies when the variable is
+    # *absent*, so an empty `GROK_MODEL=` would otherwise send a blank model id
+    # on every failover and break Grok in a way no test would catch.
+    "grok": os.getenv("GROK_MODEL") or "grok-4-fast",
 }
 
 # Failover order for both the completion and the streaming path.
