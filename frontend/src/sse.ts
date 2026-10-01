@@ -59,6 +59,8 @@ export interface Metadata {
   fallback_reason?: string;
   uncertainty_range_g?: { min: number; max: number };
   uncertainty_components?: Record<string, number>;
+  /** Relative uncertainty as a fraction (0.62 → ±62%). Zero when no LLM ran. */
+  uncertainty_relative?: number;
   what_if?: {
     baseline_model: string;
     baseline_region: string;
@@ -79,8 +81,9 @@ export interface SSECallbacks {
   onMetadata?: (metadata: Metadata) => void;
   /** Every configured provider key has expired or hit its limit. */
   onKeysExpired?: () => void;
-  /** Provider failed; `code` is the backend's error_code. */
-  onError?: (code: string) => void;
+  /** Provider failed; `code` is the backend's error_code, `message` its own
+   *  human-readable copy (prefer `errorCodeMessage(code)` for the display). */
+  onError?: (code: string, message?: string) => void;
 }
 
 export async function consumeSSE(
@@ -113,7 +116,10 @@ export async function consumeSSE(
       return;
     }
     if (data.error_code) {
-      callbacks.onError?.(String(data.error_code));
+      callbacks.onError?.(
+        String(data.error_code),
+        typeof data.message === 'string' ? data.message : undefined,
+      );
       stopped = true;
       return;
     }

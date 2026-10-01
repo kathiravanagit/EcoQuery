@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Response, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import secrets
 import os
+import time
+import asyncio
 import httpx
 from jose import JWTError, jwt
 
@@ -12,6 +14,10 @@ from models import CARBON_MODELS
 from websocket_manager import ws_manager
 from carbon import get_carbon_optimal_region
 router = APIRouter(tags=["misc"])
+
+# Set once at import so `/api/health` can report whether this process is a
+# fresh deploy or one that has been serving for days.
+_PROCESS_STARTED_AT = time.time()
 
 
 class ContactRequest(BaseModel):
@@ -76,16 +82,30 @@ async def service_health():
 
 
 @router.get("/api/health")
-async def health():
+async def health(response: Response):
+    """Readiness and diagnostics for operators and load balancers.
+
+    Returns 200 while the process can still serve traffic (even if a
+    dependency is degraded) and **503 only when nothing works** — no
+    persistence *and* no provider — so a balancer can pull an instance
+    without restarting it over a transient blip. Every probe is time-bounded
+    (see the 3 s cap on the grid-data call) so a hung upstream cannot hang the
+    health check itself.
+    """
     from auth import auth_db
+    from key_manager import key_manager
+
+    probe_started = time.perf_counter()
     checks = {
         "status": "ok",
         "service_alive": True,
+        "ready": True,
+        "version": os.getenv("APP_VERSION", "dev"),
+        "started_at": datetime.fromtimestamp(_PROCESS_STARTED_AT, tz=timezone.utc).isoformat(),
+        "uptime_s": round(time.time() - _PROCESS_STARTED_AT, 1),
         "database_connected": bool(ledger.available and auth_db.available),
         "carbon_source_reachable": False,
         "provider_configured": any(os.getenv(key) for key in ("OPENROUTER_API_KEY", "GROK_API_KEY", "GOOGLE_API_KEY")),
-        "provider_authenticated": None,
-        "provider_completion_test": None,
         "ledger_connected": ledger.available,
         "auth_db_connected": auth_db.available,
     }
@@ -99,18 +119,48 @@ async def health():
     checks["electricity_maps_configured"] = bool(em_key)
     if em_key:
         try:
-            async with httpx.AsyncClient(timeout=3) as client:
-                r = await client.get("https://api.electricitymap.org/v3/carbon-intensity/latest?zone=SE", headers={"auth-token": em_key})
-                checks["electricity_maps_reachable"] = r.status_code == 200
-                checks["carbon_source_reachable"] = r.status_code == 200
+            async def _probe() -> int:
+                async with httpx.AsyncClient(timeout=3) as client:
+                    r = await client.get(
+                        "https://api.electricitymap.org/v3/carbon-intensity/latest?zone=SE",
+                        headers={"auth-token": em_key},
+                        timeout=httpx.Timeout(3),
+                    )
+                    return r.status_code
+
+            status = await asyncio.wait_for(_probe(), timeout=3)
+            checks["electricity_maps_reachable"] = status == 200
+            checks["carbon_source_reachable"] = status == 200
         except Exception:
             checks["electricity_maps_reachable"] = False
     or_key = os.getenv("OPENROUTER_API_KEY", "")
     checks["openrouter_configured"] = or_key.startswith("sk-or-")
-    if not checks["ledger_connected"] or not checks["auth_db_connected"]:
+
+    # How many usable credentials each provider actually has. This replaces the
+    # two fields that used to report `null` unconditionally: the answer is
+    # cheap to read and is what determines whether a chat can be served.
+    # Only counts are reported — never a key or a prefix of one.
+    try:
+        grouped = key_manager.get_all_providers_keys()
+        checks["provider_keys"] = {name: len(items) for name, items in grouped.items()}
+    except Exception:
+        checks["provider_keys"] = {}
+    checks["provider_ready"] = bool(
+        any(checks["provider_keys"].values()) or checks["provider_configured"]
+    )
+
+    database_connected = bool(ledger.available and auth_db.available)
+    if not database_connected or not checks["provider_ready"]:
         checks["status"] = "degraded"
-    if not checks["provider_configured"]:
-        checks["status"] = "degraded"
+    # Nothing can be authenticated or recorded *and* no model can be called:
+    # the API cannot complete a single request, so fail readiness outright.
+    if not database_connected and not checks["provider_ready"]:
+        checks["status"] = "error"
+        checks["ready"] = False
+
+    if not checks["ready"]:
+        response.status_code = 503
+    checks["probe_duration_ms"] = round((time.perf_counter() - probe_started) * 1000, 1)
     return checks
 
 

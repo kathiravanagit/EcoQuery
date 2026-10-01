@@ -2,6 +2,7 @@ import React, { useState, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Mail, MapPin, Clock, CheckCircle } from 'lucide-react';
 import { API_URL } from '../config';
+import { apiFailure, describeApiError } from '../apiError';
 import { useToast } from '../context/ToastContext';
 import './Pages.css';
 
@@ -28,11 +29,13 @@ const Contact = () => {
         setTimeout(() => setStatus('idle'), 5000);
       } else {
         setStatus('error');
-        toast('error', 'Failed to send message. Please try again.');
+        // `/api/contact` is rate-limited, so this is where "too many requests"
+        // and "try again in 30 seconds" actually surface.
+        toast('error', (await apiFailure(res, 'Failed to send message. Please try again.')).message);
       }
-    } catch {
+    } catch (e) {
       setStatus('error');
-      toast('error', 'Failed to send message. Please try again.');
+      toast('error', describeApiError(e, 'Failed to send message. Please try again.'));
     }
   };
 

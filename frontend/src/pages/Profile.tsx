@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { API_URL as API } from '../config';
+import { apiFailure, describeApiError } from '../apiError';
 import './Pages.css';
 
 interface ProfileUser { email?: string; display_name?: string; auth_provider?: string; }
@@ -24,9 +25,8 @@ const Profile = () => {
       headers,
       body: JSON.stringify(body)
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Something went wrong');
-    return data;
+    if (!res.ok) throw await apiFailure(res, 'Something went wrong');
+    return res.json();
   };
 
   return (
@@ -119,7 +119,7 @@ const UpdateNameForm = ({ user, apiCall, toast }: { user: ProfileUser | null; ap
       await apiCall('PATCH', '/api/auth/profile', { display_name: name });
       toast('success', 'Name updated!');
     } catch (ex: unknown) {
-      toast('error', ex instanceof Error ? ex.message : 'Failed');
+      toast('error', describeApiError(ex, 'Failed'));
     } finally { setLoading(false); }
   };
 
@@ -154,7 +154,7 @@ const UpdatePasswordForm = ({ apiCall, toast }: { apiCall: ApiCallFn; toast: Toa
       setCurrent(''); setNewPass('');
       toast('success', 'Password updated!');
     } catch (ex: unknown) {
-      toast('error', ex instanceof Error ? ex.message : 'Failed');
+      toast('error', describeApiError(ex, 'Failed'));
     } finally { setLoading(false); }
   };
 
@@ -186,7 +186,7 @@ const DeleteAccountForm = ({ user, apiCall, onDeleted, toast }: { user: ProfileU
       toast('success', 'Account deleted');
       onDeleted();
     } catch (ex: unknown) {
-      toast('error', ex instanceof Error ? ex.message : 'Failed');
+      toast('error', describeApiError(ex, 'Failed'));
     } finally { setLoading(false); setShowModal(false); }
   };
 

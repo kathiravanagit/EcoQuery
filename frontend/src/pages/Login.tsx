@@ -5,6 +5,7 @@ import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { API_URL as API } from '../config';
+import { describeApiError } from '../apiError';
 import './Pages.css';
 
 const Login = () => {
@@ -33,7 +34,7 @@ const Login = () => {
       toast('success', 'Welcome back!');
       navigate('/');
     } catch (err: unknown) {
-      toast('error', err instanceof Error ? err.message : 'Login failed');
+      toast('error', describeApiError(err, 'Login failed'));
     } finally {
       setIsSubmitting(false);
     }

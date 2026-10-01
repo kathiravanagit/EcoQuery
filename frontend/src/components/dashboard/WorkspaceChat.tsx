@@ -5,6 +5,8 @@ import { API_URL as API } from '../../config';
 import './WorkspaceChat.css';
 import { EASE_FN } from '../../constants';
 import { Metadata, consumeSSE } from '../../sse';
+import { ApiFailure, apiFailure, describeApiError, errorCodeMessage } from '../../apiError';
+import Co2Estimate from '../Co2Estimate';
 
 interface Message {
   role: string
@@ -84,7 +86,10 @@ function EcoDecision({ meta }: { meta: Metadata }) {
               <span className="eco-decision-label">Carbon:</span>
               <span className="eco-decision-value">
                 <span className={`measurement-badge ${meta.measurement_type || 'estimated'}`}>{measurementLabel}</span>{' '}
-                {meta.co2_estimated_g ?? 0}g ({meta.region || 'auto'})
+                <Co2Estimate
+                  value={meta.co2_estimated_g ?? 0}
+                  band={{ relative: meta.uncertainty_relative, range: meta.uncertainty_range_g }}
+                /> ({meta.region || 'auto'})
               </span>
             </div>
             <div className="eco-decision-row"><span className="eco-decision-label">Energy:</span><span className="eco-decision-value">{meta.energy_kwh == null ? 'Unavailable' : `${meta.energy_kwh} kWh`} ({meta.energy_measurement_source || 'estimate'})</span></div>
@@ -161,6 +166,11 @@ const WorkspaceChat = ({ token }: Props) => {
         })
       });
 
+      // A 401/429/5xx arrives as an ordinary JSON body, not an event stream —
+      // consuming it as SSE would leave a permanently empty reply bubble.
+      if (!response.ok) {
+        throw await apiFailure(response, 'The provider is unavailable.');
+      }
       if (!response.body) throw new Error('No readable stream');
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
@@ -181,19 +191,24 @@ const WorkspaceChat = ({ token }: Props) => {
           newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
           return newMsgs;
         }),
-        onError: (code) => setMessages(prev => {
+        onError: (code, message) => setMessages(prev => {
           const newMsgs = [...prev];
-          newMsgs[newMsgs.length - 1].content = `Provider unavailable (${code}). Please retry later.`;
+          newMsgs[newMsgs.length - 1].content = errorCodeMessage(code, message);
           newMsgs[newMsgs.length - 1].error = true;
           newMsgs[newMsgs.length - 1].retryPrompt = userMsg;
           return newMsgs;
         }),
       });
-    } catch (e: any) {
-      if (e.message?.includes('402')) {
+    } catch (e) {
+      // 402 = the platform's own credits are exhausted, distinct from a
+      // provider being briefly unavailable (which is worth retrying).
+      const creditsExhausted =
+        (e instanceof ApiFailure && e.status === 402) ||
+        (e instanceof Error && e.message.includes('402'));
+      if (creditsExhausted) {
         setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.' }]);
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'The provider is unavailable. Please retry later.', error: true, retryPrompt: userMsg }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: describeApiError(e, 'The provider is unavailable. Please retry later.'), error: true, retryPrompt: userMsg }]);
       }
     } finally {
       setIsTyping(false);

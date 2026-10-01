@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader, AlertCircle } from 'lucide-react';
 import { API_URL as API } from '../config';
+import { ApiFailure, apiFailure, describeApiError } from '../apiError';
 
 const AuthCallback = () => {
   const [params] = useSearchParams();
@@ -21,9 +22,15 @@ const AuthCallback = () => {
     const completeSignIn = async () => {
       try {
         const response = await fetch(`${API}/api/auth/exchange?code=${encodeURIComponent(code)}`, { credentials: 'include' });
-        const data = await response.json();
-        if (!response.ok || !data.access_token) {
-          throw new Error(data.detail || 'Sign in failed. Please try again.');
+        if (!response.ok) {
+          throw await apiFailure(response, 'Sign in failed. Please try again.');
+        }
+        const data = await response.json().catch(() => ({}));
+        if (!data.access_token) {
+          // 200 without a token is a contract violation, not a network fault.
+          throw new ApiFailure('Sign in failed. Please try again.', {
+            status: response.status, code: '', retryAfterSeconds: null,
+          });
         }
         sessionStorage.setItem('token', data.access_token);
         const userResponse = await fetch(`${API}/api/auth/me`, { credentials: 'include',
@@ -35,7 +42,7 @@ const AuthCallback = () => {
           navigate('/');
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Network error. Please try again.');
+        if (!cancelled) setError(describeApiError(err, 'Sign in failed. Please try again.'));
       }
     };
     completeSignIn();

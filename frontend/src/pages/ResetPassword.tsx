@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Lock, AlertCircle, Check } from 'lucide-react';
 import { API_URL as API } from '../config';
+import { apiFailure, describeApiError } from '../apiError';
 import './Pages.css';
 
 const ResetPassword = () => {
@@ -25,10 +26,9 @@ const ResetPassword = () => {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, new_password: password })
       });
-      const data = await res.json();
       if (res.ok) { setMessage({ type: 'success', text: 'Password reset successfully!' }); setTimeout(() => navigate('/login'), 1500); }
-      else setMessage({ type: 'error', text: data.detail || 'Reset failed' });
-    } catch { setMessage({ type: 'error', text: 'Failed to connect to server' });
+      else setMessage({ type: 'error', text: (await apiFailure(res, 'Reset failed')).message });
+    } catch (e) { setMessage({ type: 'error', text: describeApiError(e, 'Failed to connect to server') });
     } finally { setLoading(false); }
   };
 

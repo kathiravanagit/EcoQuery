@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Mail, AlertCircle, ArrowLeft } from 'lucide-react';
 import { API_URL as API } from '../config';
+import { apiFailure, describeApiError } from '../apiError';
 import './Pages.css';
 
 const ForgotPassword = () => {
@@ -18,10 +19,13 @@ const ForgotPassword = () => {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
-      const data = await res.json();
-      if (res.ok) setMessage({ type: 'success', text: data.message || 'Check your email for a reset link.' });
-      else setMessage({ type: 'error', text: data.detail || 'Something went wrong' });
-    } catch { setMessage({ type: 'error', text: 'Failed to connect to server' });
+      if (res.ok) {
+        const data = await res.json();
+        setMessage({ type: 'success', text: data.message || 'Check your email for a reset link.' });
+      } else {
+        setMessage({ type: 'error', text: (await apiFailure(res, 'Something went wrong')).message });
+      }
+    } catch (e) { setMessage({ type: 'error', text: describeApiError(e, 'Failed to connect to server') });
     } finally { setLoading(false); }
   };
 

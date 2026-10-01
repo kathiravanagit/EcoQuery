@@ -4,6 +4,8 @@ import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, ShieldCheck, Zap } fr
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
 import { Metadata, consumeSSE } from '../sse';
+import { apiFailure, describeApiError, errorCodeMessage } from '../apiError';
+import Co2Estimate from './Co2Estimate';
 
 interface Message {
   role: string
@@ -47,6 +49,10 @@ function EcoDecision({ meta }: { meta: Metadata }) {
   else if (isCache) reason = 'Stored complex response (no external LLM inference)';
   else if (meta.routing_mode === 'manual') reason = 'User-selected override';
 
+  // Shared uncertainty band: backend computes it once per response and every
+  // CO₂ figure derived from that response inherits it.
+  const co2Band = { relative: meta.uncertainty_relative, range: meta.uncertainty_range_g };
+
   return (
     <div className="eco-insight-container">
       <div className="eco-proof-summary">
@@ -56,7 +62,11 @@ function EcoDecision({ meta }: { meta: Metadata }) {
           <span>{reason}</span>
         </div>
         <div className="eco-proof-stat">
-          <strong>{isKnowledge || isCache ? '0 g' : `${meta.co2_estimated_g ?? 0} g`}</strong>
+          <strong>
+            {isKnowledge || isCache
+              ? '0 g'
+              : <Co2Estimate value={meta.co2_estimated_g ?? 0} band={co2Band} />}
+          </strong>
           <span><span className={`measurement-badge ${meta.measurement_type || 'estimated'}`}>{meta.measurement_type === 'measured' ? 'Measured' : meta.measurement_type === 'provider_reported' ? 'Provider-reported' : 'Estimated'}</span> CO₂e</span>
         </div>
       </div>
@@ -108,13 +118,13 @@ function EcoDecision({ meta }: { meta: Metadata }) {
               <div className="eco-insight-row">
                 <span className="eco-label">Estimated CO₂e impact:</span>
                 <span className="eco-val">
-                  {meta.co2_estimated_g ?? 0}g ({meta.region || 'auto'})
+                  <Co2Estimate value={meta.co2_estimated_g ?? 0} band={co2Band} /> ({meta.region || 'auto'})
                 </span>
               </div>
               <div className="eco-insight-row">
                 <span className="eco-label">Estimated emissions avoided compared with the selected baseline:</span>
                 <span className="eco-val">
-                  {meta.co2_saved_g ?? 0}g
+                  <Co2Estimate value={meta.co2_saved_g ?? 0} band={co2Band} />
                 </span>
               </div>
               <div className="eco-insight-row">
@@ -286,7 +296,12 @@ const LiveDemo = () => {
           ...(attachedImages.length > 0 ? { images: attachedImages } : {}),
         })
       });
-      
+
+      // A 401/429/5xx arrives as an ordinary JSON body, not an event stream —
+      // consuming it as SSE would leave a permanently empty reply bubble.
+      if (!response.ok) {
+        throw await apiFailure(response, 'The provider is unavailable.');
+      }
       if (!response.body) throw new Error('No readable stream');
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
@@ -307,10 +322,20 @@ const LiveDemo = () => {
           newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
           return newMsgs;
         }),
-        onError: (code) => setMessages(prev => [...prev, { role: 'assistant', content: `Provider unavailable (${code}).`, error: true, retryPrompt: userMsg }]),
+        onError: (code, message) => setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: errorCodeMessage(code, message),
+          error: true,
+          retryPrompt: userMsg,
+        }]),
       });
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'The routing provider is unavailable.', error: true, retryPrompt: userMsg }]);
+    } catch (e) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: describeApiError(e, 'The routing provider is unavailable.'),
+        error: true,
+        retryPrompt: userMsg,
+      }]);
     } finally {
       setIsTyping(false);
       setRoutingStage('');
@@ -397,7 +422,14 @@ const LiveDemo = () => {
                           </span>
                           {msg.metadata.co2_saved_g && msg.metadata.co2_saved_g > 0 ? (
                             <span className="meta-tag savings">
-                              {msg.metadata.co2_saved_g}g CO₂ saved
+                              <Co2Estimate
+                                value={msg.metadata.co2_saved_g}
+                                band={{
+                                  relative: msg.metadata.uncertainty_relative,
+                                  range: msg.metadata.uncertainty_range_g,
+                                }}
+                              />{' '}
+                              CO₂ saved
                             </span>
                           ) : null}
                           {msg.metadata.region && (

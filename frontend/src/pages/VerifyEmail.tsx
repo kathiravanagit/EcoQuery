@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { API_URL } from '../config';
+import { apiFailure, describeApiError } from '../apiError';
 import './Pages.css';
 
 export default function VerifyEmail() {
@@ -27,19 +28,17 @@ export default function VerifyEmail() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, token }),
         });
-        const data = await res.json();
-
         if (res.ok) {
           setStatus('success');
           setMessage('Your email has been verified successfully!');
           setTimeout(() => navigate('/'), 3000);
         } else {
           setStatus('error');
-          setMessage(data.detail || 'Verification failed. The link may have expired.');
+          setMessage((await apiFailure(res, 'Verification failed. The link may have expired.')).message);
         }
-      } catch {
+      } catch (e) {
         setStatus('error');
-        setMessage('Network error. Please try again.');
+        setMessage(describeApiError(e, 'Network error. Please try again.'));
       }
     };
 

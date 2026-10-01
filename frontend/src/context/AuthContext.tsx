@@ -18,6 +18,7 @@ interface AuthContextType {
 }
 
 import { API_URL as API } from '../config';
+import { apiFailure } from '../apiError';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -85,7 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Login failed'); }
+    if (!res.ok) throw await apiFailure(res, 'Login failed');
     handleAuthResponse(await res.json(), remember);
   }, [handleAuthResponse]);
 
@@ -94,7 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, display_name })
     });
-    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Signup failed'); }
+    if (!res.ok) throw await apiFailure(res, 'Signup failed');
     handleAuthResponse(await res.json());
   }, [handleAuthResponse]);
 
