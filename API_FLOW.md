@@ -78,7 +78,7 @@ If the user has a WebSocket connection open, a real-time event is pushed to thei
 {
   "reply": "...",
   "metadata": {
-    "model_id": "gpt-oss-20b:free",
+    "model_id": "nemotron-3-super-120b-a12b:free",
     "region": "eu-north-1",
     "co2_estimated_g": 0.0012,
     "co2_saved_g": 0.0048,

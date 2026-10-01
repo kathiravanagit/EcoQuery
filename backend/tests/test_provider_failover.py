@@ -34,13 +34,13 @@ MSGS = [{"role": "user", "content": "hi"}]
 
 # ── Invocation helpers (call the real implementation past conftest's patch) ───
 
-def _chat(model_id="meta-llama/llama-4-scout", max_tokens=16):
+def _chat(model_id="nvidia/nemotron-3-super-120b-a12b:free", max_tokens=16):
     return asyncio.run(
         ProviderRouter.chat_completion(provider_router, model_id, MSGS, max_tokens)
     )
 
 
-def _stream(model_id="meta-llama/llama-4-scout", max_tokens=16):
+def _stream(model_id="nvidia/nemotron-3-super-120b-a12b:free", max_tokens=16):
     """Not `async def`: returns the async generator itself."""
     return ProviderRouter.stream_completion(provider_router, model_id, MSGS, max_tokens)
 

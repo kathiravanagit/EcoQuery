@@ -36,10 +36,17 @@ SYSTEM_PROMPT = (
     "- NO thinking/reasoning dumps or internal chain-of-thought."
 )
 
+# Approximate $ per 1K tokens, keyed by models.CARBON_MODELS `id`. Every
+# catalog model is on a free tier, so their true rate is zero — the 0.001
+# default below only applies to an id we don't recognise.
 MODEL_COST_MAP = {
-    "nemotron-3-ultra-550b-a55b": 0.0, "nemotron-3-super-120b-a12b": 0.0,
-    "llama-4-scout": 0.0, "deepseek-chat-v3-0324": 0.0,
-    "gpt-oss-120b": 0.0, "gpt-oss-20b": 0.0, "gemma-4-31b": 0.0,
+    "nemotron-3-ultra-550b-a55b:free": 0.0,
+    "nemotron-3-super-120b-a12b:free": 0.0,
+    "dots-3-note-preview:free": 0.0,
+    "qwen3.8-27b:free": 0.0,
+    "nemotron-3-nano-omni-30b-a3b-reasoning:free": 0.0,
+    "north-mini-code:free": 0.0,
+    "lfm-2.5-2.6b:free": 0.0,
 }
 
 WORST_MODEL = {"model": "ling-3.0-flash", "carbon_score": 5, "provider": "InclusionAI"}

@@ -164,18 +164,21 @@ def test_manual_model_selection_bypasses_cache():
 
     with patch("routers.chat.provider_router.chat_completion", new_callable=AsyncMock) as mock_cc:
         mock_cc.return_value = {
-            "content": "Custom model response from gpt-oss-120b:free",
+            "content": "Custom model response from north-mini-code:free",
             "usage": {"prompt_tokens": 20, "completion_tokens": 30}
         }
 
         resp = client.post("/api/chat", json={
             "message": "Explain Paxos consensus algorithm in distributed databases",
-            "model_id": "gpt-oss-120b:free"
+            "model_id": "north-mini-code:free"
         })
 
         assert resp.status_code == 200
         data = resp.json()
         assert data["metadata"]["routing_mode"] == "manual"
+        # Prove the manual branch really substituted the model — an id that is
+        # not in CARBON_MODELS leaves model_sel untouched and this passes anyway.
+        assert data["metadata"]["requested_model"] == "north-mini-code:free"
         assert data["metadata"]["answer_source"] == "llm"
         assert data["metadata"]["llm_used"] is True
         assert data["metadata"]["cache_hit"] is False

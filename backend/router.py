@@ -12,14 +12,17 @@ logger = logging.getLogger("EcoQuery.router")
 
 SUPPORTED_ROUTING_MODES = ("green", "balanced", "quality", "fast", "low-cost")
 
+# Expected round-trip latency in seconds, keyed by models.CARBON_MODELS id.
+# Ordered by model size: the router's default tie-break is "fastest model that
+# is good enough", so the tiers only separate if these are ordered sensibly.
 MODEL_LATENCY = {
-    "nemotron-3-ultra-550b-a55b:free": 2.0,
-    "nemotron-3-super-120b-a12b:free": 1.5,
-    "llama-4-scout": 1.2,
-    "deepseek-chat-v3-0324:free": 1.8,
-    "gpt-oss-120b:free": 2.5,
-    "gpt-oss-20b:free": 1.0,
-    "gemma-4-31b:free": 1.5,
+    "nemotron-3-ultra-550b-a55b:free": 2.5,
+    "nemotron-3-super-120b-a12b:free": 2.1,
+    "dots-3-note-preview:free": 1.9,
+    "nemotron-3-nano-omni-30b-a3b-reasoning:free": 1.7,
+    "north-mini-code:free": 1.6,
+    "qwen3.8-27b:free": 1.4,
+    "lfm-2.5-2.6b:free": 0.9,
 }
 
 

@@ -12,11 +12,11 @@ import time
 from openai import AsyncOpenAI
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
-from providers import PROVIDER_BASE_URLS, PROVIDER_FALLBACK_MODELS  # noqa: E402
+from providers import HEALTH_PROBE_MODEL, PROVIDER_BASE_URLS, PROVIDER_FALLBACK_MODELS  # noqa: E402
 
 
 TARGETS = {
-    "openrouter": ("OPENROUTER_API_KEY", PROVIDER_BASE_URLS["openrouter"], "meta-llama/llama-4-scout"),
+    "openrouter": ("OPENROUTER_API_KEY", PROVIDER_BASE_URLS["openrouter"], HEALTH_PROBE_MODEL),
     "google": ("GOOGLE_API_KEY", PROVIDER_BASE_URLS["google"], PROVIDER_FALLBACK_MODELS["google"]),
 }
 

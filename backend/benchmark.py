@@ -3,7 +3,7 @@ Benchmark evaluation for EcoQuery — compares routing strategies.
 
 Three strategies tested:
 1. Always-largest: routes every query to the biggest model (nemotron-3-ultra-550b)
-2. Always-smallest: routes every query to the smallest model (gpt-oss-20b)
+2. Always-smallest: routes every query to the smallest model (lfm-2.5-2.6b)
 3. EcoQuery: carbon-aware tier-based routing
 
 Measures: response quality (leniency score), CO2 estimates, latency.
@@ -60,7 +60,7 @@ BENCHMARK_PROMPTS = {
 }
 
 ALWAYS_LARGEST_MODEL = "nemotron-3-ultra-550b-a55b:free"
-ALWAYS_SMALLEST_MODEL = "gpt-oss-20b:free"
+ALWAYS_SMALLEST_MODEL = "lfm-2.5-2.6b:free"
 
 
 def classify_prompts():

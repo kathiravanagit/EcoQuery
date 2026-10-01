@@ -30,6 +30,13 @@ ESTIMATED_THRESHOLDS: Dict[str, Dict[str, float]] = {
     # ── Actual EcoQuery catalog ───────────────────────────────────────────
     "nemotron-3-ultra-550b-a55b:free": {"min_tps": 8.0, "max_tps": 150.0, "expected_tps": 45.0, "avg_latency_s": 10.0},
     "nemotron-3-super-120b-a12b:free": {"min_tps": 15.0, "max_tps": 220.0, "expected_tps": 70.0, "avg_latency_s": 7.5},
+    "dots-3-note-preview:free": {"min_tps": 20.0, "max_tps": 250.0, "expected_tps": 75.0, "avg_latency_s": 7.0},
+    "qwen3.8-27b:free": {"min_tps": 25.0, "max_tps": 280.0, "expected_tps": 100.0, "avg_latency_s": 5.5},
+    "nemotron-3-nano-omni-30b-a3b-reasoning:free": {"min_tps": 25.0, "max_tps": 280.0, "expected_tps": 95.0, "avg_latency_s": 6.0},
+    "north-mini-code:free": {"min_tps": 25.0, "max_tps": 280.0, "expected_tps": 100.0, "avg_latency_s": 5.5},
+    "lfm-2.5-2.6b:free": {"min_tps": 30.0, "max_tps": 300.0, "expected_tps": 120.0, "avg_latency_s": 5.0},
+
+    # ── Retired catalog entries (historical ledger records only) ──────────
     "llama-4-scout": {"min_tps": 30.0, "max_tps": 350.0, "expected_tps": 130.0, "avg_latency_s": 5.0},
     "gpt-oss-120b:free": {"min_tps": 20.0, "max_tps": 250.0, "expected_tps": 80.0, "avg_latency_s": 7.0},
     "deepseek-chat-v3-0324:free": {"min_tps": 20.0, "max_tps": 250.0, "expected_tps": 75.0, "avg_latency_s": 7.0},
@@ -68,7 +75,8 @@ def _threshold_key(model_id: str) -> str:
     if not model_id:
         return model_id
     bare = model_id.split("/")[-1].strip()
-    # `meta-llama/llama-4-scout` → `llama-4-scout`, which is the catalog id.
+    # `nvidia/nemotron-3-super-120b-a12b:free` → `nemotron-3-super-120b-a12b:free`,
+    # which is the catalog id.
     for candidate in (model_id, bare):
         if candidate in ESTIMATED_THRESHOLDS:
             return candidate

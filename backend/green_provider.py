@@ -228,16 +228,19 @@ class GreenProviderRouter:
         route = await self.route_to_greenest(query=query)
         provider = route["provider"]
 
+        # Only ids that are live and free — see models.CARBON_MODELS. A paid or
+        # retired slug here silently routes every greenest-provider query into a
+        # 404/charge.
         GREEN_MODELS = {
             "google": "nvidia/nemotron-3-super-120b-a12b:free",
-            "meta": "meta-llama/llama-4-scout",
+            "meta": "dots-studio/dots-3-note-preview:free",
             "mistral": "nvidia/nemotron-3-super-120b-a12b:free",
             "nvidia": "nvidia/nemotron-3-ultra-550b-a55b:free",
             "cohere": "nvidia/nemotron-3-super-120b-a12b:free",
             "anthropic": "nvidia/nemotron-3-ultra-550b-a55b:free",
             "microsoft": "nvidia/nemotron-3-super-120b-a12b:free",
             "amazon": "nvidia/nemotron-3-super-120b-a12b:free",
-            "deepseek": "deepseek/deepseek-chat-v3-0324:free",
+            "deepseek": "nvidia/nemotron-3-super-120b-a12b:free",
             "xiaomi": "nvidia/nemotron-3-super-120b-a12b:free",
         }
 

@@ -91,6 +91,16 @@ def provider_target_model(provider: str, model_id: str) -> str:
     return PROVIDER_FALLBACK_MODELS.get(provider, model_id)
 
 
+# Model used by `check_health` to prove a provider can actually generate text.
+# Must be a genuinely free OpenRouter slug — a paid one spends credit on every
+# health poll, and a dead one fails the probe for the wrong reason. It also has
+# to produce text at the probe's 64-token budget: `nemotron-3-super-120b` and
+# `qwen3.8-27b` both intermittently return an empty reply at that size, which
+# would read as an unhealthy provider. Ultra-550B answered every trial at
+# budgets 16, 64 and 256.
+HEALTH_PROBE_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+
+
 class ProviderRouter:
     def __init__(self):
         pass
@@ -98,16 +108,6 @@ class ProviderRouter:
     def get_target(self, model_id: str) -> tuple:
         """Return target configuration for a model."""
         return model_id, "openrouter" # default, logic will be handled in execution
-
-    FALLBACK_MODELS = [
-        "nvidia/nemotron-3-ultra-550b-a55b:free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "meta-llama/llama-4-scout",
-        "openai/gpt-oss-120b:free",
-        "deepseek/deepseek-chat-v3-0324:free",
-        "openai/gpt-oss-20b:free",
-        "google/gemma-4-31b:free",
-    ]
 
     async def chat_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024,
@@ -362,7 +362,7 @@ class ProviderRouter:
             keys = key_manager.get_active_keys(provider)
             configured = len(keys) > 0
             
-            target_model = provider_target_model(provider, "meta-llama/llama-4-scout")
+            target_model = provider_target_model(provider, HEALTH_PROBE_MODEL)
                 
             status = {
                 "configured": configured,

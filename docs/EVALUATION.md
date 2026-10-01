@@ -12,13 +12,22 @@ This snapshot is generated from the checked-in `backend/benchmark_results.json` 
 
 The simulation shows the policy tradeoff: EcoQuery uses a larger model for higher-capability tiers, so it is not expected to beat an always-smallest strategy on estimated CO2e alone. Its purpose is to satisfy the classifier's capability requirement while choosing the lowest-carbon suitable candidate.
 
-## EcoQuery model choices in this snapshot
+## EcoQuery model choices (current catalog)
 
 | Query tier | Selected model |
 | --- | --- |
-| Simple | `gpt-oss-20b:free` |
-| Medium | `gemma-4-31b:free` |
+| Simple | `lfm-2.5-2.6b:free` |
+| Medium | `qwen3.8-27b:free` |
 | Complex | `nemotron-3-super-120b-a12b:free` |
+
+A `medium` query with classifier confidence below 0.75 is escalated to the
+`complex` selection, since the router only trusts its own tier guess when the
+classifier is confident.
+
+The measurement tables above were produced against an earlier catalog whose
+model ids have since been retired by OpenRouter, so they are kept as a
+historical record rather than a description of the current run. Re-run
+`python benchmark.py` to refresh both together.
 
 ## Reproducible run
 

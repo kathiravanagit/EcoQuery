@@ -61,7 +61,7 @@ async def run_routing_experiment():
                 model_sel = "nvidia/nemotron-3-ultra-550b-a55b:free"
                 co2 = 0.05
             elif strategy == "always_smallest":
-                model_sel = "google/gemma-4-31b:free"
+                model_sel = "liquid/lfm-2.5-2.6b:free"
                 co2 = 0.01
             elif strategy == "random":
                 model_sel = CARBON_MODELS[0]["id"]

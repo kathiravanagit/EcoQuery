@@ -85,13 +85,16 @@ def test_chat_direct_knowledge_zero_llm(client):
 def test_chat_manual_model_selection_bypasses_knowledge(client):
     resp = client.post("/api/chat", json={
         "message": "What is photosynthesis?",
-        "model_id": "deepseek-chat-v3-0324:free"
+        "model_id": "qwen3.8-27b:free"
     })
     assert resp.status_code == 200
     data = resp.json()
     meta = data["metadata"]
     assert meta["routing_mode"] == "manual"
     assert meta["llm_used"] is True
+    # The requested id has to exist in the catalog, otherwise the manual
+    # branch silently no-ops and the test passes without testing anything.
+    assert meta["requested_model"] == "qwen3.8-27b:free"
     assert meta["knowledge_match"] is False
     assert meta["answer_source"] == "llm"
 

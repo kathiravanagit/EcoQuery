@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from router import select_model  # noqa: E402
 
 
-MODEL_SMALL = os.getenv("BENCHMARK_SMALL_MODEL", "openai/gpt-oss-20b:free")
+MODEL_SMALL = os.getenv("BENCHMARK_SMALL_MODEL", "liquid/lfm-2.5-2.6b:free")
 MODEL_LARGE = os.getenv("BENCHMARK_LARGE_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free")
 MODEL_SCORES = {MODEL_SMALL: 1.0, MODEL_LARGE: 8.0}
 
