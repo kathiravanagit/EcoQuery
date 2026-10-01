@@ -380,13 +380,21 @@ class ProviderRouter:
                     response = await client.chat.completions.create(
                         model=target_model,
                         messages=[{"role": "user", "content": "Hello"}],
-                        max_tokens=5,
+                        # Not 5: at a tiny budget a reasoning model returns
+                        # choices with no text, which used to count as a pass.
+                        max_tokens=64,
                     )
                     status["authenticated"] = True
-                    if response.choices and len(response.choices) > 0:
-                        status["completion_test"] = True
+                    message = response.choices[0].message if response.choices else None
+                    text = (getattr(message, "content", "") or "") if message else ""
                     status["latency_seconds"] = round(time.perf_counter() - started_at, 3)
-                    status["failure_reason"] = None
+                    if text.strip():
+                        status["completion_test"] = True
+                        status["failure_reason"] = None
+                    else:
+                        # Reached and authenticated, but nothing usable came
+                        # back — report that rather than a clean pass.
+                        status["failure_reason"] = "EmptyContent"
                 except Exception as e:
                     logger.warning(f"Health check failed for {provider}: {e}")
                     status["latency_seconds"] = round(time.perf_counter() - started_at, 3)

@@ -45,6 +45,23 @@ MODEL_COST_MAP = {
 WORST_MODEL = {"model": "ling-3.0-flash", "carbon_score": 5, "provider": "InclusionAI"}
 WORST_INTENSITY = 710.0
 
+# Floor for a caller-chosen `max_output_tokens`. The schema accepts 1, but a
+# reasoning model can spend a small budget on its own thinking and reply with
+# nothing: `gemini-flash-latest` returned content=None at max_tokens 8, 16 and
+# 32, and only produced text from 64 upwards (OpenRouter's llama-4-scout
+# answers at every budget tested). Handing back 128 tokens when someone asks
+# for fewer beats handing back an empty response that reads like a dead
+# provider.
+MIN_OUTPUT_TOKENS = 128
+
+
+def _effective_max_tokens(max_output_tokens: int | None) -> int:
+    """Resolve an authenticated caller's output budget against the floor.
+
+    Anonymous requests bypass this entirely and use the fixed default above.
+    """
+    return max(MIN_OUTPUT_TOKENS, max_output_tokens or 200)
+
 
 def clean_response(text: str, max_words: int = 150) -> str:
     """Post-process LLM response to ensure clean formatting without raw heading hashes."""
@@ -531,7 +548,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     user_email = await _resolve_user_email(request)
     max_tokens = 600
     if user_email:
-        max_tokens = req.max_output_tokens or 200
+        max_tokens = _effective_max_tokens(req.max_output_tokens)
 
     try:
         result = await provider_router.chat_completion(
@@ -727,7 +744,7 @@ async def chat_stream(req: ChatRequest, request: Request):
     user_email = await _resolve_user_email(request)
     max_tokens = 600
     if user_email:
-        max_tokens = req.max_output_tokens or 200
+        max_tokens = _effective_max_tokens(req.max_output_tokens)
 
     async def generate():
         nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply, provider_lineage
