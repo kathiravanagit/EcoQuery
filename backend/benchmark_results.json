@@ -1,11 +1,15 @@
 {
   "classifier_accuracy": {
-    "overall": 83.3,
+    "overall": 86.7,
     "by_tier": {
-      "simple": 100.0,
-      "medium": 60.0,
-      "complex": 90.0
-    }
+      "simple": 80.0,
+      "medium": 100.0,
+      "complex": 80.0
+    },
+    "method": [
+      "sklearn-logistic-regression"
+    ],
+    "prompts": 30
   },
   "routing_comparison": {
     "Always Largest (Nemotron 550B)": {

@@ -55,12 +55,12 @@ const Hero = () => {
               <span><span className="live-dot"></span> decision trace / sample query</span>
               <span className="decision-status"><Check size={13} /> verified path</span>
             </div>
-            <div className="decision-question">"Explain how REST APIs work"</div>
+            <div className="decision-question">"What is a REST API?"</div>
             <div className="decision-flow">
               <div className="decision-node">
                 <Database size={16} />
                 <span>Knowledge layer</span>
-                <strong>matched · 96%</strong>
+                <strong>matched · 98%</strong>
               </div>
               <div className="decision-arrow">→</div>
               <div className="decision-node decision-node-active">

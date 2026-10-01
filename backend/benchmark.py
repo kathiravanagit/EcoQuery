@@ -63,13 +63,26 @@ ALWAYS_LARGEST_MODEL = "nemotron-3-ultra-550b-a55b:free"
 ALWAYS_SMALLEST_MODEL = "lfm-2.5-2.6b:free"
 
 
+def _classify_offline(prompt: str) -> dict:
+    """Classify the way production does, but without network or quota.
+
+    classifier.classify() prefers the trained model and only reaches the
+    deterministic rules when no model is loaded. This mirrors that precedence
+    minus the ML API step, so benchmark_results.json reports the accuracy of
+    the path production actually runs.
+    """
+    if classifier._available:
+        return classifier._classify_sklearn(prompt)
+    return classifier._classify_simple(prompt)
+
+
 def classify_prompts():
-    """Classify all prompts using the trained classifier."""
+    """Classify all prompts with the same code path production uses."""
     results = {}
     for tier, prompts in BENCHMARK_PROMPTS.items():
         results[tier] = []
         for prompt in prompts:
-            classification = classifier._classify_simple(prompt)
+            classification = _classify_offline(prompt)
             results[tier].append({
                 "prompt": prompt,
                 "expected_tier": tier,
@@ -187,6 +200,8 @@ def run_benchmark():
     print("STEP 1: Classifier Accuracy")
     print("-" * 40)
     classifications = classify_prompts()
+    methods = sorted({i["method"] for items in classifications.values() for i in items})
+    print(f"  path: {', '.join(methods)}")
     total_correct = 0
     total_count = 0
     for tier, items in classifications.items():
@@ -249,6 +264,11 @@ def run_benchmark():
             "overall": round(total_correct / total_count * 100, 1),
             "by_tier": {tier: round(sum(1 for i in items if i["classified_correctly"]) / len(items) * 100, 1)
                         for tier, items in classifications.items()},
+            # Which classifier path the numbers above came from. This was
+            # absent before, and the field then reported the rules' accuracy
+            # while production was running a different model.
+            "method": methods,
+            "prompts": total_count,
         },
         "routing_comparison": {name: agg for name, agg in strategies.items()},
         "ecoquery_model_selection": {

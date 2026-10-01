@@ -3,13 +3,23 @@ Train a TF-IDF + LogisticRegression classifier for EcoQuery query tiering.
 Generates 1,000 synthetic prompts per tier (simple / medium / complex)
 for a total of 3,000 labeled examples.
 
+Every prompt is a filled slot in one of 30 templates per tier, so the hold-out
+set is built by holding out WHOLE TEMPLATES rather than sampling rows at
+random. A row-random split puts the same template on both sides (600/600 rows
+overlapped before this change) and reports 100% while scoring 56.7% on real
+prompts: it measures template memorization, not generalization.
+
 Usage:
     python backend/train_classifier.py
 
 Output:
     backend/models/pipeline.pkl      — fitted TF-IDF + LogisticRegression pipeline.
                                        This is the only artifact backend/classifier.py
-                                       loads at runtime.
+                                       loads at runtime. It is fit on the training
+                                       side of the template split ONLY, so the
+                                       accuracy printed below is a direct
+                                       measurement of this artifact rather than an
+                                       estimate of a separately refit model.
     backend/models/training_data.csv — the generated dataset (for inspection / replacement)
 """
 
@@ -22,7 +32,6 @@ import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +41,11 @@ random.seed(42)
 
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
 os.makedirs(MODEL_DIR, exist_ok=True)
+
+# Hold-out size for the template split, as a fraction of each tier's templates.
+# Kept as a named constant so the reported accuracy stays reproducible.
+TEST_TEMPLATE_FRACTION = 0.3
+SPLIT_SEED = 42
 
 # ── Synthetic prompt templates ──────────────────────────────────────────
 
@@ -202,14 +216,37 @@ def _fill(template: str, pools: dict) -> str:
     return result
 
 
-def generate_prompts(templates, pools, count: int) -> list[str]:
-    """Generate `count` prompts by sampling templates and filling placeholders."""
+def generate_prompts(templates, pools, count: int) -> list[tuple[str, int]]:
+    """Generate `count` prompts, recording which template produced each one.
+
+    Returns (prompt, template_index) so the caller can split by template.
+    """
     prompts = []
     for _ in range(count):
-        tpl = random.choice(templates)
-        prompt = _fill(tpl, pools)
-        prompts.append(prompt)
+        idx = random.randrange(len(templates))
+        prompts.append((_fill(templates[idx], pools), idx))
     return prompts
+
+
+def split_by_template(group_key: list[tuple[str, int]],
+                      test_fraction: float = TEST_TEMPLATE_FRACTION,
+                      seed: int = SPLIT_SEED) -> tuple[list[int], list[int], set]:
+    """Split row indices so no template appears on both sides.
+
+    Stratified per tier: each tier holds out round(30 * test_fraction) of its
+    own templates, keeping class balance without ever sharing a template
+    between train and test.
+    """
+    held_out: set[tuple[str, int]] = set()
+    for tier in ("simple", "medium", "complex"):
+        groups = sorted({g for g in group_key if g[0] == tier})
+        random.Random(seed).shuffle(groups)
+        n_test = max(1, round(len(groups) * test_fraction))
+        held_out.update(groups[:n_test])
+
+    train_idx = [i for i, g in enumerate(group_key) if g not in held_out]
+    test_idx = [i for i, g in enumerate(group_key) if g in held_out]
+    return train_idx, test_idx, held_out
 
 
 def main():
@@ -248,8 +285,13 @@ def main():
     medium_prompts = generate_prompts(MEDIUM_TEMPLATES, medium_pools, 1000)
     complex_prompts = generate_prompts(COMPLEX_TEMPLATES, complex_pools, 1000)
 
-    all_texts = simple_prompts + medium_prompts + complex_prompts
+    all_texts = [t for t, _ in simple_prompts + medium_prompts + complex_prompts]
     all_labels = ["simple"] * 1000 + ["medium"] * 1000 + ["complex"] * 1000
+    group_key = (
+        [("simple", i) for _, i in simple_prompts]
+        + [("medium", i) for _, i in medium_prompts]
+        + [("complex", i) for _, i in complex_prompts]
+    )
 
     # Save CSV for inspection / manual refinement
     csv_path = os.path.join(MODEL_DIR, "training_data.csv")
@@ -260,23 +302,46 @@ def main():
             writer.writerow([text, label])
     logger.info("Saved %d rows to %s", len(all_texts), csv_path)
 
-    # Train / eval split
-    X_train, X_test, y_train, y_test = train_test_split(
-        all_texts, all_labels, test_size=0.2, random_state=42, stratify=all_labels
+    # Hold out whole templates — see the module docstring for why a row-random
+    # split is worthless here.
+    train_idx, test_idx, held_out = split_by_template(group_key)
+    train_groups = {group_key[i] for i in train_idx}
+    leaked = sum(1 for i in test_idx if group_key[i] in train_groups)
+    logger.info(
+        "Template split: %d train / %d hold-out rows, %d of %d templates held out, %d leaked rows",
+        len(train_idx), len(test_idx), len(held_out),
+        len(train_groups) + len(held_out), leaked,
     )
+    if leaked:
+        raise SystemExit(
+            "hold-out set shares templates with the training set — "
+            "refusing to report an accuracy that only measures memorization"
+        )
+
+    X_train = [all_texts[i] for i in train_idx]
+    y_train = [all_labels[i] for i in train_idx]
+    X_test = [all_texts[i] for i in test_idx]
+    y_test = [all_labels[i] for i in test_idx]
 
     logger.info("Training TF-IDF + LogisticRegression pipeline…")
     pipeline = Pipeline([
         ("tfidf", TfidfVectorizer(ngram_range=(1, 2), max_features=10000, sublinear_tf=True)),
-        ("clf", LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=1000, random_state=42)),
+        # multi_class omitted: scikit-learn deprecated it in 1.5 and lbfgs
+        # already defaults to multinomial.
+        ("clf", LogisticRegression(solver="lbfgs", max_iter=1000, random_state=42)),
     ])
 
     pipeline.fit(X_train, y_train)
 
     y_pred = pipeline.predict(X_test)
     acc = accuracy_score(y_test, y_pred)
-    logger.info("Test accuracy: %.2f%%", acc * 100)
+    logger.info("Hold-out accuracy (templates never seen in training): %.2f%%", acc * 100)
     logger.info("\n" + classification_report(y_test, y_pred, target_names=["simple", "medium", "complex"]))
+
+    # The exported artifact is fit on X_train only, so the accuracy printed
+    # above measures exactly the file being written. Refitting on all 3,000
+    # rows would buy a little coverage but would turn that number into an
+    # estimate of a different model, which is how the 100% claim happened.
 
     # Export — pipeline.pkl is the single artifact backend/classifier.py loads.
     # Earlier revisions also dumped classifier.pkl and vectorizer.pkl (the

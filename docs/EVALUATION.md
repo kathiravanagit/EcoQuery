@@ -28,13 +28,44 @@ classifier is confident.
 
 This snapshot was regenerated against the current catalog and the normalized
 scoring in `backend/router.py`, so the model ids above are live OpenRouter
-ids rather than retired ones. Two things it still does not establish: it
-contains no measured energy (see the limitations below), and the
-`classifier_accuracy` block in `backend/benchmark_results.json` is unchanged
-by a re-run — it stays a 30-prompt figure because accuracy depends on the
-classifier itself, not on routing.
+ids rather than retired ones. It still contains no measured energy — see the
+limitations below.
 
 Re-run `python benchmark.py` after any change to the router or the catalog.
+
+## Tier classifier
+
+`benchmark.py` classifies its 30 independent prompts with the same code path
+production runs (`classifier.classify()`'s precedence: trained model first,
+deterministic rules only if no model is loaded), so the `method` field in
+`benchmark_results.json` states which path produced the number.
+
+| | Accuracy | simple | medium | complex |
+| --- | ---: | ---: | ---: | ---: |
+| Shipped model (30 benchmark prompts) | **86.7%** | 80.0% | 100.0% | 80.0% |
+| Deterministic rules (the fallback) | 83.3% | 100.0% | 60.0% | 90.0% |
+
+The artifact in `backend/models/pipeline.pkl` is produced by
+`backend/train_classifier.py`, which holds out **whole prompt templates** —
+27 of 90, 872 of 3,000 rows, 0 rows shared with training — and reports the
+accuracy it measures on that hold-out: **80.85%**. The model beats the
+rule-based fallback on this benchmark and on a separate 30-prompt realistic
+set (80.0% vs 66.7%), so retraining the model was the fix rather than
+falling back to the rules.
+
+Two earlier figures were not what they claimed, and both are fixed:
+
+- **100%** — the trainer's old row-random split put the same template on
+  both sides (600/600 hold-out rows overlapped), so it measured template
+  memorization. A model trained that way scored **41–57%** on real prompts.
+- **83.3%** — `benchmark.py` called the rule-based fallback directly while
+  production loaded the trained model, so the number described a path the
+  model never took. It is now re-measured on every run.
+
+The classifier is not perfect and this snapshot does not claim otherwise:
+**86.7% on 30 held-out prompts is a sample of 30, not a service-level
+guarantee**, and a lowercase/terse rephrasing of a known-hard prompt still
+falls through to `simple`.
 
 ## Reproducible run
 
