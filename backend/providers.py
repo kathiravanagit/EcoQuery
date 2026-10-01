@@ -8,10 +8,11 @@ from key_manager import key_manager
 
 logger = logging.getLogger("EcoQuery.providers")
 
-# Known endpoints for providers compatible with OpenAI spec
+# Known endpoints for providers compatible with OpenAI spec.
+# Two credentials only: OpenRouter is tried first, Google is the automatic
+# failover. Order matters — see `providers_to_try`.
 PROVIDER_BASE_URLS = {
     "openrouter": "https://openrouter.ai/api/v1",
-    "grok": "https://api.x.ai/v1",
     "google": "https://generativelanguage.googleapis.com/v1beta/openai/"
 }
 
@@ -21,9 +22,11 @@ PROVIDER_BASE_URLS = {
 # of serving as a fallback. `gemini-flash-latest` is Google's rolling alias and
 # stays current without a code change.
 PROVIDER_FALLBACK_MODELS = {
-    "grok": "grok-beta",
     "google": "gemini-flash-latest",
 }
+
+# Failover order for both the completion and the streaming path.
+PROVIDER_FALLBACK_ORDER = ("openrouter", "google")
 
 
 # ── Bring your own key ──────────────────────────────────────────────────────
@@ -115,7 +118,7 @@ class ProviderRouter:
         grouped_keys, server_key_count, byok_injected = _with_byok(grouped_keys, byok)
 
         # Priority order of providers to try
-        providers_to_try = ["openrouter", "grok", "google"]
+        providers_to_try = list(PROVIDER_FALLBACK_ORDER)
         
         last_error = None
         attempts = []
@@ -243,7 +246,7 @@ class ProviderRouter:
         """Streaming chat completion with strict fallback routing."""
         grouped_keys = key_manager.get_all_providers_keys()
         grouped_keys, server_key_count, byok_injected = _with_byok(grouped_keys, byok)
-        providers_to_try = ["openrouter", "grok", "google"]
+        providers_to_try = list(PROVIDER_FALLBACK_ORDER)
         attempts = []
         last_error = None
         
@@ -332,7 +335,7 @@ class ProviderRouter:
 
     async def check_health(self) -> dict:
         """Check the health of all supported providers."""
-        providers = ["openrouter", "grok", "google"]
+        providers = list(PROVIDER_FALLBACK_ORDER)
         health = {}
         
         for provider in providers:

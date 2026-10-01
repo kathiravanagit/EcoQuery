@@ -12,7 +12,6 @@ JWT_SECRET=local_secret_key
 KEY_ENCRYPTION_KEY=local-development-secret
 REDIS_URL=redis://localhost:6379/0
 OPENROUTER_API_KEY=your_key
-GROK_API_KEY=your_key
 GOOGLE_API_KEY=your_key
 ```
 

@@ -7,10 +7,19 @@ import base64
 import hashlib
 
 from cryptography.fernet import Fernet, InvalidToken
+from dotenv import load_dotenv
 
 logger = logging.getLogger("EcoQuery.key_manager")
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "keys.db")
+
+# The store is built at import time, so the secret encrypting it must already
+# be in the environment before the first `KeyManager` is constructed. main.py
+# loads the same file, but `key_manager` can be imported first (tests,
+# scripts) — and encrypting with the fallback string makes every row unreadable
+# the moment the real KEY_ENCRYPTION_KEY/JWT_SECRET shows up, which is how a
+# local keys.db ended up holding provider keys nothing could decrypt.
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 class KeyManager:
     def __init__(self, db_path=DB_PATH):
@@ -79,28 +88,64 @@ class KeyManager:
         if legacy_rows:
             logger.warning("Encrypted %d legacy provider key(s) at rest", len(legacy_rows))
 
+    # Credentials the process is told about through the environment. These are
+    # the only two providers EcoQuery supports.
+    ENV_KEYS = (
+        ("OPENROUTER_API_KEY", "openrouter"),
+        ("OPENROUTER_API_KEY_2", "openrouter"),
+        ("GOOGLE_API_KEY", "google"),
+    )
+
     def _seed_initial_keys(self):
-        """Seed the database with keys from environment/user if empty."""
+        """Ensure every credential in the environment is in the key store.
+
+        Runs on every start rather than only when the table is empty. The store
+        is a file that outlives a configuration change, so seeding once meant
+        editing `GOOGLE_API_KEY` had no effect until `keys.db` was deleted by
+        hand — and the OpenRouter failover would keep calling the previous,
+        often quota-exhausted, credential. A credential already stored is left
+        alone, so this never duplicates a row and never revives a key that was
+        deliberately marked inactive.
+        """
+        wanted = []
+        for env_name, provider in self.ENV_KEYS:
+            value = os.getenv(env_name, "")
+            if value:
+                wanted.append((value, provider))
+        if not wanted:
+            return
+
+        known = self._stored_key_values()
+        added = 0
+        for key_value, provider in wanted:
+            if key_value in known:
+                continue
+            self.add_key(key_value, provider)
+            known.add(key_value)
+            added += 1
+        if added:
+            logger.info("Seeded %d provider key(s) from the environment", added)
+
+    def _stored_key_values(self) -> set:
+        """Every stored credential we can still decrypt, active or not.
+
+        Rows that cannot be decrypted are deliberately left out: they are
+        skipped at runtime, so an env credential has to be inserted beside
+        them or it would never be used. Inactive rows do count — a key marked
+        inactive after a provider rejection is still stored, and re-adding it
+        would duplicate it on every boot instead of letting the operator
+        repair it in place.
+        """
         with self.get_connection() as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM api_keys")
-            if cursor.fetchone()[0] == 0:
-                logger.info("Seeding initial API keys from environment")
-                # Seeding OpenRouter keys if available
-                or_key_1 = os.getenv("OPENROUTER_API_KEY", "")
-                or_key_2 = os.getenv("OPENROUTER_API_KEY_2", "")
-                if or_key_1:
-                    self.add_key(or_key_1, "openrouter")
-                if or_key_2:
-                    self.add_key(or_key_2, "openrouter")
-                
-                # Seed Grok/Google keys if available in env
-                grok_key = os.getenv("GROK_API_KEY", "")
-                google_key = os.getenv("GOOGLE_API_KEY", "")
-                if grok_key:
-                    self.add_key(grok_key, "grok")
-                if google_key:
-                    self.add_key(google_key, "google")
+            cursor.execute("SELECT key_value FROM api_keys")
+            known = set()
+            for row in cursor.fetchall():
+                decrypted = self._decrypt(row["key_value"])
+                if decrypted:
+                    known.add(decrypted)
+            return known
 
     def add_key(self, key_value: str, provider: str, role: str = 'user', daily_limit: int = 1000):
         key_id = str(uuid.uuid4())

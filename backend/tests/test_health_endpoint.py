@@ -23,7 +23,7 @@ from ledger import ledger
 from routers import misc
 from key_manager import key_manager
 
-_PROVIDER_ENV_VARS = ("OPENROUTER_API_KEY", "GROK_API_KEY", "GOOGLE_API_KEY")
+_PROVIDER_ENV_VARS = ("OPENROUTER_API_KEY", "GOOGLE_API_KEY")
 
 
 @pytest.fixture

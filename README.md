@@ -10,7 +10,7 @@ See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the estimation formula, routi
 
 Production configuration requires MongoDB, a strong JWT secret (32+ characters), and at least one provider key. Set `KEY_ENCRYPTION_KEY` for dedicated provider-key encryption; Render can fall back to `JWT_SECRET` if it is omitted. Set `REDIS_URL` for distributed rate limiting. Provider credentials must be rotated if they were ever committed to repository history; removing the current database file does not rewrite old Git objects.
 
-Run `python scripts/provider_diagnostics.py` inside the deployed environment to independently test OpenRouter, Grok, and Google credentials. The diagnostic reports provider, model, status, latency, and redacted failure type without printing secrets.
+Run `python scripts/provider_diagnostics.py` inside the deployed environment to independently test OpenRouter and Google credentials. The diagnostic reports provider, model, status, latency, and redacted failure type without printing secrets.
 
 **Live:** [eco2query.vercel.app](https://eco2query.vercel.app) · **Backend:** [ecoquery.onrender.com](https://ecoquery.onrender.com)
 
@@ -142,7 +142,7 @@ can bill your own account instead of the server's keys:
 |--------|---------|
 | `X-OpenRouter-Key` | Key for the default provider (OpenRouter) |
 | `X-Provider-Key` | Key for the provider named in `X-Provider` (default `openrouter`) |
-| `X-Provider` | Which provider the `X-Provider-Key` belongs to: `openrouter`, `grok` or `google` |
+| `X-Provider` | Which provider the `X-Provider-Key` belongs to: `openrouter` or `google` |
 
 ```bash
 curl -X POST https://ecoquery.onrender.com/api/chat/stream \
@@ -178,8 +178,7 @@ Behaviour:
 - Node.js 18+
 - MongoDB Atlas (free tier works)
 - OpenRouter API key via `OPENROUTER_API_KEY`
-- Grok API key via `GROK_API_KEY`
-- Google API key via `GOOGLE_API_KEY`
+- Google API key via `GOOGLE_API_KEY` (automatic failover)
 - For detailed deployment and provider config, see [docs/deployment.md](docs/deployment.md)
 
 ### Setup
@@ -207,8 +206,8 @@ npm run dev
 ```env
 # Backend
 JWT_SECRET=your-random-secret
-OPENROUTER_API_KEY=sk-or-...          # OpenRouter key (at least one provider)
-GROK_API_KEY=...                      # Optional failover provider
+OPENROUTER_API_KEY=sk-or-...          # OpenRouter key (primary provider)
+GOOGLE_API_KEY=...                    # Automatic failover when OpenRouter fails
 ELECTRICITY_MAPS_API_KEY=em_...       # Optional (uses static fallback)
 MONGODB_URL=mongodb+srv://...         # Optional (degrades without)
 ALLOWED_ORIGINS=https://eco2query.vercel.app,http://localhost:5173

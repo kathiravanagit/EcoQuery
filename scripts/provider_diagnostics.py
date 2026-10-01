@@ -17,7 +17,6 @@ from providers import PROVIDER_BASE_URLS, PROVIDER_FALLBACK_MODELS  # noqa: E402
 
 TARGETS = {
     "openrouter": ("OPENROUTER_API_KEY", PROVIDER_BASE_URLS["openrouter"], "meta-llama/llama-4-scout"),
-    "grok": ("GROK_API_KEY", PROVIDER_BASE_URLS["grok"], PROVIDER_FALLBACK_MODELS["grok"]),
     "google": ("GOOGLE_API_KEY", PROVIDER_BASE_URLS["google"], PROVIDER_FALLBACK_MODELS["google"]),
 }
 

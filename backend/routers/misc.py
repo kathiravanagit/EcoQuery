@@ -105,7 +105,7 @@ async def health(response: Response):
         "uptime_s": round(time.time() - _PROCESS_STARTED_AT, 1),
         "database_connected": bool(ledger.available and auth_db.available),
         "carbon_source_reachable": False,
-        "provider_configured": any(os.getenv(key) for key in ("OPENROUTER_API_KEY", "GROK_API_KEY", "GOOGLE_API_KEY")),
+        "provider_configured": any(os.getenv(key) for key in ("OPENROUTER_API_KEY", "GOOGLE_API_KEY")),
         "ledger_connected": ledger.available,
         "auth_db_connected": auth_db.available,
     }
