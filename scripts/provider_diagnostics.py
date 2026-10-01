@@ -33,9 +33,17 @@ async def check(provider: str, env_name: str, base_url: str, model: str) -> dict
         response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": "Reply with OK."}],
-            max_tokens=5,
+            # Not 5: a reasoning model can spend a tiny budget on its own
+            # thinking and return choices with no text, which would otherwise
+            # be reported as a healthy provider.
+            max_tokens=64,
         )
-        result.update({"status": "ok" if response.choices else "no_completion", "failure_reason": None})
+        if not response.choices:
+            result.update({"status": "no_completion", "failure_reason": None})
+        elif not (response.choices[0].message.content or "").strip():
+            result.update({"status": "empty_response", "failure_reason": None})
+        else:
+            result.update({"status": "ok", "failure_reason": None})
     except Exception as exc:  # diagnostic output must never include the credential
         # Include the HTTP status where available: a 404 means the model id is
         # wrong (a code bug), while 429/503 mean the key or quota is the problem.

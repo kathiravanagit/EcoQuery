@@ -138,23 +138,35 @@ class ProviderRouter:
                 try:
                     started_at = time.perf_counter()
                     result = await self._call_provider(api_key, base_url, target_model, messages, max_tokens)
-                    if result.get("content"):
-                        attempts.append({"provider": provider, "model": target_model, "status": "success", "latency_seconds": round(time.perf_counter() - started_at, 3)})
+                    latency = round(time.perf_counter() - started_at, 3)
+                    if not (result.get("content") or "").strip():
+                        # The provider answered, but with no text: a safety block,
+                        # or a `max_tokens` budget a reasoning model spends before
+                        # it emits a token (gemini-flash-latest returns content=None
+                        # at max_tokens=16). Falling through unrecorded left the
+                        # request dying with "all providers failed" while
+                        # `provider_attempts` showed this provider as never tried.
+                        attempts.append({"provider": provider, "model": target_model, "status": "empty_response", "latency_seconds": latency, "failure_reason": "EmptyContent"})
                         if not is_byok:
-                            key_manager.log_usage(key_id, provider, target_model, result.get("usage", {}).get("completion_tokens", 0), "success")
-                        logger.info(f"Successfully generated with {provider} using model {target_model}")
-                        result["provider_lineage"] = {
-                            "requested_provider": "openrouter",
-                            "requested_model": model_id,
-                            "attempted_providers": attempts,
-                            "final_provider": provider,
-                            "final_model": target_model,
-                            "fallback_reason": "provider fallback" if len(attempts) > 1 else None,
-                            "success": True,
-                            # Which credential served the call — never the key.
-                            "byok_used": is_byok,
-                        }
-                        return result
+                            key_manager.log_usage(key_id, provider, target_model, 0, "empty response")
+                        logger.warning(f"{provider} returned no text for {target_model}; trying the next provider")
+                        continue
+                    attempts.append({"provider": provider, "model": target_model, "status": "success", "latency_seconds": latency})
+                    if not is_byok:
+                        key_manager.log_usage(key_id, provider, target_model, result.get("usage", {}).get("completion_tokens", 0), "success")
+                    logger.info(f"Successfully generated with {provider} using model {target_model}")
+                    result["provider_lineage"] = {
+                        "requested_provider": "openrouter",
+                        "requested_model": model_id,
+                        "attempted_providers": attempts,
+                        "final_provider": provider,
+                        "final_model": target_model,
+                        "fallback_reason": "provider fallback" if len(attempts) > 1 else None,
+                        "success": True,
+                        # Which credential served the call — never the key.
+                        "byok_used": is_byok,
+                    }
+                    return result
                 except Exception as e:
                     last_error = e
                     attempts.append({"provider": provider, "model": target_model, "status": "failed", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": type(e).__name__})
@@ -295,6 +307,14 @@ class ProviderRouter:
                             "byok_used": is_byok,
                         }}
                         return
+
+                    # A stream that opened cleanly but produced no tokens has to
+                    # be recorded like any other failure, otherwise the caller is
+                    # told every provider failed while this one shows as skipped.
+                    attempts.append({"provider": provider, "model": target_model, "status": "empty_response", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": "EmptyContent"})
+                    if not is_byok:
+                        key_manager.log_usage(key_id, provider, target_model, 0, "empty response")
+                    logger.warning(f"Streaming from {provider} produced no text for {target_model}; trying the next provider")
                         
                 except Exception as e:
                     last_error = e
