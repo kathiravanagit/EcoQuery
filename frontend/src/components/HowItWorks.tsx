@@ -22,8 +22,8 @@ const steps = [
   },
   { 
     id: 4, title: 'Green Route Control', icon: GitBranch,
-    desc: 'Routes to the most eco-friendly suitable model.',
-    detail: 'Always carbon-first. Picks greenest provider based on real-time data.',
+    desc: 'Routes to the suitable model with the best carbon and latency trade-off.',
+    detail: 'Scores carbon, latency, cost and capability together - grid intensity decides the close calls.',
   },
   { 
     id: 5, title: 'Model Integrity Proof', icon: ShieldCheck,

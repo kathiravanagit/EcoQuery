@@ -84,7 +84,7 @@ KNOWLEDGE_ANSWERS = {
     # General / Simple
     "hello": "Hello! I am EcoQuery, your carbon-aware AI assistant. How can I help you sustainably today?",
     "hi": "Hi there! I am ready to answer your questions while minimizing computing emissions. What would you like to explore?",
-    "greetings": "Greetings! EcoQuery is active and routing queries with carbon-first efficiency. How can I assist you?",
+    "greetings": "Greetings! EcoQuery is active and routing queries with carbon-aware efficiency. How can I assist you?",
     "how are you": "I am operating optimally and routing queries with minimal carbon emissions. How can I help you today?",
     "what is your name": "My name is EcoQuery, an intelligent carbon-aware query routing and knowledge system.",
     "what color is the sky": "The sky appears blue during daylight because molecules in Earth's atmosphere scatter shorter blue wavelengths of sunlight more than other colors (Rayleigh scattering).",

@@ -250,7 +250,7 @@ EcoQuery reports **estimated** CO2e, not directly metered electricity use. It es
 Estimated CO2e = Estimated inference energy (kWh) x Grid carbon intensity (gCO2e/kWh)
 ```
 
-The repository's `backend/benchmark.py` compares carbon-first routing with always-largest and always-smallest baselines across 30 fixed prompts. Its results are a reproducible routing simulation; production claims should use matched provider experiments with measured latency, success rate, data-source provenance, and uncertainty. Full methodology and limitations are documented in [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
+The repository's `backend/benchmark.py` compares carbon-aware routing with always-largest and always-smallest baselines across 30 fixed prompts. Its results are a reproducible routing simulation; production claims should use matched provider experiments with measured latency, success rate, data-source provenance, and uncertainty. Full methodology and limitations are documented in [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
 
 ### Removed Features (Intentional)
 
@@ -262,7 +262,7 @@ The repository's `backend/benchmark.py` compares carbon-first routing with alway
 | Carbon executor (`carbon_executor.py`) | Functionality merged into `green_provider.py`. Separate module was unnecessary abstraction. |
 | TokenReply provider | Returned 524 Cloudflare timeouts consistently. Unreliable for production use. |
 | PDF/document upload | Free OpenRouter models don't support PDF input. Only image uploads supported via vision models. |
-| Eco/Performance mode toggle | All queries now route carbon-first (eco-only). Performance mode was confusing and undermined the core value proposition. |
+| Eco/Performance mode toggle | The web UI no longer exposes a mode switch: requests use the API's default `balanced` mode, which weighs carbon against latency rather than forcing an eco-only route. Performance mode was confusing and undermined the core value proposition. |
 
 ### Pinned Dependencies
 
