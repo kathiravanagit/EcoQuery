@@ -1,5 +1,6 @@
 import React from 'react';
 import { Zap } from 'lucide-react';
+import Co2Estimate from '../Co2Estimate';
 
 interface RealtimeEvent {
   query: string;
@@ -14,9 +15,11 @@ interface RealtimeEvent {
 
 interface Props {
   events: RealtimeEvent[];
+  /** Relative band (percent) from /api/stats, applied to each event's figure. */
+  uncertaintyPct?: number;
 }
 
-const DashboardRealtime = React.memo(({ events }: Props) => {
+const DashboardRealtime = React.memo(({ events, uncertaintyPct }: Props) => {
   return (
     <div className="dashboard-section">
       <h2><Zap size={20} /> Real-time Query Events</h2>
@@ -27,8 +30,12 @@ const DashboardRealtime = React.memo(({ events }: Props) => {
           {events.map((e, i) => (
             <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
               <span style={{ color: 'var(--text-secondary)' }}>{e.time}</span>
-              <span className="meta-tag">{e.co2_g}g CO₂ used</span>
-              <span className="meta-tag savings">+{e.co2_saved_g}g CO₂</span>
+              <span className="meta-tag">
+                <Co2Estimate value={e.co2_g} band={{ relative: (uncertaintyPct ?? 0) / 100 }} /> CO₂ used
+              </span>
+              <span className="meta-tag savings">
+                +<Co2Estimate value={e.co2_saved_g} band={{ relative: (uncertaintyPct ?? 0) / 100 }} /> CO₂
+              </span>
               <span className="meta-tag">{e.model}</span>
               <span className="meta-tag">{e.tier}</span>
             </div>

@@ -310,6 +310,7 @@ def _build_metadata(
         "calibration_source": None if not llm_used else savings.get("calibration_source"),
         "uncertainty_range_g": {"min": 0, "max": 0} if not llm_used else savings.get("uncertainty_range_g", {"min": 0, "max": 0}),
         "uncertainty_components": {} if not llm_used else savings.get("uncertainty_components", {}),
+        "uncertainty_relative": 0.0 if not llm_used else savings.get("uncertainty_relative", 0.0),
         "energy_source": "zero-emission" if not llm_used else region_info.get("energy_source", "Unknown"),
         "carbon_formula": "energy_kwh × grid_intensity_g_per_kwh",
         "carbon_assumptions": [

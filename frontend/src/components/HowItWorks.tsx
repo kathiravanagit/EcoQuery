@@ -58,6 +58,7 @@ interface LiveRegion {
 }
 
 import { EASE_FN } from '../constants';
+import { feedStatus, CarbonFeedMeta } from '../feedStatus';
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -68,7 +69,8 @@ const fadeUp = {
 
 const HowItWorks = () => {
   const [regions, setRegions] = useState(() => fallbackRegions);
-  const [live, setLive] = useState(false);
+  const [meta, setMeta] = useState<CarbonFeedMeta | null>(null);
+  const [fetchFailed, setFetchFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,12 +85,18 @@ const HowItWorks = () => {
           .map(r => ({ name: r.name, intensity: r.intensity, source: r.source ?? 'Grid' }));
         if (rows.length) {
           setRegions(rows);
-          setLive(true);
+          setMeta(data as CarbonFeedMeta);
         }
       })
-      .catch(() => { /* keep fallback values and the static-data label */ });
+      .catch(() => { if (!cancelled) setFetchFailed(true); });
     return () => { cancelled = true; };
   }, []);
+
+  // If the request itself failed we still have the bundled last-known values,
+  // so say that plainly instead of implying the numbers are current.
+  const status = fetchFailed
+    ? { label: 'Cached', description: 'Live feed unavailable — showing last known values.', isLive: false, isCached: true }
+    : feedStatus(meta);
 
   const maxIntensity = Math.max(...regions.map(r => r.intensity), 1);
   return (
@@ -171,11 +179,20 @@ const HowItWorks = () => {
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
             padding: '1.5rem', maxWidth: 600, margin: '0 auto',
           }}>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center' }}>
-              {live
-                ? 'Live grid carbon intensity (g CO₂/kWh) across regions. Lower is greener.'
-                : 'Latest cached grid carbon intensity (g CO₂/kWh) — live feed unavailable.'}
-            </p>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: '8px', marginBottom: '1rem', flexWrap: 'wrap',
+            }}>
+              <span
+                className={`feed-badge ${status.isLive ? 'feed-badge-live' : status.isCached ? 'feed-badge-cached' : 'feed-badge-static'}`}
+                title={status.description}
+              >
+                {status.label}
+              </span>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, textAlign: 'center' }}>
+                Grid carbon intensity (g CO₂/kWh) across regions. Lower is greener.
+              </p>
+            </div>
             {regions.map((r, i) => (
               <motion.div key={r.name} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }} transition={{ delay: i * 0.08 }}

@@ -30,13 +30,17 @@
   gap: 2rem;
 }
 
-.stats-loading {
-  min-height: 5rem;
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
+/* Shown when /api/stats fails: the design targets below are a deliberate
+   fallback, so label them rather than letting them read as live metrics. */
+.stats-unavailable {
+  margin-top: 1rem;
+  text-align: center;
   font-family: var(--font-mono);
-  font-size: var(--type-sm);
+  font-size: var(--type-sm, 0.8rem);
+  color: var(--color-warning, #facc15);
+  padding: 0.6rem 1rem;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
 }
 
 .stat-item {

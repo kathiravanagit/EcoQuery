@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Building2, Users, Key, Plus, Copy, Check, AlertCircle, LogOut, UserPlus } from 'lucide-react';
 import { API_URL as API } from '../config';
+import { apiFailure, describeApiError } from '../apiError';
+import { Skeleton } from '../components/Skeleton';
 import './Pages.css';
 
 interface Org {
@@ -39,17 +41,16 @@ const Teams = () => {
         logout();
         return;
       }
-      const body = await r.text();
       if (!r.ok) {
-        let detail = `Server error (${r.status})`;
-        try { detail = JSON.parse(body).detail || detail; } catch {}
-        toast("error", detail);
+        // apiFailure reads the body, so it replaces the manual
+        // `JSON.parse(body).detail` dance that used to live here.
+        toast("error", (await apiFailure(r, `Server error (${r.status})`)).message);
         return;
       }
-      const d = JSON.parse(body);
+      const d = await r.json();
       setOrgs(d.orgs || []);
     } catch (e) {
-      toast("error", e instanceof Error ? e.message : 'Failed to fetch organizations');
+      toast("error", describeApiError(e, 'Failed to fetch organizations'));
     }
     finally { setLoading(false); }
   };
@@ -65,12 +66,9 @@ const Teams = () => {
         const d = await r.json();
         setNewOrgName(''); setShowCreate(false); await fetchOrgs(); setMessage({ type: 'success', text: `"${d.org.name}" created!` });
       } else {
-        const errText = await r.text();
-        let detail = `Server error (${r.status})`;
-        try { detail = JSON.parse(errText).detail || detail; } catch {}
-        setMessage({ type: 'error', text: detail });
+        setMessage({ type: 'error', text: (await apiFailure(r, `Server error (${r.status})`)).message });
       }
-    } catch (e) { setMessage({ type: 'error', text: e instanceof Error ? e.message : 'Failed to connect to server' }); }
+    } catch (e) { setMessage({ type: 'error', text: describeApiError(e, 'Failed to connect to server') }); }
     finally { setCreating(false); }
   };
 
@@ -80,9 +78,13 @@ const Teams = () => {
     setOrgKeys([]);
     try {
       const r = await fetch(`${API}/api/orgs/${org.id}`, { headers });
-      const d = await r.json();
-      if (d.org) setSelectedOrg(d.org);
-    } catch (e) { toast("error", 'Failed to load organization details'); }
+      if (r.ok) {
+        const d = await r.json();
+        if (d.org) setSelectedOrg(d.org);
+      } else {
+        toast("error", (await apiFailure(r, 'Failed to load organization details')).message);
+      }
+    } catch (e) { toast("error", describeApiError(e, 'Failed to load organization details')); }
     setMessage({ type: '', text: '' });
   };
 
@@ -90,10 +92,12 @@ const Teams = () => {
     if (!inviteEmail.trim() || !selectedOrg) return;
     try {
       const r = await fetch(`${API}/api/orgs/${selectedOrg.id}/invite`, { method: 'POST', headers, body: JSON.stringify({ email: inviteEmail }) });
-      const d = await r.json();
-      if (r.ok) { setInviteEmail(''); setMessage({ type: 'success', text: d.message }); }
-      else setMessage({ type: 'error', text: d.detail || 'Failed' });
-    } catch (e) { setMessage({ type: 'error', text: 'Failed to connect to server' }); }
+      if (r.ok) {
+        const d = await r.json();
+        setInviteEmail(''); setMessage({ type: 'success', text: d.message });
+      }
+      else setMessage({ type: 'error', text: (await apiFailure(r, 'Failed to invite member')).message });
+    } catch (e) { setMessage({ type: 'error', text: describeApiError(e, 'Failed to connect to server') }); }
   };
 
   const removeMember = async (email: string) => {
@@ -101,16 +105,22 @@ const Teams = () => {
     try {
       const r = await fetch(`${API}/api/orgs/${selectedOrg.id}/members/${email}`, { method: 'DELETE', headers });
       if (r.ok) { setSelectedOrg({ ...selectedOrg, members: (selectedOrg.members || []).filter((m: string) => m !== email) } as Org); }
-    } catch (e) { toast("error", 'Failed to remove member'); }
+      // Previously a failed removal looked like a successful one because the
+      // response was never inspected.
+      else toast("error", (await apiFailure(r, 'Failed to remove member')).message);
+    } catch (e) { toast("error", describeApiError(e, 'Failed to remove member')); }
   };
 
   const genOrgKey = async () => {
     if (!selectedOrg) return;
     try {
       const r = await fetch(`${API}/api/orgs/${selectedOrg.id}/api-key`, { method: 'POST', headers });
-      const d = await r.json();
-      if (r.ok) { setOrgKeys([...orgKeys, d.api_key]); setCopied(d.api_key); setTimeout(() => setCopied(''), 2000); }
-    } catch (e) { toast("error", 'Failed to generate API key'); }
+      if (r.ok) {
+        const d = await r.json();
+        setOrgKeys([...orgKeys, d.api_key]); setCopied(d.api_key); setTimeout(() => setCopied(''), 2000);
+      }
+      else toast("error", (await apiFailure(r, 'Failed to generate API key')).message);
+    } catch (e) { toast("error", describeApiError(e, 'Failed to generate API key')); }
   };
 
   const copyToClipboard = async (text: string) => {
@@ -121,7 +131,20 @@ const Teams = () => {
     } catch { toast("error", 'Failed to copy to clipboard'); }
   };
 
-  if (loading) return <div className="page"><section className="section"><div className="container" style={{ textAlign: 'center', padding: '4rem 0' }}>Loading...</div></section></div>;
+  if (loading) return (
+    <div className="page">
+      <section className="section">
+        <div className="container" style={{ maxWidth: 800 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '2rem 0' }}>
+            <Skeleton height={32} width="50%" />
+            <Skeleton height={14} width="70%" />
+            {[0, 1, 2].map(i => <Skeleton key={i} height={96} />)}
+          </div>
+          <span className="sr-only" role="status">Loading organizations…</span>
+        </div>
+      </section>
+    </div>
+  );
 
   return (
     <div className="page">

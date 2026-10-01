@@ -21,6 +21,23 @@ ELECTRICITY_MAPS_API = "https://api.electricitymap.org/v3"
 CARBON_CACHE_KEY = "ecoquery:carbon:regions"
 CACHE_TTL = 600
 
+# Last value that was actually observed from the live feed. Kept much longer
+# than the hot cache so an Electricity Maps outage degrades to "Cached · 12 min
+# ago" instead of silently swapping annual baselines in behind a "real-time" label.
+CARBON_LAST_GOOD_KEY = "ecoquery:carbon:last_good"
+LAST_GOOD_TTL = 7 * 24 * 3600
+
+# Short-lived cache for degraded responses. The hot cache is deliberately never
+# refreshed with stale data (that would make it look fresh), so without this an
+# outage would re-run the 3s fan-out on every single request. One minute is short
+# enough to recover quickly once the feed returns.
+CARBON_DEGRADED_KEY = "ecoquery:carbon:degraded"
+DEGRADED_TTL = 60
+
+# Hard ceiling on any Electricity Maps call. The routing path must never stall
+# waiting on a third-party feed: timeout → fall through to cache/static data.
+ELECTRICITY_MAPS_TIMEOUT = 3.0
+
 REGIONS = {
     "eu-west-1": {"name": "Ireland", "zone": "IE", "country": "Ireland"},
     "eu-west-2": {"name": "London", "zone": "GB", "country": "United Kingdom"},
@@ -112,81 +129,207 @@ ENERGY_SOURCE_PROFILES = {
 
 
 async def _fetch_electricity_maps(zone: str, api_key: str) -> Optional[float]:
+    """Fetch one zone from Electricity Maps under a hard 3-second ceiling.
+
+    ``httpx.Timeout`` only bounds each phase (connect, read, ...) individually,
+    so a slow DNS hop plus a slow response can still exceed the budget. The
+    ``asyncio.wait_for`` wrapper is what actually enforces the deadline; when it
+    fires we return None and the caller falls back to cache or static data.
+    """
     import httpx
     url = f"{ELECTRICITY_MAPS_API}/carbon-intensity/latest?zone={zone}"
     headers = {"auth-token": api_key}
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(url, headers=headers)
+
+    async def _request() -> dict:
+        async with httpx.AsyncClient(timeout=ELECTRICITY_MAPS_TIMEOUT) as client:
+            resp = await client.get(
+                url, headers=headers, timeout=httpx.Timeout(ELECTRICITY_MAPS_TIMEOUT)
+            )
             resp.raise_for_status()
-            data = resp.json()
-            return data.get("carbonIntensity")
+            return resp.json()
+
+    try:
+        data = await asyncio.wait_for(_request(), timeout=ELECTRICITY_MAPS_TIMEOUT)
+        intensity = data.get("carbonIntensity")
+        return float(intensity) if intensity is not None else None
+    except asyncio.TimeoutError:
+        logger.warning(
+            f"Electricity Maps timed out after {ELECTRICITY_MAPS_TIMEOUT}s for {zone}"
+        )
+        return None
     except Exception as e:
         logger.warning(f"Electricity Maps API error for {zone}: {e}")
         return None
 
 
-async def _fetch_multi_source(region_code: str, zone: str, api_key: str) -> Optional[float]:
-    """Try Electricity Maps first, fall back to static IEA baselines."""
+async def _fetch_multi_source(region_code: str, zone: str, api_key: str) -> tuple:
+    """Try Electricity Maps first, fall back to static IEA baselines.
+
+    Returns ``(intensity, source)`` so callers can tell a genuinely live value
+    apart from a static annual average — the caller must not infer liveness from
+    whether an API key merely exists.
+    """
     if api_key:
         intensity = await _fetch_electricity_maps(zone, api_key)
         if intensity is not None:
-            return intensity
+            return intensity, "electricity-maps-api"
 
     static = STATIC_REGIONAL_INTENSITY.get(region_code)
     if static is not None:
-        return static
+        return static, "iea-static-baselines"
 
+    return None, "unavailable"
+
+
+def _last_good_snapshot() -> Optional[dict]:
+    """Most recent value observed from the live feed, or None if we never saw one."""
+    stale = cache_get(CARBON_LAST_GOOD_KEY)
+    if isinstance(stale, dict) and stale.get("all_regions"):
+        return stale
     return None
 
 
+def _degraded_payload(fetched_at: str, api_key: str) -> dict:
+    """Build the response used when no intensity value could be produced.
+
+    Preference order: last observed live value → mock. Never returns a bare
+    empty object, so the frontend always has something to render and label.
+    """
+    stale = _last_good_snapshot()
+    if stale is not None:
+        payload = dict(stale)
+        payload.update({
+            "stale": True,
+            "is_live": False,
+            "method": "stale-cache",
+            "stale_reason": "live_feed_unavailable",
+            "data_source": stale.get("data_source", "Electricity Maps"),
+        })
+        logger.warning(
+            "Carbon intensity feed unavailable — serving last cached value from %s",
+            payload.get("last_updated") or "unknown",
+        )
+        cache_set(CARBON_DEGRADED_KEY, payload, DEGRADED_TTL)
+        return payload
+    payload = _mock_region()
+    payload["last_updated"] = None
+    if api_key:
+        payload["stale_reason"] = "live_feed_unavailable"
+    return payload
+
+
 async def get_carbon_optimal_region() -> dict:
+    """Return regional carbon intensity with provenance and staleness metadata.
+
+    Response fields added for consumers:
+      last_updated — ISO timestamp of the source data (None for annual baselines)
+      is_live      — True only when at least one zone answered Electricity Maps
+      stale        — True when we are replaying a cached value after a live failure
+    """
     cached = cache_get(CARBON_CACHE_KEY)
-    if cached:
+    if cached and not cached.get("stale"):
         return cached
 
+    degraded = cache_get(CARBON_DEGRADED_KEY)
+    if isinstance(degraded, dict) and degraded.get("stale"):
+        return degraded
+
     api_key = os.getenv("ELECTRICITY_MAPS_API_KEY", "")
+    fetched_at = datetime.now(timezone.utc).isoformat()
 
     tasks = [
         _fetch_multi_source(code, info["zone"], api_key)
         for code, info in REGIONS.items()
     ]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    fanout = asyncio.gather(*tasks, return_exceptions=True)
+    done, _pending = await asyncio.wait({fanout}, timeout=ELECTRICITY_MAPS_TIMEOUT)
+    if done:
+        results = fanout.result()
+    else:
+        # Bound the whole fan-out, not just each call: under a slow or throttled
+        # network the 13 parallel requests still add up. Cancel without awaiting
+        # so connection teardown happens off the response path — waiting for it
+        # would push the endpoint past its deadline. Static baselines are local,
+        # so the fallback costs nothing.
+        fanout.cancel()
+        logger.warning(
+            f"Carbon intensity fan-out exceeded {ELECTRICITY_MAPS_TIMEOUT}s — using static baselines"
+        )
+        results = [
+            (STATIC_REGIONAL_INTENSITY.get(code), "iea-static-baselines")
+            for code in REGIONS
+        ]
 
     regions_with_intensity = []
-    for (region_code, info), intensity in zip(REGIONS.items(), results):
+    live_zones = 0
+    for (region_code, info), outcome in zip(REGIONS.items(), results):
+        if isinstance(outcome, BaseException) or not isinstance(outcome, tuple):
+            logger.warning(f"Carbon lookup failed for {region_code}: {outcome}")
+            continue
+        intensity, source = outcome
+        if source == "electricity-maps-api":
+            live_zones += 1
         if isinstance(intensity, (int, float)):
             regions_with_intensity.append((region_code, info, float(intensity)))
 
-    if regions_with_intensity:
-        regions_with_intensity.sort(key=lambda x: x[2])
-        best_code, best_info, best_intensity = regions_with_intensity[0]
-        result = {
-            "region": best_code,
-            "energy_source": _estimate_source(best_intensity),
-            "energy_profile": ENERGY_SOURCE_PROFILES.get(best_code, {}),
-            "carbon_intensity_g_kwh": best_intensity,
-            "estimated_savings_g_co2": _estimate_savings(best_intensity),
-            "method": "electricity-maps-api" if api_key else "iea-static-baselines",
-            "data_source": "Electricity Maps" if api_key else "IEA 2024",
-            "grid_timestamp": datetime.now(timezone.utc).isoformat() if api_key else None,
-            "estimated_data": True,
-            "all_regions": {
-                code: {
-                    "intensity": intens,
-                    "name": REGIONS[code]["name"],
-                    "country": REGIONS[code].get("country", ""),
-                    "source": _estimate_source(intens),
-                    "energy_profile": ENERGY_SOURCE_PROFILES.get(code, {}),
-                }
-                for code, _, intens in regions_with_intensity
-            },
-            "total_regions_covered": len(regions_with_intensity),
-        }
-    else:
-        result = _mock_region()
+    if not regions_with_intensity:
+        return _degraded_payload(fetched_at, api_key)
+
+    # A configured key that answered for zero zones means the feed is down, not
+    # that baselines were requested. Replay the last observed value rather than
+    # reporting stale annual data as live.
+    if api_key and live_zones == 0:
+        stale = _last_good_snapshot()
+        if stale is not None:
+            payload = dict(stale)
+            payload.update({
+                "stale": True,
+                "is_live": False,
+                "method": "stale-cache",
+                "stale_reason": "live_feed_unavailable",
+            })
+            logger.warning(
+                "Electricity Maps returned no zones — serving cached value from %s",
+                payload.get("last_updated") or "unknown",
+            )
+            cache_set(CARBON_DEGRADED_KEY, payload, DEGRADED_TTL)
+            return payload
+
+    regions_with_intensity.sort(key=lambda x: x[2])
+    best_code, best_info, best_intensity = regions_with_intensity[0]
+    is_live = live_zones > 0
+    method = "electricity-maps-api" if is_live else "iea-static-baselines"
+    result = {
+        "region": best_code,
+        "energy_source": _estimate_source(best_intensity),
+        "energy_profile": ENERGY_SOURCE_PROFILES.get(best_code, {}),
+        "carbon_intensity_g_kwh": best_intensity,
+        "estimated_savings_g_co2": _estimate_savings(best_intensity),
+        "method": method,
+        "data_source": "Electricity Maps" if is_live else "IEA 2024",
+        "grid_timestamp": fetched_at if is_live else None,
+        "last_updated": fetched_at if is_live else None,
+        "is_live": is_live,
+        "stale": False,
+        "live_zones": live_zones,
+        "estimated_data": True,
+        "all_regions": {
+            code: {
+                "intensity": intens,
+                "name": REGIONS[code]["name"],
+                "country": REGIONS[code].get("country", ""),
+                "source": _estimate_source(intens),
+                "energy_profile": ENERGY_SOURCE_PROFILES.get(code, {}),
+            }
+            for code, _, intens in regions_with_intensity
+        },
+        "total_regions_covered": len(regions_with_intensity),
+    }
 
     cache_set(CARBON_CACHE_KEY, result, CACHE_TTL)
+    if is_live:
+        # Only genuine live reads are worth replaying after an outage.
+        cache_set(CARBON_LAST_GOOD_KEY, result, LAST_GOOD_TTL)
     return result
 
 
@@ -217,6 +360,10 @@ def _mock_region() -> dict:
         "method": "mock-fallback",
         "data_source": "Mock",
         "grid_timestamp": None,
+        "last_updated": None,
+        "is_live": False,
+        "stale": True,
+        "stale_reason": "no_carbon_data_available",
         "estimated_data": True,
         "all_regions": {},
         "total_regions_covered": 0,

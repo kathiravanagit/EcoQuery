@@ -10,8 +10,14 @@ const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode;
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-          <div className="spinner" style={{ width: 32, height: 32, border: '3px solid var(--border-color)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Loading...</p>
+          <div
+            className="spinner"
+            style={{ width: 32, height: 32, border: '3px solid var(--border-color)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}
+            aria-hidden="true"
+          />
+          <p role="status" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            Restoring your session…
+          </p>
         </div>
       </div>
     );

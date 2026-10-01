@@ -9,6 +9,8 @@ import json
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from calibration import aggregate_uncertainty_pct
+
 logger = logging.getLogger("EcoQuery.ledger")
 
 
@@ -155,9 +157,10 @@ class VerificationLedger:
                     "avg_latency_s": round(result[0].get("avg_latency", 0), 3),
                     "flagged_queries": result[0].get("flagged_count", 0),
                     "green_query_pct": green_pct,
+                    "co2_uncertainty_pct": aggregate_uncertainty_pct(),
                 }
-            return {"total_queries": total, "total_co2_saved_g": 0, "total_co2_emitted_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0}
-        return {"total_queries": 0, "total_co2_saved_g": 0, "total_co2_emitted_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0}
+            return {"total_queries": total, "total_co2_saved_g": 0, "total_co2_emitted_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0, "co2_uncertainty_pct": aggregate_uncertainty_pct()}
+        return {"total_queries": 0, "total_co2_saved_g": 0, "total_co2_emitted_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0, "co2_uncertainty_pct": aggregate_uncertainty_pct()}
 
     async def get_analytics(self, user_email: str = "", days: int = 30) -> dict:
         if not self.available or self.collection is None:

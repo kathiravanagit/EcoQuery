@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import { API_URL as API } from '../config';
+import { Skeleton } from './Skeleton';
 import './ImpactStats.css';
 
 interface StatCounterProps {
@@ -60,13 +61,16 @@ interface ImpactStatsData {
 const ImpactStats = () => {
   const [stats, setStats] = useState<ImpactStatsData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [statsFailed, setStatsFailed] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     fetch(`${API}/api/stats`)
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then(d => setStats(d))
-      .catch(() => {})
-      .finally(() => setStatsLoading(false));
+      .then(d => { if (!cancelled) setStats(d); })
+      .catch(() => { if (!cancelled) setStatsFailed(true); })
+      .finally(() => { if (!cancelled) setStatsLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const totalQueries = stats?.total_queries || 0;
@@ -88,7 +92,15 @@ const ImpactStats = () => {
           </div>
           
           {statsLoading ? (
-            <div className="stats-loading" role="status">Loading live impact data...</div>
+            <div className="stats-grid" role="status">
+              <span className="sr-only">Loading live impact data...</span>
+              {[0, 1, 2].map(i => (
+                <div className="stat-item" key={i} aria-hidden="true">
+                  <Skeleton height={36} width="65%" />
+                  <Skeleton height={14} width="85%" style={{ marginTop: 10 }} />
+                </div>
+              ))}
+            </div>
           ) : <div className="stats-grid">
             {hasData ? (
               <>
@@ -104,6 +116,12 @@ const ImpactStats = () => {
               </>
             )}
           </div>}
+
+          {statsFailed && (
+            <div className="stats-unavailable" role="status">
+              Live metrics unavailable — showing design targets.
+            </div>
+          )}
 
           {totalQueries > 0 && (
             <div className="stats-live-note">

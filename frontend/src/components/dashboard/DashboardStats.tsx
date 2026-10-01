@@ -1,10 +1,13 @@
 import React from 'react';
 import { BarChart3, Leaf, DollarSign, Server, Clock, Shield } from 'lucide-react';
+import Co2Estimate from '../Co2Estimate';
 
 interface Stats {
   total_queries?: number;
   total_co2_saved_g?: number;
   total_co2_emitted_g?: number;
+  /** Relative band (percent) applied to the aggregates above. */
+  co2_uncertainty_pct?: number;
   total_api_cost?: number;
   latest_queries?: Record<string, unknown>[];
   green_query_percent?: number;
@@ -37,12 +40,22 @@ const DashboardStats = React.memo(({ stats, cert }: Props) => {
       </div>
       <div className="dashboard-card">
         <Leaf size={24} style={{ color: 'var(--accent)' }} />
-        <div className="dashboard-card-value">{stats?.total_co2_saved_g || 0}g</div>
+        <div className="dashboard-card-value">
+          <Co2Estimate
+            value={stats?.total_co2_saved_g || 0}
+            band={{ relative: ((stats?.co2_uncertainty_pct ?? 0) / 100) }}
+          />
+        </div>
         <div className="dashboard-card-label">Estimated CO₂e Avoided</div>
       </div>
       <div className="dashboard-card">
         <Leaf size={24} style={{ color: 'var(--color-warning)' }} />
-        <div className="dashboard-card-value">{stats?.total_co2_emitted_g || 0}g</div>
+        <div className="dashboard-card-value">
+          <Co2Estimate
+            value={stats?.total_co2_emitted_g || 0}
+            band={{ relative: ((stats?.co2_uncertainty_pct ?? 0) / 100) }}
+          />
+        </div>
         <div className="dashboard-card-label">Actual CO₂e Emitted</div>
       </div>
       <div className="dashboard-card">

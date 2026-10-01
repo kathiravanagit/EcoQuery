@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Copy, Check, RotateCcw, Trash2, Loader2, BarChart3, Leaf, DollarSign } from 'lucide-react';
+import { apiFailure, describeApiError } from '../apiError';
+import Co2Estimate from './Co2Estimate';
 import './ApiKeyManager.css';
 
 interface ApiKeyStats {
@@ -11,9 +13,11 @@ interface ApiKeyStats {
 interface Props {
   token: string | null;
   API: string;
+  /** Relative band (percent) from /api/stats, applied to the CO₂ figure. */
+  uncertaintyPct?: number;
 }
 
-const ApiKeyManager: React.FC<Props> = ({ token, API }) => {
+const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
   const [apiKey, setApiKey] = useState('');
   const [copied, setCopied] = useState('');
   const [loading, setLoading] = useState(true);
@@ -31,13 +35,13 @@ const ApiKeyManager: React.FC<Props> = ({ token, API }) => {
       setLoading(true);
       setError('');
       const r = await fetch(`${API}/api/user/api-key`, { headers });
-      if (!r.ok) throw new Error();
+      if (!r.ok) throw await apiFailure(r, 'Failed to load API key');
       const d = await r.json();
       const key = d.api_key || '';
       setApiKey(key);
       if (key) fetchStats();
-    } catch {
-      setError('Failed to load API key');
+    } catch (e) {
+      setError(describeApiError(e, 'Failed to load API key'));
     } finally {
       setLoading(false);
     }
@@ -63,12 +67,13 @@ const ApiKeyManager: React.FC<Props> = ({ token, API }) => {
       setGenerating(true);
       setError('');
       const r = await fetch(`${API}/api/user/api-key`, { method: 'POST', headers });
+      if (!r.ok) throw await apiFailure(r, 'Failed to generate API key');
       const d = await r.json();
       setApiKey(d.api_key);
       setShowRevokeConfirm(false);
       fetchStats();
-    } catch {
-      setError('Failed to generate API key');
+    } catch (e) {
+      setError(describeApiError(e, 'Failed to generate API key'));
     } finally {
       setGenerating(false);
     }
@@ -83,9 +88,12 @@ const ApiKeyManager: React.FC<Props> = ({ token, API }) => {
         setApiKey('');
         setStats(null);
         setShowRevokeConfirm(false);
+      } else {
+        // Without this the modal stayed open with no explanation.
+        setError((await apiFailure(r, 'Failed to revoke API key')).message);
       }
-    } catch {
-      setError('Failed to revoke API key');
+    } catch (e) {
+      setError(describeApiError(e, 'Failed to revoke API key'));
     } finally {
       setRevoking(false);
     }
@@ -185,8 +193,8 @@ const ApiKeyManager: React.FC<Props> = ({ token, API }) => {
                 <div className="api-key-stat-value"><BarChart3 size={16} style={{ verticalAlign: 'middle', marginRight: 4 }} />{stats.queries || 0}</div>
                 <div className="api-key-stat-label">Queries</div>
               </div>
-              <div className="api-key-stat" aria-label={`CO₂ saved: ${stats.co2_saved_g || 0}g`}>
-                <div className="api-key-stat-value"><Leaf size={16} style={{ verticalAlign: 'middle', marginRight: 4 }} />{stats.co2_saved_g || 0}g</div>
+              <div className="api-key-stat" aria-label={`CO₂ saved: ${stats.co2_saved_g || 0}g, plus or minus ${Math.round(uncertaintyPct || 0)} percent`}>
+                <div className="api-key-stat-value"><Leaf size={16} style={{ verticalAlign: 'middle', marginRight: 4 }} /><Co2Estimate value={stats.co2_saved_g || 0} band={{ relative: (uncertaintyPct ?? 0) / 100 }} /></div>
                 <div className="api-key-stat-label">CO₂ Saved</div>
               </div>
               <div className="api-key-stat" aria-label={`Cost: $${(stats.cost || 0).toFixed(4)}`}>

@@ -4,9 +4,8 @@ Always routes with carbon-first priority.
 """
 
 import logging
-import math
 from carbon import get_carbon_optimal_region
-from calibration import CALIBRATION_VERSION, get_calibration
+from calibration import CALIBRATION_VERSION, combined_relative_uncertainty, get_calibration
 from models import CARBON_MODELS
 
 logger = logging.getLogger("EcoQuery.router")
@@ -109,13 +108,7 @@ def compute_savings(model_carbon_score: int | float, region_intensity: float, pr
     baseline_co2_g = round(baseline_energy_kwh * 475.0, 4)
     saved_vs_baseline_g = max(0.0, round(baseline_co2_g - estimated_co2_g, 4))
     
-    uncertainty_relative = math.sqrt(sum(value ** 2 for value in (
-        calibration.token_relative_uncertainty,
-        calibration.model_relative_uncertainty,
-        calibration.grid_relative_uncertainty,
-        calibration.region_relative_uncertainty,
-        calibration.fallback_relative_uncertainty,
-    )))
+    uncertainty_relative = combined_relative_uncertainty(calibration)
     uncertainty_min = round(max(0.0, estimated_co2_g * (1.0 - uncertainty_relative)), 4)
     uncertainty_max = round(estimated_co2_g * (1.0 + uncertainty_relative), 4)
 
@@ -127,6 +120,9 @@ def compute_savings(model_carbon_score: int | float, region_intensity: float, pr
         "energy_assumption_kwh_per_1000_tokens": round(energy_per_1k_kwh, 6),
         "calibration_version": CALIBRATION_VERSION,
         "calibration_source": calibration.source,
+        # Single relative band for this estimate, so consumers can apply it to
+        # derived figures (e.g. emissions avoided) without re-running the maths.
+        "uncertainty_relative": round(uncertainty_relative, 4),
         "uncertainty_components": {
             "token_estimation": calibration.token_relative_uncertainty,
             "model_energy": calibration.model_relative_uncertainty,

@@ -6,6 +6,7 @@ Sources: Electricity Maps API (real-time) + IEA 2024 baselines (fallback).
 import os
 import logging
 import time
+import asyncio
 import httpx
 from typing import Dict
 
@@ -13,6 +14,9 @@ logger = logging.getLogger("EcoQuery.carbon_collector")
 
 ELECTRICITY_MAPS_API = "https://api.electricitymap.org/v3"
 CACHE_TTL = 300  # 5 minutes
+# Hard ceiling on any live Electricity Maps call — a slow feed must not stall
+# the request; it falls through to cache or IEA baselines instead.
+ELECTRICITY_MAPS_TIMEOUT = 3.0
 
 # IEA 2024 baselines (g CO₂/kWh) — used when API unavailable
 IEA_BASELINES = {
@@ -60,6 +64,9 @@ class CarbonDataCollector:
         self.api_key = os.getenv("ELECTRICITY_MAPS_API_KEY", "")
         self._cache: Dict[str, dict] = {}
         self._cache_time: Dict[str, float] = {}
+        # Retains the last live observation per zone with no TTL, used when the
+        # feed times out so we degrade to a labelled cached value.
+        self._last_good: Dict[str, dict] = {}
 
     async def get_intensity(self, zone: str) -> dict:
         """Get carbon intensity for a zone.
@@ -78,9 +85,17 @@ class CarbonDataCollector:
                 result = await self._fetch_electricity_maps(zone)
                 self._cache[zone] = result
                 self._cache_time[zone] = time.time()
+                if result.get("source") == "electricity_maps":
+                    self._last_good[zone] = result
                 return result
             except Exception as e:
                 logger.warning(f"Electricity Maps failed for {zone}: {e}")
+                # Replay the last value we actually observed before falling back
+                # to a static annual baseline, so callers can tell the difference
+                # between "cached a minute ago" and "an average from 2024".
+                previous = self._last_good.get(zone)
+                if previous is not None:
+                    return {**previous, "stale": True}
 
         # Fallback to IEA baselines
         result = self._get_iea_baseline(zone)
@@ -89,15 +104,24 @@ class CarbonDataCollector:
         return result
 
     async def _fetch_electricity_maps(self, zone: str) -> dict:
-        """Fetch from Electricity Maps API."""
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.get(
-                f"{ELECTRICITY_MAPS_API}/carbon-intensity/latest",
-                params={"zone": zone},
-                headers={"auth-token": self.api_key},
-            )
+        """Fetch from Electricity Maps API under a hard 3-second ceiling.
+
+        ``httpx.Timeout`` bounds each phase separately, so the effective ceiling
+        is enforced with ``asyncio.wait_for`` — a slow feed raises and the caller
+        falls back to the last cached value or an IEA baseline.
+        """
+        async def _request() -> dict:
+            async with httpx.AsyncClient(timeout=ELECTRICITY_MAPS_TIMEOUT) as client:
+                response = await client.get(
+                    f"{ELECTRICITY_MAPS_API}/carbon-intensity/latest",
+                    params={"zone": zone},
+                    headers={"auth-token": self.api_key},
+                    timeout=httpx.Timeout(ELECTRICITY_MAPS_TIMEOUT),
+                )
             response.raise_for_status()
-            data = response.json()
+            return response.json()
+
+        data = await asyncio.wait_for(_request(), timeout=ELECTRICITY_MAPS_TIMEOUT)
 
         return {
             "intensity": data["carbonIntensity"],

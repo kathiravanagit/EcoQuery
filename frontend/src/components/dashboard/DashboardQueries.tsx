@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BarChart3, Search, ArrowRight, Filter } from 'lucide-react';
 import { API_URL as API } from '../../config';
+import { apiFailure, describeApiError } from '../../apiError';
+import Co2Estimate from '../Co2Estimate';
+import { Skeleton } from '../Skeleton';
 
 interface QueryRecord {
   query?: string;
@@ -17,6 +20,8 @@ interface QueryRecord {
 
 interface Props {
   token: string | null;
+  /** Relative band (percent) from /api/stats, applied to each row's figures. */
+  uncertaintyPct?: number;
 }
 
 const SORT_OPTIONS = [
@@ -29,11 +34,12 @@ const SORT_OPTIONS = [
 
 const TIER_OPTIONS = ['simple', 'medium', 'complex', ''];
 
-const DashboardQueries = ({ token }: Props) => {
+const DashboardQueries = ({ token, uncertaintyPct }: Props) => {
   const [queries, setQueries] = useState<QueryRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [skip, setSkip] = useState(0);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState('timestamp');
   const [tier, setTier] = useState('');
   const [model, setModel] = useState('');
@@ -53,7 +59,16 @@ const DashboardQueries = ({ token }: Props) => {
     if (model) params.set('model', model);
     try {
       const r = await fetch(`${API}/api/audit?${params}`, { headers });
+      if (!r.ok) {
+        // Distinguish a failed request from a genuinely empty result — an
+        // error must not render as "No queries yet".
+        setError(r.status === 401
+          ? 'Your session has expired. Please sign in again.'
+          : (await apiFailure(r, `Could not load queries (server returned ${r.status})`)).message);
+        return;
+      }
       const d = await r.json();
+      setError(null);
       if (reset) {
         setQueries(d.records || []);
         setSkip(0);
@@ -63,6 +78,7 @@ const DashboardQueries = ({ token }: Props) => {
       setTotal(d.total || 0);
     } catch (e) {
       console.error('Failed to fetch queries', e);
+      setError(describeApiError(e, 'Could not reach the server. Check your connection and try again.'));
     } finally {
       setLoading(false);
     }
@@ -112,7 +128,31 @@ const DashboardQueries = ({ token }: Props) => {
           </select>
         </div>
       </div>
-      {queries.length ? (
+      {error ? (
+        <div
+          role="alert"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap',
+            border: '1px solid var(--color-error, #ef4444)', borderRadius: 8,
+            padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--text-primary)',
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 200 }}>{error}</span>
+          <button className="btn btn-secondary" onClick={() => fetchQueries(true)} disabled={loading}>
+            Retry
+          </button>
+        </div>
+      ) : loading && !queries.length ? (
+        <div>
+          {[0, 1, 2, 3, 4].map(i => (
+            <div key={i} aria-hidden="true" style={{ padding: '0.75rem 0', borderBottom: '1px solid var(--border-color)' }}>
+              <Skeleton height={14} width="70%" />
+              <Skeleton height={11} width="40%" style={{ marginTop: 8 }} />
+            </div>
+          ))}
+          <span className="sr-only" role="status">Loading query history…</span>
+        </div>
+      ) : queries.length ? (
         <div className="dashboard-query-list">
           {queries.map((q, i) => (
             <div key={i} className="dashboard-query-item">
@@ -120,8 +160,14 @@ const DashboardQueries = ({ token }: Props) => {
               <div className="dashboard-query-meta">
                 <span className="meta-tag">{q.model_used}</span>
                 <span className="meta-tag">{q.region}</span>
-                {q.co2_estimated != null && <span className="meta-tag">{q.co2_estimated}g CO₂ used</span>}
-                <span className="meta-tag savings">+{q.co2_saved_vs_baseline}g CO₂</span>
+                {q.co2_estimated != null && (
+                  <span className="meta-tag">
+                    <Co2Estimate value={q.co2_estimated} band={{ relative: (uncertaintyPct ?? 0) / 100 }} /> CO₂ used
+                  </span>
+                )}
+                <span className="meta-tag savings">
+                  +<Co2Estimate value={q.co2_saved_vs_baseline ?? 0} band={{ relative: (uncertaintyPct ?? 0) / 100 }} /> CO₂
+                </span>
                 <span className="meta-tag">{q.tier}</span>
                 {q.latency_seconds ? <span className="meta-tag">{q.latency_seconds}s</span> : null}
                 {q.verification_status && (

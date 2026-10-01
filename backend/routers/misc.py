@@ -142,8 +142,15 @@ async def get_audit(
     except Exception as e:
         import logging
         logger = logging.getLogger("EcoQuery.misc")
+        # Full traceback stays server-side; the raw exception text can carry
+        # connection details and must not reach the client.
         logger.error(f"Audit endpoint error: {e}", exc_info=True)
-        return {"records": [], "count": 0, "total": 0, "error": str(e)}
+        return {
+            "records": [],
+            "count": 0,
+            "total": 0,
+            "error": "The audit log could not be read right now. Please try again.",
+        }
 
 
 @router.get("/api/audit/verify")

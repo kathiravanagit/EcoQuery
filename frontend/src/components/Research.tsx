@@ -4,6 +4,9 @@ import { Leaf, Globe, BarChart3, TrendingDown, Activity } from 'lucide-react';
 import './Research.css';
 import { API_URL as API } from '../config';
 import { EASE_FN } from '../constants';
+import { Skeleton } from './Skeleton';
+import Co2Estimate from './Co2Estimate';
+import { feedStatus } from '../feedStatus';
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -15,6 +18,8 @@ const fadeUp = {
 interface StatsData {
   total_queries: number;
   total_co2_saved_g: number;
+  /** Relative band (percent) for the aggregate — see docs/METHODOLOGY.md. */
+  co2_uncertainty_pct?: number;
   green_query_pct: number;
   avg_latency_s: number;
   flagged_queries: number;
@@ -34,6 +39,9 @@ interface CarbonRegionData {
   estimated_savings_g_co2: number;
   method: string;
   data_source: string;
+  is_live?: boolean;
+  stale?: boolean;
+  last_updated?: string | null;
   all_regions: Record<string, RegionInfo>;
   total_regions_covered: number;
 }
@@ -58,25 +66,33 @@ const Research = () => {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [carbonData, setCarbonData] = useState<CarbonRegionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errored, setErrored] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       try {
         const [statsRes, carbonRes] = await Promise.allSettled([
           fetch(`${API}/api/stats`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
           fetch(`${API}/api/carbon/regions`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
         ]);
+        if (cancelled) return;
         if (statsRes.status === 'fulfilled') setStats(statsRes.value);
         if (carbonRes.status === 'fulfilled') setCarbonData(carbonRes.value);
+        // Nothing came back at all → say so rather than rendering the
+        // hardcoded placeholders as though they were measured values.
+        if (statsRes.status === 'rejected' && carbonRes.status === 'rejected') setErrored(true);
       } catch {
-        // silently handle errors
+        if (!cancelled) setErrored(true);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
+    return () => { cancelled = true; };
   }, []);
 
+  const status = feedStatus(carbonData);
   const hasStats = stats && stats.total_queries > 0;
   const sortedRegions = carbonData?.all_regions
     ? Object.entries(carbonData.all_regions).sort((a, b) => a[1].intensity - b[1].intensity)
@@ -96,11 +112,25 @@ const Research = () => {
         {/* Live aggregate stats */}
         <motion.div className="transparency-strip" {...fadeUp}>
           {loading ? (
-            <div className="strip-loading">Loading live data…</div>
+            <>
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} className="strip-skeleton" aria-hidden="true">
+                  <Skeleton height={28} width="55%" />
+                  <Skeleton height={13} width="70%" />
+                  <Skeleton height={11} width="90%" />
+                </div>
+              ))}
+              <span className="sr-only" role="status">Loading live data…</span>
+            </>
           ) : hasStats ? (
             <>
               <div>
-                <span className="transparency-value">{stats!.total_co2_saved_g.toFixed(2)}g</span>
+                <span className="transparency-value">
+                  <Co2Estimate
+                    value={stats!.total_co2_saved_g}
+                    band={{ relative: (stats!.co2_uncertainty_pct ?? 0) / 100 }}
+                  />
+                </span>
                 <span>CO₂ Saved</span>
                 <small>total emissions avoided by green routing</small>
               </div>
@@ -122,10 +152,15 @@ const Research = () => {
             </>
           ) : (
             <>
+              {errored && (
+                <div className="strip-error" role="status">
+                  Live feed unavailable — showing last known values.
+                </div>
+              )}
               <div>
                 <span className="transparency-value">{carbonData ? carbonData.total_regions_covered : 13}</span>
                 <span>Regions Monitored</span>
-                <small>real-time carbon intensity tracking</small>
+                <small>{carbonData ? status.description.toLowerCase() : 'real-time carbon intensity tracking'}</small>
               </div>
               <div>
                 <span className="transparency-value">{bestRegion ? `${bestRegion[1].intensity}` : '13'} g/kWh</span>
@@ -135,7 +170,7 @@ const Research = () => {
               <div>
                 <span className="transparency-value">{carbonData?.data_source || 'IEA 2024'}</span>
                 <span>Data Source</span>
-                <small>{carbonData?.method === 'electricity-maps-api' ? 'real-time grid data' : 'IEA annual baselines'}</small>
+                <small>{status.isLive ? 'real-time grid data' : status.isCached ? 'last known values' : 'IEA annual baselines'}</small>
               </div>
               <div>
                 <span className="transparency-value">SHA-256</span>
@@ -152,12 +187,12 @@ const Research = () => {
             <div className="regions-header">
               <Globe size={20} className="text-accent" />
               <h3>Live Region Carbon Intensity</h3>
-              <span className="data-source-badge">
-                {carbonData?.data_source === 'Electricity Maps' ? (
-                  <><Activity size={12} /> Real-time</>
-                ) : (
-                  <><BarChart3 size={12} /> {carbonData?.data_source || 'IEA 2024'}</>
-                )}
+              <span
+                className={`data-source-badge ${status.isLive ? 'is-live' : status.isCached ? 'is-cached' : ''}`}
+                title={status.description}
+              >
+                {status.isLive ? <Activity size={12} /> : <BarChart3 size={12} />}
+                {status.label}
               </span>
             </div>
 

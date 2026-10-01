@@ -1,5 +1,8 @@
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
 import os
 import time
@@ -190,6 +193,92 @@ async def security_headers_middleware(request: Request, call_next):
 
 
 app.middleware("http")(security_headers_middleware)
+
+# ── Global error handling ────────────────────────────────────────────────────
+# The client only ever receives a stable, human-readable payload. Stack traces
+# and exception text (which can carry connection strings or key fragments) are
+# logged server-side only.
+def _status_error_code(status_code: int) -> str:
+    return {
+        400: "BAD_REQUEST",
+        401: "UNAUTHORIZED",
+        403: "FORBIDDEN",
+        404: "NOT_FOUND",
+        409: "CONFLICT",
+        422: "VALIDATION_ERROR",
+        429: "RATE_LIMITED",
+        500: "INTERNAL_ERROR",
+        502: "BAD_GATEWAY",
+        503: "SERVICE_UNAVAILABLE",
+    }.get(status_code, "REQUEST_FAILED")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Keep `detail` (the frontend reads it) while adding a machine-readable code.
+
+    Registered against Starlette's base class so router-level 404s are covered
+    too — FastAPI's own HTTPException subclasses it.
+    """
+    detail = exc.detail
+    message = detail if isinstance(detail, str) else str(detail)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": detail,
+            "error_code": _status_error_code(exc.status_code),
+            "message": message,
+            "success": False,
+        },
+        headers=getattr(exc, "headers", None),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Pydantic failures become a single readable sentence, not a raw dump."""
+    first = exc.errors()[0] if exc.errors() else {}
+    location = ".".join(str(p) for p in first.get("loc", ()) if p != "body")
+    field = location or "request body"
+    message = first.get("msg", "is invalid")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": f"Invalid value for {field}: {message}",
+            "error_code": "VALIDATION_ERROR",
+            "message": f"Invalid value for {field}: {message}",
+            "success": False,
+            "fields": [
+                {
+                    "field": ".".join(str(p) for p in err.get("loc", ())),
+                    "message": err.get("msg", "is invalid"),
+                }
+                for err in exc.errors()[:5]
+            ],
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all: log the traceback, return a clean 500."""
+    logger.error(
+        "Unhandled error on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Something went wrong on our side. Please try again.",
+            "error_code": "INTERNAL_ERROR",
+            "message": "Something went wrong on our side. Please try again.",
+            "success": False,
+        },
+    )
+
 
 app.include_router(auth_router)
 app.include_router(orgs_router)

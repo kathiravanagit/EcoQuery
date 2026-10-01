@@ -1,9 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Leaf, TreePine, Car, Lightbulb, Smartphone } from 'lucide-react';
+import Co2Estimate from '../Co2Estimate';
+import { uncertaintySuffix } from '../../co2';
 
 interface Props {
   co2Saved: number;
+  /** Relative band (percent) from /api/stats. */
+  uncertaintyPct?: number;
 }
 
 const CO2_EQUIVALENTS = {
@@ -13,7 +17,7 @@ const CO2_EQUIVALENTS = {
   phones: (g: number) => (g / 8.0).toFixed(1),
 };
 
-const DashboardImpact = React.memo(({ co2Saved }: Props) => {
+const DashboardImpact = React.memo(({ co2Saved, uncertaintyPct }: Props) => {
   if (!co2Saved) return null;
 
   const equivalents = [
@@ -26,12 +30,18 @@ const DashboardImpact = React.memo(({ co2Saved }: Props) => {
   return (
     <div className="dashboard-section">
       <h2><Leaf size={20} /> Your Impact in Real Terms</h2>
+      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 12px' }}>
+        Based on an estimated <Co2Estimate value={co2Saved} band={{ relative: (uncertaintyPct ?? 0) / 100 }} /> of
+        emissions avoided, so every equivalent below carries the same relative band.
+      </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
         {equivalents.map((eq, i) => (
           <motion.div key={i} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }}
             style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
             <div>{eq.icon}</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: eq.color, marginTop: '4px' }}>{eq.value}</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: eq.color, marginTop: '4px' }}>
+              {eq.value}{uncertaintySuffix(uncertaintyPct)}
+            </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{eq.unit}</div>
           </motion.div>
         ))}

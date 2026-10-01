@@ -4,6 +4,7 @@ import { Award, Leaf, ArrowRight } from 'lucide-react';
 import { Skeleton, PageSkeleton } from '../components/Skeleton';
 import ApiKeyManager from '../components/ApiKeyManager';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { uncertaintySuffix } from '../co2';
 import { useAuth } from '../context/AuthContext';
 import { API_URL as API } from '../config';
 import './Pages.css';
@@ -53,6 +54,8 @@ const ListSkeleton = () => (
 
 interface Stats {
   total_queries?: number; total_co2_saved_g?: number; total_co2_emitted_g?: number; total_api_cost?: number;
+  /** Relative band (percent) applied to every aggregate CO₂ figure. */
+  co2_uncertainty_pct?: number;
   latest_queries?: { query?: string; model_used?: string; region?: string; co2_estimated?: number; co2_saved_vs_baseline?: number; tier?: string; latency_seconds?: number; verification_status?: string; api_cost?: number }[];
   green_query_percent?: number;
   avg_latency_s?: number; flagged_queries?: number;
@@ -244,9 +247,11 @@ const Dashboard = () => {
 
     // Stats row
     const statsY = 375;
-    const stats = [
+    // Local name differs from the `stats` state so the band can be read from
+    // it without shadowing (and hitting the temporal dead zone).
+    const certStats = [
       { value: `${data.total_queries ?? 0}`, label: 'Total Queries', x: w / 2 - 180 },
-      { value: `${data.total_co2_saved_g ?? 0}g`, label: 'CO2 Saved', x: w / 2 },
+      { value: `${data.total_co2_saved_g ?? 0}g${uncertaintySuffix(stats?.co2_uncertainty_pct)}`, label: 'CO2 Saved', x: w / 2 },
       { value: `${data.green_query_percent ?? 0}%`, label: 'Green Queries', x: w / 2 + 180 },
     ];
 
@@ -259,7 +264,7 @@ const Dashboard = () => {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    stats.forEach(s => {
+    certStats.forEach(s => {
       ctx.fillStyle = '#1a3a2a';
       ctx.font = 'bold 24px Georgia, serif';
       ctx.fillText(s.value, s.x, statsY + 5);
@@ -397,12 +402,12 @@ const Dashboard = () => {
             </ErrorBoundary>
             <ErrorBoundary>
               <Suspense fallback={<ChartSkeleton />}>
-                <DashboardImpact co2Saved={stats?.total_co2_saved_g || 0} />
+                <DashboardImpact co2Saved={stats?.total_co2_saved_g || 0} uncertaintyPct={stats?.co2_uncertainty_pct} />
               </Suspense>
             </ErrorBoundary>
             <ErrorBoundary>
               <Suspense fallback={<ListSkeleton />}>
-                <DashboardRealtime events={realtimeEvents} />
+                <DashboardRealtime events={realtimeEvents} uncertaintyPct={stats?.co2_uncertainty_pct} />
               </Suspense>
             </ErrorBoundary>
             <ErrorBoundary>
@@ -411,7 +416,7 @@ const Dashboard = () => {
               </Suspense>
             </ErrorBoundary>
             <ErrorBoundary>
-              <ApiKeyManager token={token} API={API} />
+              <ApiKeyManager token={token} API={API} uncertaintyPct={stats?.co2_uncertainty_pct} />
             </ErrorBoundary>
             <ErrorBoundary>
               <DashboardExport token={token} />
@@ -433,7 +438,7 @@ const Dashboard = () => {
                     <div style={{ borderTop: '1px solid #d4c9a8', borderBottom: '1px solid #d4c9a8', padding: '0.75rem 0', margin: '0.5rem 0', background: '#f5f3ee', borderRadius: '4px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-around' }}>
                         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#1a3a2a' }}>{cert.total_queries}</div><div style={{ fontSize: '0.55rem', color: '#888', letterSpacing: '1px' }}>QUERIES</div></div>
-                        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#1a3a2a' }}>{cert.total_co2_saved_g}g</div><div style={{ fontSize: '0.55rem', color: '#888', letterSpacing: '1px' }}>CO2 SAVED</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#1a3a2a' }}>{cert.total_co2_saved_g}g{uncertaintySuffix(stats?.co2_uncertainty_pct)}</div><div style={{ fontSize: '0.55rem', color: '#888', letterSpacing: '1px' }}>CO2 SAVED</div></div>
                         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#1a3a2a' }}>{cert.green_query_percent}%</div><div style={{ fontSize: '0.55rem', color: '#888', letterSpacing: '1px' }}>GREEN</div></div>
                       </div>
                     </div>
@@ -453,7 +458,7 @@ const Dashboard = () => {
               <DashboardCatalog models={models} />
             </ErrorBoundary>
             <ErrorBoundary>
-              <DashboardQueries token={token} />
+              <DashboardQueries token={token} uncertaintyPct={stats?.co2_uncertainty_pct} />
             </ErrorBoundary>
           </motion.div>
         </div>
