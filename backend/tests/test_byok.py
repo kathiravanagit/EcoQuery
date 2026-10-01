@@ -85,6 +85,16 @@ def test_unknown_provider_falls_back_to_the_default():
     assert key == SENTINEL
 
 
+def test_grok_is_an_accepted_byok_provider():
+    """A provider missing from PROVIDER_BASE_URLS is silently rejected here,
+    so `X-Provider: grok` would quietly fall back to the server's OpenRouter
+    key instead of using the caller's xAI credential."""
+    assert extract_byok_key({"X-Provider-Key": SENTINEL, "X-Provider": "grok"}) == (
+        "grok",
+        SENTINEL,
+    )
+
+
 def test_an_oversized_header_is_treated_as_absent():
     assert extract_byok_key({"X-Provider-Key": "x" * 513}) is None
 

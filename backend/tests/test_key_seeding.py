@@ -1,4 +1,4 @@
-"""Provider key seeding, and the two-provider failover order.
+"""Provider key seeding, and the three-provider failover order.
 
 The key store is a file that outlives a configuration change, so seeding has to
 reconcile with the environment on *every* start rather than only on the first.
@@ -23,7 +23,7 @@ _PROVIDER_ENV_VARS = (
     "OPENROUTER_API_KEY",
     "OPENROUTER_API_KEY_2",
     "GOOGLE_API_KEY",
-    "GROK_API_KEY",  # must be inert: EcoQuery no longer reads it
+    "GROK_API_KEY",
 )
 
 
@@ -43,12 +43,21 @@ def _restart(db_path):
     return KeyManager(db_path=str(db_path))
 
 
-def test_failover_order_is_openrouter_then_google():
-    """The only two providers, tried in the order the product promises."""
-    assert PROVIDER_FALLBACK_ORDER == ("openrouter", "google")
-    assert sorted(PROVIDER_BASE_URLS) == ["google", "openrouter"]
-    assert sorted(PROVIDER_FALLBACK_MODELS) == ["google"]
-    assert "grok" not in PROVIDER_BASE_URLS
+def test_failover_order_is_openrouter_then_google_then_grok():
+    """Every provider EcoQuery can fail over to, in the order it promises.
+
+    Grok sits last on purpose: OpenRouter's catalogue is free and the Google
+    failover is cheap, while xAI bills per token — a paid provider must never
+    be tried ahead of a free one.
+    """
+    assert PROVIDER_FALLBACK_ORDER == ("openrouter", "google", "grok")
+    assert PROVIDER_FALLBACK_ORDER[-1] == "grok"
+    assert sorted(PROVIDER_BASE_URLS) == ["google", "grok", "openrouter"]
+    assert sorted(PROVIDER_FALLBACK_MODELS) == ["google", "grok"]
+    # Grok cannot take an OpenRouter slug (`vendor/model`), so it needs a model
+    # of its own — exactly as Google does.
+    assert "/" not in PROVIDER_FALLBACK_MODELS["grok"]
+    assert PROVIDER_BASE_URLS["grok"] == "https://api.x.ai/v1"
 
 
 def test_env_keys_are_seeded_into_an_empty_store(tmp_path, env):
@@ -129,13 +138,20 @@ def test_unreadable_rows_do_not_shadow_an_env_key(tmp_path, env):
     assert usable == ["google-fresh"]
 
 
-def test_grok_env_var_is_ignored(tmp_path, env):
+def test_grok_env_key_is_seeded(tmp_path, env):
+    """Grok is a real provider now, so its credential must reach the store.
+
+    It used to be deliberately inert, which meant adding `GROK_API_KEY` to
+    `.env` had no effect at all and the failover never saw it.
+    """
     env.setenv("GROK_API_KEY", "grok-test")
     env.setenv("OPENROUTER_API_KEY", "or-test")
 
     manager = KeyManager(db_path=str(tmp_path / "keys.db"))
 
-    assert "grok" not in manager.get_all_providers_keys()
+    grouped = manager.get_all_providers_keys()
+    assert sorted(grouped) == ["grok", "openrouter"]
+    assert [k["key_value"] for k in grouped["grok"]] == ["grok-test"]
 
 
 def test_store_rows_cannot_be_read_back_as_plaintext(tmp_path, env):

@@ -85,7 +85,7 @@ def test_health_probe_asks_for_a_budget_that_can_produce_text():
 
 def test_health_reports_a_clean_pass_when_text_comes_back():
     health, _seen = _run_health("hello")
-    assert set(health) == {"openrouter", "google"}
+    assert set(health) == {"openrouter", "google", "grok"}
     for status in health.values():
         assert status["configured"] is True
         assert status["authenticated"] is True
@@ -108,3 +108,30 @@ def test_health_handles_a_response_with_no_choices():
         assert status["authenticated"] is True
         assert status["completion_test"] is False
         assert status["failure_reason"] == "EmptyContent"
+
+
+def test_health_carries_the_http_status_in_the_failure_reason():
+    """A bare exception type cannot tell "bad key" from "valid key, account
+    has no credits" — which is precisely how xAI answers a working credential
+    on an uncredited team, and an operator has to tell those apart."""
+
+    class Forbidden(Exception):
+        status_code = 403
+
+    class RejectingClient:
+        def __init__(self, api_key=None, base_url=None, timeout=None):
+            self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+        async def _create(self, **kwargs):
+            raise Forbidden("Your newly created team doesn't have any credits")
+
+    with patch.object(providers_mod.key_manager, "get_active_keys",
+                      return_value=[{"id": "k", "key_value": "server-key"}]), \
+         patch.object(providers_mod, "AsyncOpenAI", RejectingClient):
+        health = asyncio.run(ProviderRouter.check_health(provider_router))
+
+    assert set(health) == {"openrouter", "google", "grok"}
+    for status in health.values():
+        assert status["configured"] is True
+        assert status["completion_test"] is False
+        assert status["failure_reason"] == "Forbidden(403)"

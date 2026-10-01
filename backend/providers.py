@@ -1,6 +1,7 @@
 """Inference router for EcoQuery with dynamic multi-provider API Key fallback."""
 
 import logging
+import os
 from openai import AsyncOpenAI
 import json
 import time
@@ -8,25 +9,32 @@ from key_manager import key_manager
 
 logger = logging.getLogger("EcoQuery.providers")
 
-# Known endpoints for providers compatible with OpenAI spec.
-# Two credentials only: OpenRouter is tried first, Google is the automatic
-# failover. Order matters — see `providers_to_try`.
+# Known endpoints for providers compatible with OpenAI spec. Order matters —
+# see `providers_to_try`: OpenRouter is first because its catalogue models are
+# free, Google is the automatic failover, and xAI's Grok runs last because it
+# is billed per token and must never precede a free route.
 PROVIDER_BASE_URLS = {
     "openrouter": "https://openrouter.ai/api/v1",
-    "google": "https://generativelanguage.googleapis.com/v1beta/openai/"
+    "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
+    # xAI exposes an OpenAI-compatible surface under /v1.
+    "grok": "https://api.x.ai/v1",
 }
 
 # Model used when the selected OpenRouter id is not valid on a provider's own
 # API. `gemini-1.5-pro` was retired from the OpenAI-compatible surface and now
 # returns 404, which made every Google failover attempt fail instantly instead
 # of serving as a fallback. `gemini-flash-latest` is Google's rolling alias and
-# stays current without a code change.
+# stays current without a code change. Grok is in the same position: it cannot
+# take an OpenRouter slug either, so it answers on an xAI model of its own.
 PROVIDER_FALLBACK_MODELS = {
     "google": "gemini-flash-latest",
+    # Overridable because the health probe is the only thing that can confirm
+    # an xAI model id, and that needs a credited account to reach.
+    "grok": os.getenv("GROK_MODEL", "grok-4-fast"),
 }
 
 # Failover order for both the completion and the streaming path.
-PROVIDER_FALLBACK_ORDER = ("openrouter", "google")
+PROVIDER_FALLBACK_ORDER = ("openrouter", "google", "grok")
 
 
 # ── Bring your own key ──────────────────────────────────────────────────────
@@ -398,7 +406,16 @@ class ProviderRouter:
                 except Exception as e:
                     logger.warning(f"Health check failed for {provider}: {e}")
                     status["latency_seconds"] = round(time.perf_counter() - started_at, 3)
-                    status["failure_reason"] = type(e).__name__
+                    # Carry the HTTP status like provider_diagnostics.py does:
+                    # a bare `PermissionDeniedError` cannot distinguish "bad
+                    # key" from "valid key, account has no credits", which is
+                    # exactly the difference an operator needs to see.
+                    status_code = getattr(e, "status_code", None)
+                    status["failure_reason"] = (
+                        f"{type(e).__name__}({status_code})"
+                        if status_code is not None
+                        else type(e).__name__
+                    )
                     if not any(code in str(e).lower() for code in ("401", "403", "unauthorized", "invalid api key")):
                         status["authenticated"] = True # It reached the server but failed completion
             health[provider] = status

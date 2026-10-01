@@ -144,7 +144,7 @@ async def lifespan(app: FastAPI):
     if os.getenv("RENDER") and len(encryption_key) < 32:
         raise RuntimeError("KEY_ENCRYPTION_KEY (or JWT_SECRET fallback) must contain at least 32 characters")
         
-    provider_keys = ["OPENROUTER_API_KEY", "GOOGLE_API_KEY"]
+    provider_keys = ["OPENROUTER_API_KEY", "GOOGLE_API_KEY", "GROK_API_KEY"]
     if not any(os.getenv(v) for v in provider_keys):
         logger.error("Missing all provider credentials")
         raise RuntimeError("Missing all provider credentials")

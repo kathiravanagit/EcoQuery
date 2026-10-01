@@ -88,12 +88,13 @@ class KeyManager:
         if legacy_rows:
             logger.warning("Encrypted %d legacy provider key(s) at rest", len(legacy_rows))
 
-    # Credentials the process is told about through the environment. These are
-    # the only two providers EcoQuery supports.
+    # Credentials the process is told about through the environment: every
+    # provider EcoQuery can fail over to.
     ENV_KEYS = (
         ("OPENROUTER_API_KEY", "openrouter"),
         ("OPENROUTER_API_KEY_2", "openrouter"),
         ("GOOGLE_API_KEY", "google"),
+        ("GROK_API_KEY", "grok"),
     )
 
     def _seed_initial_keys(self):
