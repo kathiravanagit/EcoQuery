@@ -30,6 +30,9 @@ backend/keys.db
 # Deployment
 .vercel
 
+# OpenChamber session artifacts (screenshots, session state)
+.openchamber/
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

@@ -66,7 +66,10 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js');
+          // updateViaCache 'none': always revalidate the worker script itself.
+          // The default lets the HTTP cache delay an update, and a delayed
+          // service-worker update is how a stale page survives a deploy.
+          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
         });
       }
     </script>
