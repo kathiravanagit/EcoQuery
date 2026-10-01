@@ -50,6 +50,7 @@ class AuthDB:
         self.reset_collection = None
         self.oauth_codes_collection = None
         self.available = False
+        self._indexes_ready = False
 
     async def connect(self):
         url = os.getenv("MONGODB_URL", "mongodb://localhost:27017/ecoquery")
@@ -62,9 +63,43 @@ class AuthDB:
             await self.client.admin.command("ping")
             self.available = True
             logger.info("Connected to MongoDB for auth")
+            if not self._indexes_ready:
+                # Indexes live in the database, so declaring them once per run
+                # is enough; every reconnect would otherwise pay for the
+                # create_index round trips again.
+                await self.ensure_indexes()
+                self._indexes_ready = True
         except Exception as e:
             logger.warning(f"MongoDB unavailable for auth: {e}")
             self.available = False
+
+    # One entry per lookup the auth paths perform. `email` is the user-id key
+    # for this collection; `google_id` and `api_key` are sparse because most
+    # users have neither and would otherwise all collide on a missing value.
+    INDEX_SPECS = [
+        ("users", [("email", 1)], {"unique": True, "name": "email_unique"}),
+        ("users", [("google_id", 1)], {"sparse": True, "name": "google_id"}),
+        ("users", [("api_key", 1)], {"sparse": True, "name": "api_key"}),
+        ("reset_tokens", [("token", 1)], {"name": "token"}),
+        ("oauth_codes", [("code", 1)], {"name": "code"}),
+        ("organizations", [("id", 1)], {"name": "org_id"}),
+        ("organizations", [("api_keys.key", 1)], {"name": "org_api_key"}),
+        ("organizations", [("members", 1)], {"name": "org_members"}),
+    ]
+
+    async def ensure_indexes(self) -> None:
+        """Create auth lookup indexes. Idempotent and failure-tolerant: a
+        duplicate in pre-existing data must not stop the service starting."""
+        if self.db is None:
+            return
+        for collection_name, keys, options in self.INDEX_SPECS:
+            try:
+                await self.db[collection_name].create_index(keys, **options)
+            except Exception as e:
+                logger.warning(
+                    "Could not create index %s on %s: %s",
+                    options.get("name", keys), collection_name, e,
+                )
 
     async def find_user_by_email(self, email: str) -> Optional[dict]:
         if self.available and self.collection is not None:

@@ -6,6 +6,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
 import os
 import time
+import json
 import logging
 import asyncio
 from jose import JWTError, jwt
@@ -27,15 +28,42 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("EcoQuery")
 
 RATE_LIMIT_DURATION = 60
-def rate_limit_key(request: Request) -> str:
+
+# Anonymous callers get a tighter budget than authenticated ones on every
+# write endpoint. Chat is stricter still (see `rate_limit_policy`).
+ANONYMOUS_DEFAULT_LIMIT = 10
+
+
+def rate_limit_identity(request: Request) -> tuple[str, bool]:
+    """Return (rate-limit bucket, is_authenticated).
+
+    Only a token that actually *decodes* counts as authentication. The previous
+    check tested for the literal `Bearer ` prefix, so attaching a garbage token
+    upgraded an anonymous caller to the authenticated chat budget (30/min
+    instead of 5/min) while still being bucketed by IP — a self-service bypass.
+
+    Both the Authorization header and the session cookie are accepted, and
+    neither value is ever written to a log or a store.
+    """
+    candidates = []
     auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
+    if auth.startswith("Bearer ") and auth[7:].strip():
+        candidates.append(auth[7:].strip())
+    cookie = request.cookies.get("ecoquery_access_token", "")
+    if cookie:
+        candidates.append(cookie)
+
+    for candidate in candidates:
         try:
-            payload = jwt.decode(auth[7:], SECRET_KEY, algorithms=[ALGORITHM])
-            return payload.get("sub", request.client.host or "unknown")
+            payload = jwt.decode(candidate, SECRET_KEY, algorithms=[ALGORITHM])
         except JWTError:
-            pass
-    return request.client.host or "unknown"
+            continue
+        subject = payload.get("sub")
+        if subject:
+            return str(subject), True
+
+    host = request.client.host if request.client else "anonymous"
+    return host, False
 
 
 def rate_limit_policy(path: str) -> int:
@@ -54,22 +82,30 @@ async def rate_limit_middleware(request: Request, call_next):
     applied_limit = rate_limit_policy(request.url.path)
     remaining = applied_limit
     if request.url.path.startswith("/api/") and request.method != "GET":
-        key = f"{rate_limit_key(request)}:{request.method}:{request.url.path}"
+        subject, authenticated = rate_limit_identity(request)
+        key = f"{subject}:{request.method}:{request.url.path}"
         limit = applied_limit
-        if request.url.path.startswith("/api/chat") and not (
-            request.headers.get("Authorization", "").startswith("Bearer ")
-            or request.cookies.get("ecoquery_access_token")
-        ):
-            limit = 5
+        if request.url.path.startswith("/api/chat"):
+            limit = 5 if not authenticated else applied_limit
+        elif not authenticated:
+            limit = min(applied_limit, ANONYMOUS_DEFAULT_LIMIT)
         applied_limit = limit
         allowed, remaining = await rate_limiter.allow(key, limit, RATE_LIMIT_DURATION)
         now = time.time()
         if not allowed:
-            from fastapi.responses import JSONResponse
-            resp = JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Try again later."})
+            resp = JSONResponse(
+                status_code=429,
+                content={
+                    "detail": "Rate limit exceeded. Try again later.",
+                    "error_code": "RATE_LIMITED",
+                    "message": f"Too many requests. Try again in {RATE_LIMIT_DURATION} seconds.",
+                    "success": False,
+                },
+            )
             resp.headers["X-RateLimit-Limit"] = str(limit)
             resp.headers["X-RateLimit-Remaining"] = "0"
             resp.headers["X-RateLimit-Reset"] = str(int(now + RATE_LIMIT_DURATION))
+            resp.headers["Retry-After"] = str(RATE_LIMIT_DURATION)
             return resp
     start = time.time()
     response = await call_next(request)
@@ -161,14 +197,9 @@ configured_origins.update({
 # Origins are an explicit allowlist only. A broad regex (e.g. any *.vercel.app)
 # would let any Vercel project read credentialed responses, so we deliberately
 # do not configure allow_origin_regex. Every deployed frontend origin must be
-# listed in ALLOWED_ORIGINS.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=sorted(configured_origins),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# listed in ALLOWED_ORIGINS. The middleware itself is registered last (see
+# below) so that it is the *outermost* one and every response we generate —
+# including 413/429/403 — carries the CORS headers a browser needs to read it.
 
 app.middleware("http")(rate_limit_middleware)
 
@@ -193,6 +224,115 @@ async def security_headers_middleware(request: Request, call_next):
 
 
 app.middleware("http")(security_headers_middleware)
+
+
+# ── Request body size limit ──────────────────────────────────────────────────
+# Starlette will buffer an unbounded request body, so a single chunked POST
+# could exhaust a worker. 25 MB accommodates the documented 3 × 5 MB images
+# plus JSON overhead while still capping abuse.
+MAX_REQUEST_BODY_BYTES = 25_000_000
+BODY_TOO_LARGE_MESSAGE = (
+    f"Request body is too large (limit {MAX_REQUEST_BODY_BYTES // 1_000_000} MB)."
+)
+
+
+def _body_too_large_payload() -> bytes:
+    return json.dumps({
+        "detail": BODY_TOO_LARGE_MESSAGE,
+        "error_code": "PAYLOAD_TOO_LARGE",
+        "message": BODY_TOO_LARGE_MESSAGE,
+        "success": False,
+    }).encode()
+
+
+class RequestBodyTooLarge(Exception):
+    def __init__(self, limit: int):
+        super().__init__(f"request body exceeds {limit} bytes")
+        self.limit = limit
+
+
+class BodySizeLimitMiddleware:
+    """Reject oversized bodies before they are read into memory.
+
+    `Content-Length` is checked first, which covers normal clients for free.
+    Clients that omit it (chunked encoding) are caught by a counting wrapper
+    around `receive`, so the limit holds either way. Because this sits between
+    ServerErrorMiddleware and ExceptionMiddleware, an oversized body is turned
+    into a clean 413 JSON response instead of an unhandled 500.
+    """
+
+    def __init__(self, app, max_bytes: int = MAX_REQUEST_BODY_BYTES):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def _reject(self, send) -> None:
+        await send({
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(_body_too_large_payload())).encode()),
+            ],
+        })
+        await send({"type": "http.response.body", "body": _body_too_large_payload()})
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = {
+            k.decode("latin-1").lower(): v.decode("latin-1")
+            for k, v in scope.get("headers", [])
+        }
+        declared = headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > self.max_bytes:
+            await self._reject(send)
+            return
+
+        received = 0
+        response_started = False
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message.get("type") == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    raise RequestBodyTooLarge(self.max_bytes)
+            return message
+
+        async def tracking_send(message):
+            nonlocal response_started
+            if message.get("type") == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, tracking_send)
+        except RequestBodyTooLarge:
+            logger.warning(
+                "Rejected oversized request body on %s (limit %s bytes)",
+                scope.get("path", "?"),
+                self.max_bytes,
+            )
+            if not response_started:
+                await self._reject(send)
+            # Otherwise the response is already committed and all we can do is
+            # stop reading; the ASGI server closes the connection.
+
+
+# Registered last so it is the outermost middleware after CORS (see below).
+app.add_middleware(BodySizeLimitMiddleware)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=sorted(configured_origins),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ── Global error handling ────────────────────────────────────────────────────
 # The client only ever receives a stable, human-readable payload. Stack traces
@@ -278,7 +418,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
             "success": False,
         },
     )
-
 
 app.include_router(auth_router)
 app.include_router(orgs_router)

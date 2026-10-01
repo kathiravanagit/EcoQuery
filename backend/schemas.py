@@ -9,7 +9,9 @@ EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
-    model_id: Optional[str] = None
+    # Unbounded before: a client could ship a multi-megabyte id that is only
+    # ever compared against a short model list.
+    model_id: Optional[str] = Field(default=None, max_length=200)
     images: Optional[List[str]] = Field(default=None, max_length=3)  # Base64 encoded images
     conversation: Optional[List[dict]] = Field(default=None, max_length=20)
     max_output_tokens: Optional[int] = Field(default=None, ge=1, le=4000)
@@ -26,6 +28,33 @@ class ChatRequest(BaseModel):
             raise ValueError('routing_mode must be green, balanced, quality, fast, or low-cost')
         return normalized
 
+    @field_validator('conversation')
+    @classmethod
+    def validate_conversation(cls, conversation):
+        """History is forwarded verbatim to the model, so it is attacker-controlled.
+
+        `system` is deliberately not an allowed role: the frontend already
+        strips it, and accepting one would let an anonymous caller append a
+        second system prompt after EcoQuery's own. Unknown keys are dropped so
+        nothing outside `role`/`content` can reach the provider API.
+        """
+        if not conversation:
+            return conversation
+        cleaned = []
+        for item in conversation:
+            if not isinstance(item, dict):
+                raise ValueError('conversation entries must be objects')
+            role = item.get('role')
+            if role not in ('user', 'assistant'):
+                raise ValueError("conversation roles must be 'user' or 'assistant'")
+            content = item.get('content')
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError('conversation content must be a non-empty string')
+            if len(content) > 4000:
+                raise ValueError('conversation entries must be 4000 characters or fewer')
+            cleaned.append({'role': role, 'content': content})
+        return cleaned
+
     @field_validator('images')
     @classmethod
     def validate_images(cls, images):
@@ -41,9 +70,9 @@ class ChatResponse(BaseModel):
 
 
 class SignupRequest(BaseModel):
-    email: str
-    password: str = Field(..., min_length=6)
-    display_name: str = Field(..., min_length=1)
+    email: str = Field(..., max_length=254)
+    password: str = Field(..., min_length=6, max_length=128)
+    display_name: str = Field(..., min_length=1, max_length=100)
 
     @field_validator('email')
     @classmethod
@@ -54,8 +83,8 @@ class SignupRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(..., max_length=254)
+    password: str = Field(..., max_length=128)
 
     @field_validator('email')
     @classmethod
@@ -74,12 +103,12 @@ class UpdateNameRequest(BaseModel):
 
 
 class UpdatePasswordRequest(BaseModel):
-    current_password: str = Field(..., min_length=1)
-    new_password: str = Field(..., min_length=6)
+    current_password: str = Field(..., min_length=1, max_length=128)
+    new_password: str = Field(..., min_length=6, max_length=128)
 
 
 class DeleteAccountRequest(BaseModel):
-    password: str = Field(default="", min_length=0)
+    password: str = Field(default="", min_length=0, max_length=128)
 
 
 class OrgCreateRequest(BaseModel):
@@ -87,7 +116,7 @@ class OrgCreateRequest(BaseModel):
 
 
 class OrgInviteRequest(BaseModel):
-    email: str
+    email: str = Field(..., max_length=254)
 
     @field_validator('email')
     @classmethod
@@ -98,8 +127,21 @@ class OrgInviteRequest(BaseModel):
 
 
 class WebhookCreateRequest(BaseModel):
-    url: str = Field(..., min_length=1)
-    events: list[str] = ["query.routed"]
+    url: str = Field(..., min_length=1, max_length=2048)
+    # Was an untyped `list[str]` with a mutable default: unbounded in size and
+    # free to carry arbitrary strings into the stored subscription.
+    events: List[str] = Field(default=["query.routed"], max_length=10)
+
+    @field_validator('events')
+    @classmethod
+    def validate_events(cls, v):
+        allowed = {"query.routed"}
+        unknown = [e for e in v if e not in allowed]
+        if unknown:
+            raise ValueError(f'Unsupported webhook events: {", ".join(unknown[:3])}')
+        if not v:
+            raise ValueError('At least one webhook event is required')
+        return v
 
     @field_validator('url')
     @classmethod
@@ -112,7 +154,7 @@ class WebhookCreateRequest(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: str
+    email: str = Field(..., max_length=254)
 
     @field_validator('email')
     @classmethod
@@ -121,22 +163,22 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str = Field(..., min_length=6)
+    token: str = Field(..., min_length=1, max_length=2048)
+    new_password: str = Field(..., min_length=6, max_length=128)
 
 
 class VerifyOTPRequest(BaseModel):
-    email: str
+    email: str = Field(..., max_length=254)
     otp: str = Field(..., min_length=6, max_length=6)
 
 
 class VerifyEmailRequest(BaseModel):
-    email: str
-    token: str
+    email: str = Field(..., max_length=254)
+    token: str = Field(..., min_length=1, max_length=2048)
 
 
 class ResendEmailRequest(BaseModel):
-    email: str
+    email: str = Field(..., max_length=254)
 
     @field_validator('email')
     @classmethod

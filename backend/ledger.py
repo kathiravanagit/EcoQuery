@@ -21,6 +21,7 @@ class VerificationLedger:
         self.collection = None
         self.badges_col = None
         self.available = False
+        self._indexes_ready = False
         self._last_hash_by_user: dict[str, str] = {}
 
     async def connect(self):
@@ -33,9 +34,60 @@ class VerificationLedger:
             await self.client.admin.command("ping")
             self.available = True
             logger.info("Connected to MongoDB for verification ledger")
+            if not self._indexes_ready:
+                # Indexes live in the database, not in this process, so they
+                # only need declaring once per run — reconnecting (which the
+                # test suite does repeatedly) would otherwise pay for every
+                # create_index round trip each time.
+                await self.ensure_indexes()
+                self._indexes_ready = True
         except Exception as e:
             logger.warning(f"MongoDB unavailable: {e}. Audit trail will be stored in memory.")
             self.available = False
+
+    # Indexes for `audit_log`, keyed by the field the query planner needs.
+    # The ledger's `user_email` is the API's "user_id" and `model_used` is the
+    # API's "model_id" — neither is literally named as such in this collection.
+    AUDIT_LOG_INDEXES = [
+        # Every per-user read filters on `user_email`, so the compound form
+        # serves the user-id predicate *and* the default newest-first sort in
+        # one index: `record_query`'s previous-hash lookup, `verify_user_chain`
+        # (which walks the same index backwards), `get_audit_log`,
+        # `get_analytics` and `_update_badges`.
+        ([("user_email", 1), ("timestamp", -1)], "user_timestamp"),
+        # Time-window analytics with no user filter, and global recency scans.
+        ([("timestamp", -1)], "timestamp"),
+        # Region and model breakdowns.
+        ([("region", 1)], "region"),
+        ([("model_used", 1)], "model_used"),
+    ]
+
+    async def ensure_indexes(self) -> None:
+        """Create the indexes the read paths depend on.
+
+        Best effort and idempotent: an index build must never prevent startup,
+        so each one fails independently and is logged rather than raised. A
+        duplicate value in an existing collection can also fail a `create_index`
+        call, and that should not take the ledger offline either.
+        """
+        targets = [
+            (self.collection, self.AUDIT_LOG_INDEXES),
+            (self.badges_col, [([("email", 1)], "email")]),
+        ]
+        if self.db is not None:
+            targets += [
+                (self.db["response_cache"], [([("timestamp", -1)], "timestamp")]),
+                (self.db["contacts"], [([("created_at", -1)], "created_at")]),
+            ]
+
+        for collection, specs in targets:
+            if collection is None:
+                continue
+            for keys, name in specs:
+                try:
+                    await collection.create_index(keys, name=name)
+                except Exception as e:
+                    logger.warning("Could not create index %s: %s", name, e)
 
     async def record_query(self, entry: dict, user_email: str = "") -> str:
         previous_hash = self._last_hash_by_user.get(user_email, "")

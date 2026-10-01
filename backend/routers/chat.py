@@ -18,7 +18,7 @@ from router import route_query, compute_savings
 from ledger import ledger
 from verifier import verifier
 from websocket_manager import ws_manager
-from providers import provider_router
+from providers import provider_router, extract_byok_key
 from energy import begin as begin_energy_sample, end as end_energy_sample, measurement_type as get_measurement_type
 from green_provider import PROVIDER_REGIONS
 
@@ -453,6 +453,10 @@ async def _record_and_notify(
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest, request: Request):
     user_email = await _require_chat_access(request, allow_anonymous=_ALLOW_ANONYMOUS_CHAT)
+    # Optional bring-your-own-key. Extracted once here, passed only to the
+    # outbound provider calls, and never stored, logged or cached. Knowledge,
+    # cache and zero-LLM answers simply leave it unused.
+    byok = extract_byok_key(request.headers)
 
     start_time = time.time()
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
@@ -534,6 +538,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             model_id=target_model,
             messages=_build_messages(req),
             max_tokens=max_tokens,
+            byok=byok,
         )
             
         reply_content = clean_response(result.get("content") or "") or ""
@@ -550,6 +555,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                         model_id=fallback_id,
                         messages=_build_messages(req),
                         max_tokens=max_tokens,
+                        byok=byok,
                     )
                     reply_content = clean_response(result.get("content") or "") or ""
                     if reply_content:
@@ -634,6 +640,9 @@ async def chat_endpoint(req: ChatRequest, request: Request):
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
     user_email = await _require_chat_access(request, allow_anonymous=_ALLOW_ANONYMOUS_CHAT_STREAM)
+    # Optional bring-your-own-key; passed only to the outbound provider call.
+    # Never stored, logged or cached, and unused on knowledge/cache answers.
+    byok = extract_byok_key(request.headers)
 
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
 
@@ -727,6 +736,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                 model_id=target_model,
                 messages=_build_messages(req),
                 max_tokens=max_tokens,
+                byok=byok,
             ):
                 if isinstance(token, dict) and "token" in token:
                     tok = token["token"]

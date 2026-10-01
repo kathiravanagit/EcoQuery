@@ -133,6 +133,42 @@ there too. Anonymous callers on either endpoint get the stricter rate limit.
 | `GET` | `/api/orgs/{id}/sustainability` | Org sustainability report |
 | `WS` | `/ws?token=` | Real-time query events |
 
+### Bring your own key (BYOK)
+
+Both chat endpoints accept an optional per-request provider credential, so you
+can bill your own account instead of the server's keys:
+
+| Header | Meaning |
+|--------|---------|
+| `X-OpenRouter-Key` | Key for the default provider (OpenRouter) |
+| `X-Provider-Key` | Key for the provider named in `X-Provider` (default `openrouter`) |
+| `X-Provider` | Which provider the `X-Provider-Key` belongs to: `openrouter`, `grok` or `google` |
+
+```bash
+curl -X POST https://ecoquery.onrender.com/api/chat/stream \
+  -H "X-OpenRouter-Key: $MY_OPENROUTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "How much CO2 does a chat query emit?"}'
+```
+
+Behaviour:
+
+- Your key is tried **before** any server key for that provider. If the
+  provider rejects it, the request transparently falls back to the server's
+  keys — you only get an error if both are exhausted, which is returned as
+  `PROVIDER_KEY_REJECTED`.
+- The key is used for that one outbound call and nothing else. It is never
+  written to the key store, the usage ledger, the response cache or a log
+  line; a rejected key is logged as an exception type only, because provider
+  SDK errors can quote the credential back.
+- Nothing is recorded against your account for a BYOK request — the response
+  metadata reports `byok_used: true` so you can confirm which credential
+  served it.
+- Knowledge-base and cached answers make no outbound call, so the header goes
+  unused (and costs you nothing).
+- Requests that skip the LLM entirely are unaffected; the header only matters
+  when a provider is actually called.
+
 ---
 
 ## Quick Start
