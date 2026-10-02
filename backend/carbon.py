@@ -223,7 +223,10 @@ async def get_carbon_optimal_region() -> dict:
 
     Response fields added for consumers:
       last_updated — ISO timestamp of the source data (None for annual baselines)
-      is_live      — True only when at least one zone answered Electricity Maps
+      is_live      — True only when the recommended zone itself came from
+                     Electricity Maps. Zone-by-zone feed usage is reported in
+                     all_regions[code].is_live / .data_source, and live_zones
+                     counts how many zones answered live.
       stale        — True when we are replaying a cached value after a live failure
     """
     cached = cache_get(CARBON_CACHE_KEY)
@@ -262,11 +265,16 @@ async def get_carbon_optimal_region() -> dict:
 
     regions_with_intensity = []
     live_zones = 0
+    # Which feed produced each zone's number. Without this the payload can only
+    # say "some zone answered live", which is not the same as the region we
+    # are about to recommend having live data.
+    source_by_region: dict[str, str] = {}
     for (region_code, info), outcome in zip(REGIONS.items(), results):
         if isinstance(outcome, BaseException) or not isinstance(outcome, tuple):
             logger.warning(f"Carbon lookup failed for {region_code}: {outcome}")
             continue
         intensity, source = outcome
+        source_by_region[region_code] = source
         if source == "electricity-maps-api":
             live_zones += 1
         if isinstance(intensity, (int, float)):
@@ -297,8 +305,21 @@ async def get_carbon_optimal_region() -> dict:
 
     regions_with_intensity.sort(key=lambda x: x[2])
     best_code, best_info, best_intensity = regions_with_intensity[0]
-    is_live = live_zones > 0
-    method = "electricity-maps-api" if is_live else "iea-static-baselines"
+
+    # Provenance describes the region actually chosen, not the fan-out as a
+    # whole. One zone answering Electricity Maps does not make a winner that
+    # silently fell back to an IEA annual baseline "live" -- and an annual
+    # average carries no grid timestamp, so publishing fetched_at against it
+    # would put a fresh-looking time on year-old data.
+    selected_source = source_by_region.get(best_code, "iea-static-baselines")
+    is_live = selected_source == "electricity-maps-api"
+    method = selected_source
+
+    def _zone_data_source(code: str) -> str:
+        if source_by_region.get(code) == "electricity-maps-api":
+            return "Electricity Maps"
+        return "IEA 2024"
+
     result = {
         "region": best_code,
         "energy_source": _estimate_source(best_intensity),
@@ -306,7 +327,7 @@ async def get_carbon_optimal_region() -> dict:
         "carbon_intensity_g_kwh": best_intensity,
         "estimated_savings_g_co2": _estimate_savings(best_intensity),
         "method": method,
-        "data_source": "Electricity Maps" if is_live else "IEA 2024",
+        "data_source": _zone_data_source(best_code),
         "grid_timestamp": fetched_at if is_live else None,
         "last_updated": fetched_at if is_live else None,
         "is_live": is_live,
@@ -318,7 +339,11 @@ async def get_carbon_optimal_region() -> dict:
                 "intensity": intens,
                 "name": REGIONS[code]["name"],
                 "country": REGIONS[code].get("country", ""),
+                # "source" below is the energy mix, not provenance; this is
+                # the feed each zone's number actually came from.
                 "source": _estimate_source(intens),
+                "data_source": _zone_data_source(code),
+                "is_live": source_by_region.get(code) == "electricity-maps-api",
                 "energy_profile": ENERGY_SOURCE_PROFILES.get(code, {}),
             }
             for code, _, intens in regions_with_intensity
@@ -327,8 +352,9 @@ async def get_carbon_optimal_region() -> dict:
     }
 
     cache_set(CARBON_CACHE_KEY, result, CACHE_TTL)
-    if is_live:
-        # Only genuine live reads are worth replaying after an outage.
+    if live_zones > 0:
+        # Replay-worthy because the snapshot holds genuine live observations,
+        # even when the recommended zone itself came from a static baseline.
         cache_set(CARBON_LAST_GOOD_KEY, result, LAST_GOOD_TTL)
     return result
 

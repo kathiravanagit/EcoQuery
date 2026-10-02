@@ -363,7 +363,11 @@ async def get_sustainability_report(current_user: dict = Depends(get_current_use
         "ghg_protocol_alignment": {
             "scope": "Scope 3 (Downstream value chain)",
             "category": "Cloud computing carbon footprint reduction",
-            "methodology": "Real-time grid carbon intensity via Electricity Maps API",
+            "methodology": (
+                "Per-query grid carbon intensity: Electricity Maps where the live "
+                "feed answered, IEA 2024 annual baselines otherwise. Totals are "
+                "modelled estimates summed over stored queries, not metered energy."
+            ),
             "verification": "TPS-based model substitution detection with integrity hashing",
             "standard": "Aligned with ISO 14064-1 GHG accounting",
         },

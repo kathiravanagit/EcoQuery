@@ -135,6 +135,91 @@ class TestFeedFailureDegradesHonestly:
         assert payload["method"] in {"iea-static-baselines", "mock-fallback"}
 
 
+async def _mixed_feed(code, zone, api_key):
+    """Stockholm lost its live fetch; Tokyo answered live but is dirtier.
+
+    Stockholm therefore wins the lowest-intensity sort while carrying only an
+    IEA annual baseline -- the exact shape the payload must not call "live".
+    """
+    if code == "eu-north-1":
+        return (10.0, "iea-static-baselines")
+    if code == "ap-northeast-1":
+        return (500.0, "electricity-maps-api")
+    return (300.0, "iea-static-baselines")
+
+
+class TestProvenanceFollowsTheChosenZone:
+    """Regression: `is_live` used to be `live_zones > 0`.
+
+    A single zone answering Electricity Maps labelled the entire payload live,
+    including the recommended region when that region had silently fallen back
+    to an IEA annual baseline -- and it stamped `fetched_at` onto year-old data.
+    """
+
+    def test_winner_from_a_static_baseline_is_not_reported_live(self, monkeypatch):
+        monkeypatch.setenv("ELECTRICITY_MAPS_API_KEY", "em_bogus")
+        monkeypatch.setattr(carbon, "_fetch_multi_source", _mixed_feed)
+        cache.cache_clear()
+
+        payload = asyncio.run(carbon.get_carbon_optimal_region())
+
+        assert payload["region"] == "eu-north-1"
+        assert payload["is_live"] is False
+        assert payload["method"] == "iea-static-baselines"
+        assert payload["data_source"] == "IEA 2024"
+        # An annual average has no grid timestamp. Publishing fetched_at here
+        # is what made year-old data look freshly observed.
+        assert payload["grid_timestamp"] is None
+        assert payload["last_updated"] is None
+        # ...even though a different zone did answer live.
+        assert payload["live_zones"] == 1
+
+    def test_every_zone_live_still_reports_live(self, monkeypatch):
+        async def _live(code, zone, api_key):
+            return (50.0, "electricity-maps-api")
+
+        monkeypatch.setenv("ELECTRICITY_MAPS_API_KEY", "em_bogus")
+        monkeypatch.setattr(carbon, "_fetch_multi_source", _live)
+        cache.cache_clear()
+
+        payload = asyncio.run(carbon.get_carbon_optimal_region())
+
+        assert payload["is_live"] is True
+        assert payload["method"] == "electricity-maps-api"
+        assert payload["data_source"] == "Electricity Maps"
+        assert payload["grid_timestamp"] is not None
+
+    def test_each_zone_records_its_own_feed(self, monkeypatch):
+        monkeypatch.setenv("ELECTRICITY_MAPS_API_KEY", "em_bogus")
+        monkeypatch.setattr(carbon, "_fetch_multi_source", _mixed_feed)
+        cache.cache_clear()
+
+        payload = asyncio.run(carbon.get_carbon_optimal_region())
+        zones = payload["all_regions"]
+
+        assert zones["eu-north-1"]["is_live"] is False
+        assert zones["eu-north-1"]["data_source"] == "IEA 2024"
+        assert zones["ap-northeast-1"]["is_live"] is True
+        assert zones["ap-northeast-1"]["data_source"] == "Electricity Maps"
+        # "source" is the energy-mix estimate and must stay that -- it was the
+        # only per-zone field before and is easy to mistake for provenance.
+        assert zones["eu-north-1"]["source"] in {
+            "Hydro/Wind/Solar", "Mixed Renewables", "Natural Gas Mix", "Coal Grid Baseline",
+        }
+
+    def test_last_good_is_kept_even_when_the_winner_is_static(self, monkeypatch):
+        """The snapshot still holds live observations, so it stays replay-worthy."""
+        monkeypatch.setenv("ELECTRICITY_MAPS_API_KEY", "em_bogus")
+        monkeypatch.setattr(carbon, "_fetch_multi_source", _mixed_feed)
+        cache.cache_clear()
+
+        asyncio.run(carbon.get_carbon_optimal_region())
+
+        replay = cache.cache_get(carbon.CARBON_LAST_GOOD_KEY)
+        assert isinstance(replay, dict), "live observations were thrown away"
+        assert replay["all_regions"]
+
+
 class TestHardTimeout:
     def test_electricity_maps_call_is_capped_at_three_seconds(self, monkeypatch):
         """A feed slower than the budget must yield None instead of blocking."""
