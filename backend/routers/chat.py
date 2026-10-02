@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 from datetime import datetime, timezone
+import asyncio
 import time
 import logging
 import json
@@ -213,6 +214,31 @@ DEFAULT_ALLOW_ANONYMOUS_CHAT_STREAM = True  # /api/chat/stream — public demo
 
 _ALLOW_ANONYMOUS_CHAT = _env_flag("ALLOW_ANONYMOUS_CHAT", DEFAULT_ALLOW_ANONYMOUS_CHAT)
 _ALLOW_ANONYMOUS_CHAT_STREAM = _env_flag("ALLOW_ANONYMOUS_CHAT_STREAM", DEFAULT_ALLOW_ANONYMOUS_CHAT_STREAM)
+
+
+def _env_seconds(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    # A zero or negative interval would spin, and an absurd one would make the
+    # keepalive meaningless, so fall back rather than honour it.
+    return value if 0.1 <= value <= 300 else default
+
+
+# Seconds the stream may stay silent before a keepalive comment is emitted.
+# Two things depend on it: most reverse proxies reap an idle connection well
+# before a slow provider's first token arrives, and the client cannot tell
+# "still thinking" from "socket is dead" without something arriving in between.
+#
+# The frame is an SSE comment (a line beginning ':'), which the SSE spec
+# discards and our own parser skips, so it is invisible to every consumer while
+# still proving the connection is alive.
+DEFAULT_SSE_HEARTBEAT_S = 10.0
+SSE_HEARTBEAT_S = _env_seconds("SSE_HEARTBEAT_S", DEFAULT_SSE_HEARTBEAT_S)
 
 
 async def _require_chat_access(request: Request, *, allow_anonymous: bool) -> str:
@@ -889,22 +915,64 @@ async def chat_stream(req: ChatRequest, request: Request):
         # UnboundLocalError.
         nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply, provider_lineage
         nonlocal region_info, savings
+
+        # The provider stream is drained into a queue by a separate task rather
+        # than read directly. Waiting on the generator with a timeout would
+        # cancel it instead: `asyncio.wait_for` throws CancelledError into
+        # `__anext__` at its suspension point, which closes the provider call
+        # and ends the reply. The reader has to be something a timeout can be
+        # applied to without harming it, which is what the queue is for.
+        stream_task = None
         try:
-            async for token in provider_router.stream_completion(
+            queue: asyncio.Queue = asyncio.Queue()
+            _END = object()
+
+            async def _pump(source):
+                """Drain `source` into `queue`, ending it or handing over an error.
+
+                `except Exception` deliberately does not catch CancelledError:
+                cancelling this task must propagate rather than arrive at the
+                consumer as an ordinary end-of-stream.
+                """
+                try:
+                    async for token in source:
+                        await queue.put(token)
+                except Exception as exc:  # the consumer raises it, as before
+                    await queue.put(exc)
+                else:
+                    await queue.put(_END)
+
+            stream_task = asyncio.create_task(_pump(provider_router.stream_completion(
                 model_id=target_model,
                 messages=_build_messages(req),
                 max_tokens=max_tokens,
                 byok_keys=byok_keys,
-            ):
-                if isinstance(token, dict) and "token" in token:
-                    tok = token["token"]
+            )))
+
+            while True:
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout=SSE_HEARTBEAT_S)
+                except asyncio.TimeoutError:
+                    # Nothing has arrived, but the connection is still ours to
+                    # hold open: an SSE comment keeps a proxy from reaping an
+                    # idle socket while a slow provider produces its first
+                    # token, and lets the client tell slow from dead.
+                    yield ": hb\n\n"
+                    continue
+
+                if item is _END:
+                    break
+                if isinstance(item, BaseException):
+                    raise item
+                if isinstance(item, dict) and "token" in item:
+                    tok = item["token"]
                     full_reply += tok
                     yield f"data: {json.dumps({'token': tok})}\n\n"
-                elif isinstance(token, str):
-                    full_reply += token
-                    yield f"data: {json.dumps({'token': token})}\n\n"
-                elif isinstance(token, dict) and "provider_lineage" in token:
-                    provider_lineage = token["provider_lineage"]
+                elif isinstance(item, str):
+                    full_reply += item
+                    yield f"data: {json.dumps({'token': item})}\n\n"
+                elif isinstance(item, dict) and "provider_lineage" in item:
+                    provider_lineage = item["provider_lineage"]
         except Exception as e:
             logger.warning(f"LLM streaming failed: {e}")
             try:
@@ -917,6 +985,12 @@ async def chat_stream(req: ChatRequest, request: Request):
                 
             yield f"data: {json.dumps({'success': False, 'error_code': 'PROVIDER_UNAVAILABLE', 'message': 'No configured provider was able to process this request.'})}\n\n"
             return
+        finally:
+            # Reached on a client disconnect too, and load-bearing there: the
+            # pump outlives this generator otherwise, so it would keep paying
+            # a provider for tokens nobody is left to receive.
+            if stream_task is not None:
+                stream_task.cancel()
 
         cleaned_reply = clean_response(full_reply)
         output_tokens = len(cleaned_reply.split())

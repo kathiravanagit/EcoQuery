@@ -158,6 +158,14 @@ describe('errorCodeMessage', () => {
     expect(copy).not.toContain('STREAM_TRUNCATED');
   });
 
+  it('translates a client-detected idle stream', () => {
+    // Distinct from truncation: the socket did not close, it stopped talking.
+    const copy = errorCodeMessage('STREAM_IDLE');
+    expect(copy).toContain('went quiet');
+    expect(copy).toContain('incomplete');
+    expect(copy).not.toContain('STREAM_IDLE');
+  });
+
   it('prefers a supplied server sentence for an unknown code', () => {
     expect(errorCodeMessage('SOME_NEW_CODE', 'The backend said this.'))
       .toBe('The backend said this.');

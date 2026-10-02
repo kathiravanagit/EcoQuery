@@ -45,6 +45,10 @@ const CODE_COPY: Record<string, string> = {
   // the terminal done frame, so the reply on screen is incomplete.
   STREAM_TRUNCATED:
     'The connection dropped before the reply finished, so that answer is incomplete. Please try again.',
+  // Client-detected: the socket stayed open but nothing arrived for longer
+  // than the server's keepalive interval, so it is dead rather than slow.
+  STREAM_IDLE:
+    'The connection went quiet before the reply finished, so that answer is incomplete. Please try again.',
 };
 
 /** Copy for responses we could not parse — typically a proxy or platform

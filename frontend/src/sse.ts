@@ -10,7 +10,18 @@
  * original implementation) dropped every frame whose boundary landed mid-read,
  * silently truncating replies. Frames are instead split on the blank-line
  * delimiter across a buffer that persists between reads.
+ *
+ * Silence is treated as a fault. The server writes a keepalive comment every
+ * 10s whenever it has no token to send, so an open socket that has produced
+ * nothing for `IDLE_TIMEOUT_MS` — three missed keepalives — is dead rather than
+ * merely slow, and is reported as `STREAM_IDLE` instead of hanging the caller
+ * on a spinner forever.
  */
+
+/** How long the stream may go without a single byte before it is called dead.
+ *  Deliberately a whole number of keepalives (10s) so that a live server
+ *  cannot trip it: three in a row missed means the socket, not the model. */
+export const IDLE_TIMEOUT_MS = 45_000;
 
 /** Metadata attached to the final `done` frame. Union of every field either
  *  surface renders, and every field the backend actually sends. */
@@ -92,10 +103,17 @@ export interface SSECallbacks {
   onComplete?: () => void;
 }
 
+export interface SSEOptions {
+  /** Maximum silence in ms before the stream is declared dead. Defaults to
+   *  {@link IDLE_TIMEOUT_MS}; tests shorten it rather than wait 45s. */
+  idleTimeoutMs?: number;
+}
+
 export async function consumeSSE(
   body: ReadableStream<Uint8Array>,
   callbacks: SSECallbacks,
   signal?: AbortSignal,
+  options?: SSEOptions,
 ): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder('utf-8');
@@ -105,9 +123,39 @@ export async function consumeSSE(
   // waiting for a stream the server has already finished writing.
   let stopped = false;
   let completed = false;
+  // Set only by the watchdog, so a user abort is never mistaken for a dead
+  // connection — cancellation already has its own announcement.
+  let idle = false;
+
+  const idleTimeoutMs = options?.idleTimeoutMs ?? IDLE_TIMEOUT_MS;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const clearIdleTimer = () => {
+    if (idleTimer !== undefined) {
+      clearTimeout(idleTimer);
+      idleTimer = undefined;
+    }
+  };
+
+  /** Armed immediately before every `read()`, so the timer covers exactly the
+   *  window in which nothing can arrive. Cancelling the reader is what ends
+   *  the loop: a timer on its own would fire and leave `read()` pending
+   *  forever, which is the hang this exists to prevent. */
+  const armIdleTimer = () => {
+    if (stopped || completed) return;
+    clearIdleTimer();
+    idleTimer = setTimeout(() => {
+      idle = true;
+      stopped = true;
+      void reader.cancel();
+    }, idleTimeoutMs);
+  };
 
   const abort = () => {
     stopped = true;
+    // User intent outranks the watchdog: without this the timer could fire
+    // after cancellation and report a dead socket for one the caller closed.
+    clearIdleTimer();
     void reader.cancel();
   };
   signal?.addEventListener('abort', abort, { once: true });
@@ -154,6 +202,7 @@ export async function consumeSSE(
         abort();
         break;
       }
+      armIdleTimer();
       const { value, done } = await reader.read();
       buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
 
@@ -161,9 +210,12 @@ export async function consumeSSE(
       buffer = frames.pop() || '';
       for (const frame of frames) {
         processFrame(frame);
-        if (stopped) break;
+        // `done` is terminal just as an error frame is: nothing follows it, so
+        // stop pulling rather than sit in `read()` waiting on a socket the
+        // server may never bother to close.
+        if (stopped || completed) break;
       }
-      if (stopped) break;
+      if (stopped || completed) break;
 
       if (done) {
         // Flush a trailing frame that was never followed by a blank line.
@@ -172,21 +224,26 @@ export async function consumeSSE(
       }
     }
   } finally {
+    clearIdleTimer();
     signal?.removeEventListener('abort', abort);
-    if (!completed && !stopped) {
-      await reader.cancel();
-    }
+    // `cancel()` is idempotent, and every exit path — normal end, terminal
+    // frame, server error, user abort, idle kill — leaves the reader holding
+    // a socket nobody will read from again.
+    await reader.cancel();
   }
 
-  // The socket closed without the terminal `done` frame, so whatever was
-  // rendered is a partial reply. `stopped` already covers a server error frame
-  // and a user abort — neither is a truncation. Without this check the loop
-  // returned normally and partial text was displayed as a finished answer
-  // behind a transport-level HTTP 200.
+  // Distinguishes the three ways a stream fails to finish:
+  //   - the server sent an error frame, or the caller aborted  -> `stopped`
+  //   - the socket went quiet for longer than any keepalive     -> `STREAM_IDLE`
+  //   - the socket closed while partial text was on screen      -> `STREAM_TRUNCATED`
+  // Without these the loop returned normally and partial text was displayed
+  // as a finished answer behind a transport-level HTTP 200.
   //
   // Deliberately after the try/finally: if read() threw, the caller's catch
   // handles it and firing onError here as well would double-report.
-  if (!completed && !stopped) {
+  if (idle && !completed) {
+    callbacks.onError?.('STREAM_IDLE');
+  } else if (!completed && !stopped) {
     callbacks.onError?.('STREAM_TRUNCATED');
   }
 }
