@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Response, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from datetime import datetime, timezone
+from hashlib import sha256
 import secrets
 import os
 import time
@@ -218,9 +219,57 @@ async def get_analytics(current_user: dict = Depends(get_current_user), days: in
     return await ledger.get_analytics(user_email=current_user["email"], days=days)
 
 
+def _leaderboard_label(email: str, display_name: str) -> str:
+    """Public label for one leaderboard row. Never the address itself.
+
+    `/api/leaderboard` needs no credentials, so returning `user_email` next to
+    that person's activity would let anyone enumerate who uses the service.
+    A display name is what a leaderboard should show — but signup accepts any
+    free text and the Google fallback uses the address as the name, so anything
+    that looks like an address falls through to a non-reversible handle.
+    """
+    name = (display_name or "").strip()
+    if name and "@" not in name:
+        return name[:40]
+    return "user_" + sha256(email.encode("utf-8")).hexdigest()[:8]
+
+
 @router.get("/api/leaderboard")
 async def get_leaderboard():
-    return {"leaderboard": await ledger.get_leaderboard(limit=20)}
+    """Top users by CO₂ saved, de-identified.
+
+    Addresses stay server-side; only the display name (or a stable handle when
+    there is no usable name) is published alongside the aggregate.
+    """
+    rows = await ledger.get_leaderboard(limit=20)
+    addresses = [row["email"] for row in rows]
+
+    names: dict[str, str] = {}
+    if addresses:
+        # Imported lazily like the other auth_db reads in this module.
+        from auth import auth_db
+
+        if auth_db.available and auth_db.collection is not None:
+            docs = await auth_db.collection.find(
+                {"email": {"$in": addresses}},
+                {"email": 1, "display_name": 1},
+            ).to_list(len(addresses))
+            names = {
+                doc["email"]: doc.get("display_name", "")
+                for doc in docs
+                if doc.get("email")
+            }
+
+    return {
+        "leaderboard": [
+            {
+                "user": _leaderboard_label(row["email"], names.get(row["email"], "")),
+                "total_co2_saved_g": row["total_co2_saved_g"],
+                "total_queries": row["total_queries"],
+            }
+            for row in rows
+        ]
+    }
 
 
 @router.get("/api/user/badges")
