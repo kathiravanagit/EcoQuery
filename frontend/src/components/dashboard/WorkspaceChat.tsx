@@ -121,6 +121,9 @@ const WorkspaceChat = ({ token }: Props) => {
   const [isTyping, setIsTyping] = useState(false);
   const [overrideModel, setOverrideModel] = useState('');
   const [models, setModels] = useState<any[]>([]);
+  // Copy for the aria-live region: written once a run settles (finished reply,
+  // failure or cancel) so screen readers hear the outcome, not each token.
+  const [announcement, setAnnouncement] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeRequest = useRef<AbortController | null>(null);
 
@@ -157,6 +160,10 @@ const WorkspaceChat = ({ token }: Props) => {
     setIsTyping(true);
     const controller = new AbortController();
     activeRequest.current = controller;
+    // Full reply so far, plus the display copy of any stream failure; either
+    // is announced once through the live region when the run settles.
+    let replyText = '';
+    let failureText: string | null = null;
 
     try {
       const response = await fetch(`${API}/api/chat/stream`, {
@@ -185,40 +192,63 @@ const WorkspaceChat = ({ token }: Props) => {
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       await consumeSSE(response.body, {
-        onText: (text) => setMessages(prev => {
-          const newMsgs = [...prev];
-          newMsgs[newMsgs.length - 1].content = text;
-          return newMsgs;
-        }),
+        onText: (text) => {
+          replyText = text;
+          setMessages(prev => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1].content = text;
+            return newMsgs;
+          });
+        },
         onMetadata: (metadata) => setMessages(prev => {
           const newMsgs = [...prev];
           newMsgs[newMsgs.length - 1].metadata = metadata;
           return newMsgs;
         }),
-        onKeysExpired: () => setMessages(prev => {
-          const newMsgs = [...prev];
-          newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
-          return newMsgs;
-        }),
-        onError: (code, message) => setMessages(prev => {
-          const newMsgs = [...prev];
-          newMsgs[newMsgs.length - 1].content = errorCodeMessage(code, message);
-          newMsgs[newMsgs.length - 1].error = true;
-          newMsgs[newMsgs.length - 1].retryPrompt = userMsg;
-          return newMsgs;
-        }),
+        onKeysExpired: () => {
+          const text = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
+          failureText = text;
+          setMessages(prev => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1].content = text;
+            return newMsgs;
+          });
+        },
+        onError: (code, message) => {
+          const text = errorCodeMessage(code, message);
+          failureText = text;
+          setMessages(prev => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1].content = text;
+            newMsgs[newMsgs.length - 1].error = true;
+            newMsgs[newMsgs.length - 1].retryPrompt = userMsg;
+            return newMsgs;
+          });
+        },
       }, controller.signal);
+
+      // The abort may surface as a rejection or simply end the read loop, so
+      // both paths announce the cancellation instead of a partial reply.
+      if (controller.signal.aborted) setAnnouncement('Response cancelled.');
+      else setAnnouncement(failureText ?? replyText);
     } catch (e) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        setAnnouncement('Response cancelled.');
+        return;
+      }
       // 402 = the platform's own credits are exhausted, distinct from a
       // provider being briefly unavailable (which is worth retrying).
       const creditsExhausted =
         (e instanceof ApiFailure && e.status === 402) ||
         (e instanceof Error && e.message.includes('402'));
       if (creditsExhausted) {
-        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.' }]);
+        const text = '⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.';
+        setAnnouncement(text);
+        setMessages(prev => [...prev, { role: 'assistant', content: text }]);
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: describeApiError(e, 'The provider is unavailable. Please retry later.'), error: true, retryPrompt: userMsg }]);
+        const text = describeApiError(e, 'The provider is unavailable. Please retry later.');
+        setAnnouncement(text);
+        setMessages(prev => [...prev, { role: 'assistant', content: text, error: true, retryPrompt: userMsg }]);
       }
     } finally {
       if (activeRequest.current === controller) activeRequest.current = null;
@@ -228,6 +258,11 @@ const WorkspaceChat = ({ token }: Props) => {
 
   return (
     <div className="workspace-chat-container">
+      {/* Persistent polite live region: filled only when a run settles, never
+          per streamed token. */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
       <div className="workspace-chat-header">
         <div className="workspace-chat-title">
           <Leaf size={18} color="var(--color-success)" /> Workspace Chat

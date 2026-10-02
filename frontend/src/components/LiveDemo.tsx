@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, ShieldCheck, Zap } from 'lucide-react';
+import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, ShieldCheck, Zap, Square } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
 import { Metadata, consumeSSE } from '../sse';
@@ -15,6 +15,9 @@ interface Message {
   images?: string[]
   error?: boolean
   retryPrompt?: string
+  /** True only while this reply is still streaming. A cancelled run drops the
+   *  bubble so half-written text is never shown as a finished answer. */
+  streaming?: boolean
 }
 
 import { EASE_FN } from '../constants';
@@ -207,9 +210,17 @@ const LiveDemo = () => {
   const [models, setModels] = useState<any[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  // Announcement copy for the aria-live region below: written once per run
+  // (completion, failure or cancel) so assistive tech hears a finished answer
+  // instead of every streamed token.
+  const [announcement, setAnnouncement] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeRequest = useRef<AbortController | null>(null);
+  // Routing-stage timers of the current run, cleared on finish/cancel so a
+  // stale stage cannot bleed into the next run.
+  const stageTimers = useRef<number[]>([]);
 
   useEffect(() => {
     fetch(`${API}/api/models`)
@@ -279,6 +290,10 @@ const LiveDemo = () => {
     ]);
   };
 
+  const handleCancel = () => {
+    activeRequest.current?.abort();
+  };
+
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() && attachedImages.length === 0) return;
@@ -287,19 +302,28 @@ const LiveDemo = () => {
     setInput('');
     setAttachedImages([]);
     setIsTyping(true);
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    let cancelled = false;
+    // Full reply text so far, and the display copy of any stream failure —
+    // both are what the live region announces once the run settles.
+    let replyText = '';
+    let failureText: string | null = null;
 
     const isAuto = !overrideModel;
     const estimated = estimateQuickTier(userMsg);
 
     // Dynamic staged progression for EcoQuery Auto
+    stageTimers.current.forEach(clearTimeout);
+    stageTimers.current = [];
     if (isAuto) {
       setRoutingStage('Analyzing question...');
-      setTimeout(() => {
+      stageTimers.current.push(window.setTimeout(() => {
         setRoutingStage(`${estimated} question`);
-        setTimeout(() => {
+        stageTimers.current.push(window.setTimeout(() => {
           setRoutingStage('Checking EcoQuery knowledge...');
-        }, 400);
-      }, 300);
+        }, 400));
+      }, 300));
     } else {
       setRoutingStage(`Routing to selected model...`);
     }
@@ -307,6 +331,7 @@ const LiveDemo = () => {
     try {
       const response = await fetch(`${API}/api/chat/stream`, {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json', ...byokHeaders() },
         body: JSON.stringify({
           message: userMsg,
@@ -323,39 +348,69 @@ const LiveDemo = () => {
       }
       if (!response.body) throw new Error('No readable stream');
 
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '', streaming: true }]);
 
       await consumeSSE(response.body, {
-        onText: (text) => setMessages(prev => {
-          const newMsgs = [...prev];
-          newMsgs[newMsgs.length - 1].content = text;
-          return newMsgs;
-        }),
+        onText: (text) => {
+          replyText = text;
+          setMessages(prev => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1].content = text;
+            return newMsgs;
+          });
+        },
         onMetadata: (metadata) => setMessages(prev => {
           const newMsgs = [...prev];
           newMsgs[newMsgs.length - 1].metadata = metadata;
           return newMsgs;
         }),
-        onKeysExpired: () => setMessages(prev => {
-          const newMsgs = [...prev];
-          newMsgs[newMsgs.length - 1].content = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
-          return newMsgs;
-        }),
-        onError: (code, message) => setMessages(prev => [...prev, {
+        onKeysExpired: () => {
+          const text = "⚠️ All configured API keys have expired or reached their limits. Please update your API keys on the dashboard to continue.";
+          failureText = text;
+          setMessages(prev => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1].content = text;
+            return newMsgs;
+          });
+        },
+        onError: (code, message) => {
+          const text = errorCodeMessage(code, message);
+          failureText = text;
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: text,
+            error: true,
+            retryPrompt: userMsg,
+          }]);
+        },
+      }, controller.signal);
+
+      cancelled = controller.signal.aborted;
+      // One announcement per run: the finished reply, or the failure copy.
+      if (!cancelled) setAnnouncement(failureText ?? replyText);
+    } catch (e) {
+      if (controller.signal.aborted) {
+        cancelled = true;
+      } else {
+        const text = describeApiError(e, 'The routing provider is unavailable.');
+        setAnnouncement(text);
+        setMessages(prev => [...prev, {
           role: 'assistant',
-          content: errorCodeMessage(code, message),
+          content: text,
           error: true,
           retryPrompt: userMsg,
-        }]),
-      });
-    } catch (e) {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: describeApiError(e, 'The routing provider is unavailable.'),
-        error: true,
-        retryPrompt: userMsg,
-      }]);
+        }]);
+      }
     } finally {
+      if (cancelled) {
+        // A cancelled run leaves no half-written bubble behind and starts the
+        // next one from a clean state.
+        setMessages(prev => prev.filter(m => !m.streaming));
+        setAnnouncement('Response cancelled.');
+      }
+      stageTimers.current.forEach(clearTimeout);
+      stageTimers.current = [];
+      if (activeRequest.current === controller) activeRequest.current = null;
       setIsTyping(false);
       setRoutingStage('');
     }
@@ -371,6 +426,11 @@ const LiveDemo = () => {
 
         <motion.div className="demo-container" initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}>
           <div className="chat-interface">
+            {/* Persistent polite live region: filled only when a run settles
+                (finished answer, failure or cancel), never per token. */}
+            <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+              {announcement}
+            </div>
             <div className="chat-header">
               <motion.div className="status-dot" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}></motion.div>
               <span>EcoQuery Router Active</span>
@@ -523,6 +583,17 @@ const LiveDemo = () => {
                 />
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
+                  {isTyping && (
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      aria-label="Stop generating"
+                      title="Stop generating"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', color: 'var(--color-error)', border: '1px solid var(--border-color)', padding: '0 12px', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      <Square size={14} aria-hidden="true" /> Stop
+                    </button>
+                  )}
                   <motion.button type="button" onClick={handleSend} aria-label="Retry last message" title="Retry" disabled={isTyping} whileHover={{ y: -2 }} whileTap={{ y: 0 }} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0 12px', borderRadius: '8px', cursor: 'pointer' }}>
                     Retry
                   </motion.button>
