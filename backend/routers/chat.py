@@ -600,7 +600,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     output_tokens = 40
     is_mocked = False
     provider_lineage = None
-    energy_started_at, energy_start_rapl, energy_nvml = begin_energy_sample()
+    energy_started_at, energy_start_value, energy_nvml = begin_energy_sample()
 
     user_email = await _resolve_user_email(request)
     max_tokens = 600
@@ -681,7 +681,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         })
 
     latency_seconds = round(time.time() - start_time, 3)
-    energy_reading = end_energy_sample(energy_started_at, energy_start_rapl, energy_nvml) if model_sel.get("provider") == "Ollama (Local)" else None
+    energy_reading = end_energy_sample(energy_started_at, energy_start_value, energy_nvml) if model_sel.get("provider") == "Ollama (Local)" else None
     v_result = verifier.verify_completion(
         model_id=target_model, prompt_tokens=prompt_tokens,
         completion_tokens=output_tokens, latency_seconds=latency_seconds,
