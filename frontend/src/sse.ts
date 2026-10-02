@@ -152,7 +152,7 @@ export async function consumeSSE(
     for (;;) {
       if (signal?.aborted) {
         abort();
-        return;
+        break;
       }
       const { value, done } = await reader.read();
       buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
@@ -163,12 +163,12 @@ export async function consumeSSE(
         processFrame(frame);
         if (stopped) break;
       }
-      if (stopped) return;
+      if (stopped) break;
 
       if (done) {
         // Flush a trailing frame that was never followed by a blank line.
         processFrame(buffer);
-        return;
+        break;
       }
     }
   } finally {
@@ -176,5 +176,17 @@ export async function consumeSSE(
     if (!completed && !stopped) {
       await reader.cancel();
     }
+  }
+
+  // The socket closed without the terminal `done` frame, so whatever was
+  // rendered is a partial reply. `stopped` already covers a server error frame
+  // and a user abort — neither is a truncation. Without this check the loop
+  // returned normally and partial text was displayed as a finished answer
+  // behind a transport-level HTTP 200.
+  //
+  // Deliberately after the try/finally: if read() threw, the caller's catch
+  // handles it and firing onError here as well would double-report.
+  if (!completed && !stopped) {
+    callbacks.onError?.('STREAM_TRUNCATED');
   }
 }

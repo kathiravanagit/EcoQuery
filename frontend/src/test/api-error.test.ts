@@ -152,6 +152,12 @@ describe('errorCodeMessage', () => {
     expect(errorCodeMessage('UNAUTHORIZED')).toContain('session has expired');
   });
 
+  it('translates a client-detected truncated stream', () => {
+    const copy = errorCodeMessage('STREAM_TRUNCATED');
+    expect(copy).toContain('incomplete');
+    expect(copy).not.toContain('STREAM_TRUNCATED');
+  });
+
   it('prefers a supplied server sentence for an unknown code', () => {
     expect(errorCodeMessage('SOME_NEW_CODE', 'The backend said this.'))
       .toBe('The backend said this.');

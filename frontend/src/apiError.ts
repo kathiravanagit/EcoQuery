@@ -41,6 +41,10 @@ const CODE_COPY: Record<string, string> = {
   PROVIDER_KEY_REJECTED:
     'The provider rejected your API key. Check it and try again.',
   REQUEST_FAILED: 'That request failed. Please try again.',
+  // Client-detected, not a backend error_code: the SSE socket closed before
+  // the terminal done frame, so the reply on screen is incomplete.
+  STREAM_TRUNCATED:
+    'The connection dropped before the reply finished, so that answer is incomplete. Please try again.',
 };
 
 /** Copy for responses we could not parse — typically a proxy or platform

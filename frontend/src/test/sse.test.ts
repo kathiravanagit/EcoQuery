@@ -75,3 +75,67 @@ describe('consumeSSE error frames', () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('consumeSSE truncation', () => {
+  it('reports STREAM_TRUNCATED when the socket closes before the done frame', async () => {
+    const onError = vi.fn();
+    const onComplete = vi.fn();
+
+    await consumeSSE(streamOf('data: {"token":"half an ans"}\n\n'), {
+      onError,
+      onComplete,
+    });
+
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith('STREAM_TRUNCATED');
+  });
+
+  it('reports STREAM_TRUNCATED when the stream yields no frames at all', async () => {
+    const onError = vi.fn();
+
+    await consumeSSE(streamOf(''), { onError });
+
+    expect(onError).toHaveBeenCalledWith('STREAM_TRUNCATED');
+  });
+
+  it('does not double-report after a server error frame', async () => {
+    const onError = vi.fn();
+
+    await consumeSSE(
+      streamOf('data: {"error_code":"PROVIDER_UNAVAILABLE"}\n\n'),
+      { onError },
+    );
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith('PROVIDER_UNAVAILABLE', undefined);
+  });
+
+  it('does not report truncation when the user aborts', async () => {
+    const controller = new AbortController();
+    const onError = vi.fn();
+    const stream = new ReadableStream<Uint8Array>({
+      start(streamController) {
+        streamController.enqueue(new TextEncoder().encode('data: {"token":"partial"}\n\n'));
+      },
+      cancel: vi.fn(),
+    });
+
+    const consuming = consumeSSE(stream, { onError }, controller.signal);
+    controller.abort();
+    await consuming;
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('does not report truncation for a completed stream', async () => {
+    const onError = vi.fn();
+
+    await consumeSSE(
+      streamOf('data: {"done":true,"metadata":{"model_used":"test"}}\n\n'),
+      { onError },
+    );
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
