@@ -149,12 +149,52 @@ def _key_source(grouped_keys: dict) -> dict[str, str]:
 
 
 def _providers_to_try(grouped_keys: dict, byok_keys: dict[str, str] | None) -> list[str]:
-    """Keep the legacy order, then try newly configured providers."""
-    providers = list(PROVIDER_FALLBACK_ORDER)
-    for provider in (*grouped_keys.keys(), *(byok_keys or {}).keys()):
-        if provider in PROVIDER_BASE_URLS and provider not in providers:
-            providers.append(provider)
-    return providers
+    """Caller-supplied providers lead; the configured fallback order follows.
+
+    A provider the caller handed us a key for is tried before every
+    server-configured one, so their own credential is what gets used instead
+    of sitting behind the server's defaults. `_with_byok` already puts their
+    key first *within* a bucket, so the two together deliver the documented
+    promise: their key, then ours. Everything else keeps
+    PROVIDER_FALLBACK_ORDER, and providers neither party mentioned are never
+    tried.
+
+    Only keys that would actually be injected count as supplied -- an empty or
+    blank value is discarded by `_with_byok`, so it must not reorder the list
+    either and promote that provider's server key ahead of a real one.
+    """
+    supplied = [
+        provider
+        for provider, key in (byok_keys or {}).items()
+        if provider in PROVIDER_BASE_URLS and isinstance(key, str) and key.strip()
+    ]
+    ordered: list[str] = []
+    for provider in (*supplied, *PROVIDER_FALLBACK_ORDER, *grouped_keys.keys()):
+        if provider in PROVIDER_BASE_URLS and provider not in ordered:
+            ordered.append(provider)
+    return ordered
+
+
+def _attempt_order(grouped_keys: dict, providers_to_try: list[str]) -> list[tuple[str, list[dict]]]:
+    """Flatten to one batch per key so caller keys lead across *all* providers.
+
+    `_with_byok` only puts a supplied key ahead of its own provider's server
+    keys, so a provider sitting earlier in the fallback order could still
+    answer with a server credential while a perfectly good caller key waited
+    behind it. Sorting the flattened list by ownership -- stably, so provider
+    order survives inside each group -- means a supplied key is only ever
+    beaten by another supplied key.
+
+    Each batch holds exactly one key so the callers' existing nested loop
+    keeps its shape and only the outer iteration changes.
+    """
+    batches = [
+        (provider, [key_data])
+        for provider in providers_to_try
+        for key_data in grouped_keys.get(provider, [])
+    ]
+    batches.sort(key=lambda item: 0 if item[1][0].get("byok") else 1)
+    return batches
 
 
 def _with_byok(grouped_keys: dict, byok_keys: dict[str, str] | None) -> tuple[dict, int, bool]:
@@ -227,8 +267,7 @@ class ProviderRouter:
         
         last_error = None
         attempts = []
-        for provider in providers_to_try:
-            keys = grouped_keys.get(provider, [])
+        for provider, keys in _attempt_order(grouped_keys, providers_to_try):
             if not keys:
                 continue
                 
@@ -370,8 +409,7 @@ class ProviderRouter:
         attempts = []
         last_error = None
         
-        for provider in providers_to_try:
-            keys = grouped_keys.get(provider, [])
+        for provider, keys in _attempt_order(grouped_keys, providers_to_try):
             for key_data in keys:
                 key_id = key_data["id"]
                 api_key = key_data["key_value"]

@@ -530,12 +530,112 @@ def test_new_provider_is_tried_only_when_supplied_or_configured():
     assert _providers_to_try(
         {"openrouter": [{"id": "server", "key_value": SERVER_KEY}]}, None
     ) == ["openrouter", "google", "grok"]
+    # The caller's provider leads rather than trailing the server's defaults.
     assert _providers_to_try({}, {"openai": OPENAI_SENTINEL}) == [
-        "openrouter", "google", "grok", "openai"
+        "openai", "openrouter", "google", "grok"
     ]
     assert _providers_to_try(
         {"anthropic": [{"id": "server", "key_value": "server-anthropic"}]}, None
     ) == ["openrouter", "google", "grok", "anthropic"]
+
+
+def test_caller_provider_leads_the_fallback_order():
+    """Regression: the caller's provider used to be appended last.
+
+    With an OpenRouter server key configured, a supplied Google key landed
+    third in line, so openrouter answered first and their credential was
+    never used at all.
+    """
+    ordered = _providers_to_try(
+        {"openrouter": [{"id": "server", "key_value": SERVER_KEY}]},
+        {"google": GOOGLE_SENTINEL},
+    )
+    assert ordered[:2] == ["google", "openrouter"]
+    # Everything else keeps the legacy order behind them.
+    assert ordered == ["google", "openrouter", "grok"]
+
+
+def test_blank_caller_key_does_not_reorder_the_fallback():
+    """A discarded key must not promote that provider's server key."""
+    ordered = _providers_to_try(
+        {
+            "openrouter": [{"id": "server", "key_value": SERVER_KEY}],
+            "google": [{"id": "g-server", "key_value": "server-google"}],
+        },
+        {"google": "   "},
+    )
+    assert ordered[:2] == ["openrouter", "google"]
+
+
+def test_caller_key_reaches_the_call_when_a_server_key_exists():
+    """End-to-end: the credential on the wire is theirs, not the server's.
+
+    Earlier tests mocked `get_all_providers_keys` to `{}`, which hid the
+    ordering bug entirely -- with no server key there is nothing to beat.
+    """
+    with patch.object(providers_mod.key_manager, "get_all_providers_keys",
+                      return_value={"openrouter": [{"id": "server", "key_value": SERVER_KEY}]}), \
+         patch.object(providers_mod.key_manager, "log_usage", MagicMock()), \
+         patch.object(provider_router, "_call_provider", _ok):
+        result = asyncio.run(_chat(
+            "openrouter/gpt-4o-mini", [{"role": "user", "content": "hi"}],
+            byok_keys={"google": GOOGLE_SENTINEL},
+        ))
+
+    assert result["provider_lineage"]["final_provider"] == "google"
+    assert result["content"] == f"reply via {GOOGLE_SENTINEL}"
+    assert SERVER_KEY not in result["content"]
+    assert result["provider_lineage"]["byok_used"] is True
+
+
+def test_x_google_key_header_beats_a_server_configured_key():
+    """End-to-end through HTTP: the header has to reach the wire.
+
+    The existing `X-Google-Key` test mocks `chat_completion` outright, so the
+    provider ordering it reports was never exercised. This one leaves the real
+    router in place and only records which credential `_call_provider` sees.
+    """
+    from fastapi.testclient import TestClient
+
+    from main import app
+
+    seen = []
+
+    async def _real_chat(*args, **kwargs):
+        # Instance attribute lookup does not bind, so forward explicitly --
+        # the same trick `_chat` uses to get past conftest's autouse mock.
+        return await ProviderRouter.chat_completion(provider_router, *args, **kwargs)
+
+    async def _record(api_key, base_url, target_model, messages, max_tokens):
+        seen.append(api_key)
+        return {"content": "ok", "usage": {"completion_tokens": 3}}
+
+    with patch.object(provider_router, "chat_completion", _real_chat), \
+         patch.object(providers_mod.key_manager, "get_all_providers_keys",
+                      return_value={"openrouter": [{"id": "k1", "key_value": SERVER_KEY}]}), \
+         patch.object(providers_mod.key_manager, "log_usage", MagicMock()), \
+         patch.object(provider_router, "_call_provider", _record), \
+         patch("classifier.classifier.classify",
+               return_value={"tier": "simple", "confidence": 0.85, "method": "test-mock"}), \
+         patch("carbon.get_carbon_optimal_region",
+               return_value={"region": "eu-north-1", "energy_source": "Hydro/Wind",
+                             "carbon_intensity_g_kwh": 18.5,
+                             "estimated_savings_g_co2": 1.2, "method": "test-mock"}):
+        with TestClient(app) as client:
+            resp = client.post(
+                "/api/chat",
+                json={"message": "Zqvx7 explain the frimble protocol in one line"},
+                headers={"X-Google-Key": GOOGLE_SENTINEL},
+            )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["metadata"]["answer_source"] == "llm", "knowledge/cache answered; nothing to assert"
+    # The caller's credential is the first one on the wire, not the server's.
+    assert seen[0] == GOOGLE_SENTINEL
+    assert SERVER_KEY not in seen
+    # Ownership is reported without echoing either credential back.
+    assert GOOGLE_SENTINEL not in resp.text
+    assert SERVER_KEY not in resp.text
 
 
 @pytest.mark.parametrize(
