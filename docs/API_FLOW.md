@@ -82,12 +82,14 @@ If the user has a WebSocket connection open, a real-time event is pushed to thei
     "region": "eu-north-1",
     "co2_estimated_g": 0.0012,
     "co2_saved_g": 0.0048,
-    "verification_status": "verified",
+    "verification_status": "<behavioural verification signal>",
     "tier": "complex",
     "routing_mode": "eco"
   }
 }
 ```
+
+`verification_status` is a **behavioural verification signal**, not a claim about the physical world. The field carries the outcome of the Step E checks: the string `verified` when observed throughput and latency did not flag the response, `flagged_substitution` when they did. Read `verified` only as "these behavioural checks found nothing to dispute" — it does **not** prove which model generated the response, and it says nothing about the energy actually consumed. What makes the record trustworthy over time is the hash-chained, tamper-evident audit entry from Step F, not the status string; see [METHODOLOGY.md](METHODOLOGY.md) § Model-integrity verification.
 
 ## 4. What the user sees
 

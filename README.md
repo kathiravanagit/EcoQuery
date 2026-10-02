@@ -6,7 +6,9 @@
 
 A consumer-side middleware that selects a capable AI model using carbon-intensity data and records auditable routing provenance. Vercel hosts the frontend; the FastAPI API runs on Render. CO₂e values are estimates unless telemetry or provider-reported energy is available.
 
-See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the estimation formula, routing policy, evaluation protocol, data-source provenance, and verification limitations.
+**Primary user:** developers and small AI teams that want a carbon-aware multi-provider gateway — a single endpoint in front of several LLM providers that picks a capable model from grid-carbon data and records an audit trail of that decision. This integrator is the design target for docs, defaults and evaluation. The project is deliberately **not** a consumer chatbot, an ESG accounting platform, an enterprise gateway, or a certification system — see [docs/RESEARCH.md](docs/RESEARCH.md) for the positioning, the research hypothesis, the human-evaluation rubric, and the ablation plan.
+
+See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the estimation formula, routing policy, evaluation protocol, data-source provenance, and verification limitations. See [docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md) for the provenance every benchmark result must carry.
 
 Production configuration requires MongoDB, a strong JWT secret (32+ characters), and at least one provider key. Set `KEY_ENCRYPTION_KEY` for dedicated provider-key encryption; Render can fall back to `JWT_SECRET` if it is omitted. Set `REDIS_URL` for distributed rate limiting. Provider credentials must be rotated if they were ever committed to repository history; removing the current database file does not rewrite old Git objects.
 
