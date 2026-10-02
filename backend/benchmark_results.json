@@ -113,5 +113,33 @@
     "simple": "lfm-2.5-2.6b:free",
     "medium": "north-mini-code:free",
     "complex": "nemotron-3-super-120b-a12b:free"
+  },
+  "provenance": {
+    "git_commit": "d178a2d1b5a4fdea47d84be793acfa5730d3fdcf",
+    "catalog_version": {
+      "digest": "sha256:b11e6670dc3956cd8c7ab6d8f0da2136927491269e5c198a78da0bf2086fe949",
+      "entry_count": 7
+    },
+    "prompt_count": 30,
+    "prompt_set_hash": "sha256:083524bcb3a69ee175850691be9bfb37a1fa32af156cc8c7ca0a590990618133",
+    "provider_model_ids": [
+      "cohere/north-mini-code:free",
+      "dots-studio/dots-3-note-preview:free",
+      "liquid/lfm-2.5-2.6b:free",
+      "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "qwen/qwen3.8-27b:free"
+    ],
+    "routing_modes": [
+      "Always Largest (Nemotron 550B)",
+      "Always Smallest (GPT-OSS 20B)",
+      "EcoQuery (Carbon-Aware)"
+    ],
+    "environment": {
+      "python": "3.13.15",
+      "platform": "Windows-11-10.0.22631-SP0"
+    },
+    "generated_at": "2026-10-02T15:25:00.431217+00:00"
   }
 }

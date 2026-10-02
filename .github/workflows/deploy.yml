@@ -28,6 +28,11 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pip install ruff
       - run: ruff check . --select E,F --ignore E501
+      # Guards the catalog the router scores against and prints the digest a
+      # benchmark artifact must pin. Fails the build on a stale cost/latency
+      # table, a paid model, or an id that no longer matches its threshold key.
+      - name: Validate model catalog
+        run: python validate_models.py
       - name: Run backend tests with isolated configuration
         env:
           JWT_SECRET: test-jwt-secret-with-at-least-32-characters

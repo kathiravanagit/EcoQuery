@@ -1,0 +1,9 @@
+{
+  "name": "ecoquery",
+  "private": true,
+  "description": "Repo-level tooling scripts only. The application's npm package lives in frontend/.",
+  "scripts": {
+    "validate:models": "python backend/validate_models.py",
+    "validate:models:json": "python backend/validate_models.py --json"
+  }
+}

@@ -9,12 +9,17 @@ Three strategies tested:
 Measures: response quality (leniency score), CO2 estimates, latency.
 """
 
+import hashlib
 import json
 import os
+import platform
+import subprocess
 import sys
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from catalog_version import catalog_version
 from router import select_model, compute_savings, MODEL_LATENCY
 from classifier import classifier
 from models import CARBON_MODELS
@@ -61,6 +66,63 @@ BENCHMARK_PROMPTS = {
 
 ALWAYS_LARGEST_MODEL = "nemotron-3-ultra-550b-a55b:free"
 ALWAYS_SMALLEST_MODEL = "lfm-2.5-2.6b:free"
+
+
+def _git_commit() -> str:
+    """HEAD sha, or "unknown" when there is no checkout (tarball, zipball).
+
+    Best effort on purpose: a benchmark whose provenance is partly unknown is
+    still more useful than one that reports nothing at all.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return "unknown"
+
+
+def _prompt_set_hash() -> str:
+    """Digest of the prompt set itself.
+
+    Two artifacts cannot be compared if their inputs differ, so pinning the
+    catalog without pinning the prompts would only be half the record.
+    """
+    payload = json.dumps(
+        BENCHMARK_PROMPTS, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, default=str,
+    )
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _provenance(strategy_names: list) -> dict:
+    """What must be pinned for these numbers to be reproducible.
+
+    `docs/REPRODUCIBILITY.md` specifies the full block; this records the parts
+    `benchmark.py` can state without guessing. The rest (carbon data timestamp,
+    repetitions, quality rubric version) is listed there as still missing
+    rather than filled in with a plausible value.
+    """
+    return {
+        "git_commit": _git_commit(),
+        # A silent edit to CARBON_MODELS changes every selection, saving and
+        # percentage below, so the catalog they were computed against is pinned.
+        "catalog_version": catalog_version(),
+        "prompt_count": sum(len(v) for v in BENCHMARK_PROMPTS.values()),
+        "prompt_set_hash": _prompt_set_hash(),
+        "provider_model_ids": sorted({m["openrouter_id"] for m in CARBON_MODELS}),
+        "routing_modes": list(strategy_names),
+        "environment": {
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+        },
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def _classify_offline(prompt: str) -> dict:
@@ -275,6 +337,10 @@ def run_benchmark():
             tier: select_model(tier, "NOR", 200.0)["model"]
             for tier in ["simple", "medium", "complex"]
         },
+        # Everything above was unattributed before: a reader had no way to
+        # tell which catalog or commit produced them, or whether two files
+        # were even comparable.
+        "provenance": _provenance(list(strategies)),
     }
 
     output_path = os.path.join(os.path.dirname(__file__), "benchmark_results.json")

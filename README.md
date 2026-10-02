@@ -267,7 +267,7 @@ VITE_API_URL=http://localhost:8000     # Dev
 ## Testing
 
 ```bash
-# Backend (150 tests)
+# Backend (370 tests)
 cd backend
 python -m pytest tests/ -q
 
@@ -277,6 +277,19 @@ npx tsc --noEmit
 npx vitest run
 npm run build
 ```
+
+### Model catalog
+
+The router scores against `CARBON_MODELS` in `backend/models.py`. Check that it
+is internally consistent and print the digest a benchmark must be pinned to:
+
+```bash
+npm run validate:models          # exits 1 on a paid model, a stale cost or
+                                 # latency table, a bad tier, or a duplicate id
+npm run validate:models:json     # machine-readable
+```
+
+CI runs the same check on every push.
 
 ---
 

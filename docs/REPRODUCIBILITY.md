@@ -96,22 +96,26 @@ A result published without a complete `provenance` block is not a benchmark resu
 
 ## Current state of the artifact
 
-**`backend/benchmark_results.json` does NOT carry any of these fields.** It has exactly three top-level keys today:
+**`backend/benchmark_results.json` now carries a `provenance` block.** Its top-level keys today:
 
 | Top-level key | Contents |
 | --- | --- |
 | `classifier_accuracy` | Overall and per-tier accuracy, method, prompt count |
 | `routing_comparison` | Per-strategy totals: queries, estimated CO₂e (g), savings %, average latency, carbon score, per-tier breakdown |
 | `ecoquery_model_selection` | The model id chosen per tier |
+| `provenance` | `git_commit`, `catalog_version` (digest + entry count), `prompt_count`, `prompt_set_hash`, `provider_model_ids`, `routing_modes`, `environment`, `generated_at` |
 
-Missing from the artifact: `git_commit`, `prompt_set_hash`, `provider_model_ids`, `catalog_version`, `carbon_data_timestamp`, `routing_mode_settings`, `repetitions`, `environment`, `failure_count`, `quality_rubric_version`. `backend/benchmark.py` writes only the three keys above, and `scripts/live_benchmark.py` writes `prompt_count`, `runs`, `summary` and `records` — it reports a `failure_rate` inside `summary` but no commit, catalog, or carbon-data provenance.
+Still missing from the artifact: `carbon_data_timestamp`, `carbon_data_source`, `repetitions`, `failure_count`, `quality_rubric_version`. `scripts/live_benchmark.py` writes `prompt_count`, `runs`, `summary` and `records` — it reports a `failure_rate` inside `summary` but no commit, catalog, or carbon-data provenance.
+
+The missing fields above are missing because `benchmark.py` cannot state them without inventing a value; they are recorded here rather than filled in with a plausible one.
 
 Consequences, stated plainly:
 
-- The figures quoted from that artifact — **90.9%** estimated carbon reduction vs the fixed baseline, and the classifier hold-out accuracy of **80.85%** — are reproducible *only if* the reader already knows which commit, which catalog, and which prompt set produced them. The artifact itself does not say.
-- The catalog is documented as mutable in [METHODOLOGY.md](METHODOLOGY.md): provider availability, versions, pricing and rate limits change. Without `catalog_version`, a re-run that disagrees with the checked-in numbers cannot tell a real regression from a silently different catalog.
+- **90.9%** estimated carbon reduction vs the fixed baseline, and the classifier hold-out accuracy of **80.85%**, are now attributable to a specific commit, catalog and prompt set from the artifact alone.
+- `catalog_version` is pinned in `provenance` and re-checked by `tests/test_catalog_version.py`: editing `models.py` without re-running the benchmark fails the test with instructions to re-run it. The digest itself is printed and enforced by `npm run validate:models` and the `Validate model catalog` CI step.
 - Without `carbon_data_timestamp` and `carbon_data_source`, a live run mixing an Electricity Maps value with an IEA annual baseline is indistinguishable from a run using one source throughout.
 - Without `failure_count`, a strategy that errored is scored only on its survivors.
+- Without `repetitions`, a single pass can be mistaken for a repeated experiment.
 
 ## Minimum bar before publishing a number
 
