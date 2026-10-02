@@ -1,6 +1,8 @@
 """Pydantic models for EcoQuery API."""
 
 import re
+import base64
+import binascii
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 
@@ -59,8 +61,26 @@ class ChatRequest(BaseModel):
     @classmethod
     def validate_images(cls, images):
         max_base64_chars = 7_000_000  # approximately 5 MB decoded
-        if images and any(len(image) > max_base64_chars for image in images):
-            raise ValueError('Each image must be 5 MB or smaller')
+        allowed_signatures = (
+            (b"\x89PNG\r\n\x1a\n",),
+            (b"\xff\xd8\xff",),
+            (b"RIFF", b"WEBP"),
+        )
+        for image in images or []:
+            if not isinstance(image, str) or len(image) > max_base64_chars:
+                raise ValueError('Each image must be 5 MB or smaller')
+            if not re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", image):
+                raise ValueError("Images must be base64-encoded PNG, JPEG, or WebP data")
+            try:
+                decoded = base64.b64decode(image, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise ValueError("Images must be valid base64 data") from exc
+            if not any(
+                decoded.startswith(signature[0])
+                and (len(signature) == 1 or decoded[8:12] == signature[1])
+                for signature in allowed_signatures
+            ):
+                raise ValueError("Only PNG, JPEG, and WebP images are supported")
         return images
 
 

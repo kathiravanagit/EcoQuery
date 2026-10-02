@@ -9,6 +9,7 @@ import time
 import json
 import logging
 import asyncio
+import uuid
 from jose import JWTError, jwt
 from dotenv import load_dotenv
 
@@ -80,6 +81,10 @@ def rate_limit_policy(path: str) -> int:
 
 
 async def rate_limit_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", "").strip()
+    if not request_id or len(request_id) > 128 or any(char.isspace() for char in request_id):
+        request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
     applied_limit = rate_limit_policy(request.url.path)
     remaining = applied_limit
     if request.url.path.startswith("/api/") and request.method != "GET":
@@ -111,7 +116,15 @@ async def rate_limit_middleware(request: Request, call_next):
     start = time.time()
     response = await call_next(request)
     elapsed = round((time.time() - start) * 1000)
-    logger.info(f"{request.method} {request.url.path} → {response.status_code} ({elapsed}ms)")
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "request completed method=%s path=%s status=%s duration_ms=%s request_id=%s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed,
+        request_id,
+    )
     if request.url.path.startswith("/api/"):
         response.headers["X-RateLimit-Limit"] = str(applied_limit)
         response.headers["X-RateLimit-Remaining"] = str(remaining)

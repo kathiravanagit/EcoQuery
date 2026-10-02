@@ -88,11 +88,14 @@ export interface SSECallbacks {
   /** Provider failed; `code` is the backend's error_code, `message` its own
    *  human-readable copy (prefer `errorCodeMessage(code)` for the display). */
   onError?: (code: string, message?: string) => void;
+  /** Called when the stream ends after a successful completion frame. */
+  onComplete?: () => void;
 }
 
 export async function consumeSSE(
   body: ReadableStream<Uint8Array>,
   callbacks: SSECallbacks,
+  signal?: AbortSignal,
 ): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder('utf-8');
@@ -101,6 +104,13 @@ export async function consumeSSE(
   // Error frames are terminal — stop pulling from the socket instead of
   // waiting for a stream the server has already finished writing.
   let stopped = false;
+  let completed = false;
+
+  const abort = () => {
+    stopped = true;
+    void reader.cancel();
+  };
+  signal?.addEventListener('abort', abort, { once: true });
 
   const processFrame = (frame: string) => {
     const dataLine = frame.split('\n').find((line) => line.startsWith('data: '));
@@ -133,25 +143,38 @@ export async function consumeSSE(
     }
     if (data.done && data.metadata) {
       callbacks.onMetadata?.(data.metadata);
+      completed = true;
+      callbacks.onComplete?.();
     }
   };
 
-  for (;;) {
-    const { value, done } = await reader.read();
-    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+  try {
+    for (;;) {
+      if (signal?.aborted) {
+        abort();
+        return;
+      }
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
 
-    const frames = buffer.replace(/\r\n/g, '\n').split('\n\n');
-    buffer = frames.pop() || '';
-    for (const frame of frames) {
-      processFrame(frame);
-      if (stopped) break;
+      const frames = buffer.replace(/\r\n/g, '\n').split('\n\n');
+      buffer = frames.pop() || '';
+      for (const frame of frames) {
+        processFrame(frame);
+        if (stopped) break;
+      }
+      if (stopped) return;
+
+      if (done) {
+        // Flush a trailing frame that was never followed by a blank line.
+        processFrame(buffer);
+        return;
+      }
     }
-    if (stopped) return;
-
-    if (done) {
-      // Flush a trailing frame that was never followed by a blank line.
-      processFrame(buffer);
-      return;
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    if (!completed && !stopped) {
+      await reader.cancel();
     }
   }
 }

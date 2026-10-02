@@ -43,19 +43,27 @@ _oauth_states: dict[str, datetime] = {}
 
 def _generate_state() -> str:
     """Generate a short-lived signed OAuth state parameter."""
+    _cleanup_states()
     payload = f"{int(datetime.now(timezone.utc).timestamp())}.{secrets.token_urlsafe(24)}"
     signature = hmac_new(SECRET_KEY.encode(), payload.encode(), sha256).hexdigest()
-    return f"{payload}.{signature}"
+    state = f"{payload}.{signature}"
+    _oauth_states[state] = datetime.now(timezone.utc) + timedelta(minutes=10)
+    return state
 
 
 def _validate_state(state: str, cookie_state: str = "") -> bool:
     """Validate and consume an OAuth state parameter."""
     try:
+        if not cookie_state or not compare_digest(state, cookie_state):
+            return False
         timestamp, nonce, signature = state.split(".", 2)
         payload = f"{timestamp}.{nonce}"
         expected = hmac_new(SECRET_KEY.encode(), payload.encode(), sha256).hexdigest()
         age = datetime.now(timezone.utc).timestamp() - int(timestamp)
-        return 0 <= age < 600 and compare_digest(signature, expected)
+        if not (0 <= age < 600 and compare_digest(signature, expected)):
+            return False
+        expires_at = _oauth_states.pop(state, None)
+        return expires_at is not None and expires_at >= datetime.now(timezone.utc)
     except (ValueError, TypeError):
         return False
 

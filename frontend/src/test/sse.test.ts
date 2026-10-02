@@ -46,4 +46,32 @@ describe('consumeSSE error frames', () => {
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onText).not.toHaveBeenCalled();
   });
+
+  it('supports aborting an active stream and reports completion only for done frames', async () => {
+    const controller = new AbortController();
+    const onComplete = vi.fn();
+    const stream = new ReadableStream<Uint8Array>({
+      start(streamController) {
+        streamController.enqueue(new TextEncoder().encode('data: {"token":"partial"}\n\n'));
+      },
+      cancel: vi.fn(),
+    });
+
+    const consuming = consumeSSE(stream, { onComplete }, controller.signal);
+    controller.abort();
+    await consuming;
+
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('calls onComplete after the terminal metadata frame', async () => {
+    const onComplete = vi.fn();
+
+    await consumeSSE(
+      streamOf('data: {"done":true,"metadata":{"model_used":"test"}}\n\n'),
+      { onComplete },
+    );
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
 });

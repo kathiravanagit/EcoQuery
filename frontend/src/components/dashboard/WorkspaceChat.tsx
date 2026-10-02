@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Leaf, ChevronDown, ChevronUp, RefreshCw, AlertCircle } from 'lucide-react';
+import { Send, Leaf, ChevronDown, ChevronUp, RefreshCw, AlertCircle, Square } from 'lucide-react';
 import { API_URL as API } from '../../config';
 import './WorkspaceChat.css';
 import { EASE_FN } from '../../constants';
@@ -122,6 +122,7 @@ const WorkspaceChat = ({ token }: Props) => {
   const [overrideModel, setOverrideModel] = useState('');
   const [models, setModels] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const activeRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetch(`${API}/api/models`)
@@ -154,9 +155,12 @@ const WorkspaceChat = ({ token }: Props) => {
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setInput('');
     setIsTyping(true);
+    const controller = new AbortController();
+    activeRequest.current = controller;
 
     try {
       const response = await fetch(`${API}/api/chat/stream`, {
+        signal: controller.signal,
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -203,8 +207,9 @@ const WorkspaceChat = ({ token }: Props) => {
           newMsgs[newMsgs.length - 1].retryPrompt = userMsg;
           return newMsgs;
         }),
-      });
+      }, controller.signal);
     } catch (e) {
+      if (controller.signal.aborted) return;
       // 402 = the platform's own credits are exhausted, distinct from a
       // provider being briefly unavailable (which is worth retrying).
       const creditsExhausted =
@@ -216,6 +221,7 @@ const WorkspaceChat = ({ token }: Props) => {
         setMessages(prev => [...prev, { role: 'assistant', content: describeApiError(e, 'The provider is unavailable. Please retry later.'), error: true, retryPrompt: userMsg }]);
       }
     } finally {
+      if (activeRequest.current === controller) activeRequest.current = null;
       setIsTyping(false);
     }
   };
@@ -227,6 +233,16 @@ const WorkspaceChat = ({ token }: Props) => {
           <Leaf size={18} color="var(--color-success)" /> Workspace Chat
         </div>
         <div className="workspace-chat-controls">
+          {isTyping && (
+            <button
+              type="button"
+              onClick={() => activeRequest.current?.abort()}
+              className="workspace-stop-btn"
+              aria-label="Stop generating"
+            >
+              <Square size={14} /> Stop
+            </button>
+          )}
           <button type="button" onClick={handleNewChat} className="workspace-new-chat-btn">
             <RefreshCw size={14} /> New Chat
           </button>
