@@ -26,6 +26,8 @@ export interface Metadata {
   tier?: string;
   confidence?: number;
   api_cost?: number;
+  api_cost_is_estimate?: boolean;
+  api_cost_basis?: string;
   latency_seconds?: number;
   estimated_latency_s?: number;
   verification_status?: string;
@@ -56,6 +58,8 @@ export interface Metadata {
   }>;
   final_provider?: string;
   final_model?: string;
+  carbon_estimate_is_approximate?: boolean;
+  carbon_estimate_basis?: string;
   fallback_reason?: string;
   uncertainty_range_g?: { min: number; max: number };
   uncertainty_components?: Record<string, number>;

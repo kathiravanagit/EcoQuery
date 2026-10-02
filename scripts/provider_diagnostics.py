@@ -19,6 +19,11 @@ TARGETS = {
     "openrouter": ("OPENROUTER_API_KEY", PROVIDER_BASE_URLS["openrouter"], HEALTH_PROBE_MODEL),
     "google": ("GOOGLE_API_KEY", PROVIDER_BASE_URLS["google"], PROVIDER_FALLBACK_MODELS["google"]),
     "grok": ("GROK_API_KEY", PROVIDER_BASE_URLS["grok"], PROVIDER_FALLBACK_MODELS["grok"]),
+    # Optional probes: these are not server-key defaults. Set one temporarily
+    # when validating a user's provider credential.
+    "openai": ("OPENAI_API_KEY", PROVIDER_BASE_URLS["openai"], PROVIDER_FALLBACK_MODELS["openai"]),
+    "groq": ("GROQ_API_KEY", PROVIDER_BASE_URLS["groq"], PROVIDER_FALLBACK_MODELS["groq"]),
+    "anthropic": ("ANTHROPIC_API_KEY", PROVIDER_BASE_URLS["anthropic"], PROVIDER_FALLBACK_MODELS["anthropic"]),
 }
 
 

@@ -68,7 +68,13 @@ function EcoDecision({ meta }: { meta: Metadata }) {
               ? '0 g'
               : <Co2Estimate value={meta.co2_estimated_g ?? 0} band={co2Band} />}
           </strong>
-          <span><span className={`measurement-badge ${meta.measurement_type || 'estimated'}`}>{meta.measurement_type === 'measured' ? 'Measured' : meta.measurement_type === 'provider_reported' ? 'Provider-reported' : 'Estimated'}</span> CO₂e</span>
+          <span>
+            <span className={`measurement-badge ${meta.measurement_type || 'estimated'}`}>
+              {meta.measurement_type === 'measured' ? 'Measured' : meta.measurement_type === 'provider_reported' ? 'Provider-reported' : 'Estimated'}
+            </span>{' '}
+            {meta.carbon_estimate_is_approximate && <span className="measurement-badge estimated">Approximate provider proxy</span>}{' '}
+            CO₂e
+          </span>
         </div>
       </div>
       <button
@@ -122,6 +128,18 @@ function EcoDecision({ meta }: { meta: Metadata }) {
                   <Co2Estimate value={meta.co2_estimated_g ?? 0} band={co2Band} /> ({meta.region || 'auto'})
                 </span>
               </div>
+              {meta.carbon_estimate_is_approximate && (
+                <div className="eco-insight-row">
+                  <span className="eco-label">Carbon estimate basis:</span>
+                  <span className="eco-val">{meta.carbon_estimate_basis || 'Approximate provider/model proxy'}</span>
+                </div>
+              )}
+              {meta.api_cost_is_estimate && (
+                <div className="eco-insight-row">
+                  <span className="eco-label">API cost:</span>
+                  <span className="eco-val">{meta.api_cost == null ? 'Unavailable' : `$${meta.api_cost.toFixed(6)} (approximate)`}</span>
+                </div>
+              )}
               <div className="eco-insight-row">
                 <span className="eco-label">Estimated emissions avoided compared with the selected baseline:</span>
                 <span className="eco-val">

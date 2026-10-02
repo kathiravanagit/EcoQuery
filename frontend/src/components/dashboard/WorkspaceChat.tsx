@@ -91,8 +91,11 @@ function EcoDecision({ meta }: { meta: Metadata }) {
                   value={meta.co2_estimated_g ?? 0}
                   band={{ relative: meta.uncertainty_relative, range: meta.uncertainty_range_g }}
                 /> ({meta.region || 'auto'})
+                {meta.carbon_estimate_is_approximate && <> <span className="measurement-badge estimated">Approximate provider proxy</span></>}
               </span>
             </div>
+            {meta.carbon_estimate_is_approximate && <div className="eco-decision-row"><span className="eco-decision-label">Carbon basis:</span><span className="eco-decision-value">{meta.carbon_estimate_basis || 'Approximate provider/model proxy'}</span></div>}
+            {meta.api_cost_is_estimate && <div className="eco-decision-row"><span className="eco-decision-label">API cost:</span><span className="eco-decision-value">{meta.api_cost == null ? 'Unavailable' : `$${meta.api_cost.toFixed(6)} (approximate)`}</span></div>}
             <div className="eco-decision-row"><span className="eco-decision-label">Energy:</span><span className="eco-decision-value">{meta.energy_kwh == null ? 'Unavailable' : `${meta.energy_kwh} kWh`} ({meta.energy_measurement_source || 'estimate'})</span></div>
             <div className="eco-decision-row"><span className="eco-decision-label">Grid source:</span><span className="eco-decision-value">{meta.grid_source || 'Unavailable'}</span></div>
             <div className="eco-decision-row"><span className="eco-decision-label">Final provider:</span><span className="eco-decision-value">{meta.final_provider || 'None'}</span></div>

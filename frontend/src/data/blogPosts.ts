@@ -30,24 +30,22 @@ AI inference is projected to consume more energy than training by 2027. Yet most
 
 **The Impact:**
 
-A single GPT-4 query produces approximately 0.8g of CO₂. By routing to green regions (like Sweden or Norway), this drops to 0.05g, a 93% reduction.
+EcoQuery does not use a universal per-query emissions claim. It reports an estimate based on the selected model calibration, routed region, grid intensity, and comparison baseline; the result is marked with its uncertainty and measurement basis.
 
-**Code Example:**
+**API Example:**
 
 \`\`\`python
-# EcoQuery automatically routes to the greenest provider
-import ecoquery
+# EcoQuery exposes an OpenAI-compatible REST endpoint
+import requests
 
-client = ecoquery.Client(api_key="eq_...")
-
-response = client.chat(
-    message="Explain quantum computing",
-    # Automatically routes to lowest carbon intensity region
+response = requests.post(
+    "https://ecoquery.onrender.com/api/chat",
+    headers={"Authorization": "Bearer YOUR_TOKEN"},
+    json={"message": "Explain quantum computing"},
 )
-
-print(response.metadata.region)       # "se-stockholm"
-print(response.metadata.co2_saved_g)  # 0.75g saved
-print(response.metadata.carbon_score) # 9.2/10
+metadata = response.json()["metadata"]
+print(metadata["region"])
+print(metadata["co2_estimated_g"])
 \`\`\`
 
 **Why It Matters:**
