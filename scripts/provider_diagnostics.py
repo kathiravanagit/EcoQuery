@@ -26,6 +26,35 @@ TARGETS = {
     "anthropic": ("ANTHROPIC_API_KEY", PROVIDER_BASE_URLS["anthropic"], PROVIDER_FALLBACK_MODELS["anthropic"]),
 }
 
+MODEL_CANDIDATES = {
+    "google": ("gemini-2.5-flash-lite", "gemini-2.5-flash"),
+    "openai": ("gpt-4o-mini", "gpt-4.1-mini"),
+    "groq": ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"),
+    "anthropic": ("claude-3-5-haiku-latest", "claude-3-5-haiku-20241022"),
+}
+
+
+async def resolve_model(client: AsyncOpenAI, provider: str, preferred: str) -> tuple[str, str | None]:
+    """Use the provider's live model catalog when available.
+
+    Optional BYOK providers change model availability independently of
+    EcoQuery, so a stale hardcoded model must not be treated as verified.
+    """
+    try:
+        models = await client.models.list()
+        available = {item.id for item in models.data}
+    except Exception as exc:
+        # Some compatible endpoints do not expose /models. Still run the
+        # completion probe, but retain the limitation in the result.
+        return preferred, f"model_list_unavailable:{type(exc).__name__}"
+
+    if preferred in available:
+        return preferred, None
+    for candidate in MODEL_CANDIDATES.get(provider, ()):
+        if candidate in available:
+            return candidate, f"preferred_unavailable:{preferred}"
+    return preferred, f"preferred_unavailable:{preferred}"
+
 
 async def check(provider: str, env_name: str, base_url: str, model: str) -> dict:
     api_key = os.getenv(env_name, "")
@@ -36,6 +65,7 @@ async def check(provider: str, env_name: str, base_url: str, model: str) -> dict
     started = time.perf_counter()
     try:
         client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=15.0)
+        model, model_note = await resolve_model(client, provider, model)
         response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": "Reply with OK."}],
@@ -49,7 +79,7 @@ async def check(provider: str, env_name: str, base_url: str, model: str) -> dict
         elif not (response.choices[0].message.content or "").strip():
             result.update({"status": "empty_response", "failure_reason": None})
         else:
-            result.update({"status": "ok", "failure_reason": None})
+            result.update({"status": "ok", "failure_reason": model_note})
     except Exception as exc:  # diagnostic output must never include the credential
         # Include the HTTP status where available: a 404 means the model id is
         # wrong (a code bug), while 429/503 mean the key or quota is the problem.

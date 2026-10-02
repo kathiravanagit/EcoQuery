@@ -81,8 +81,8 @@ const ProviderKeyManager: React.FC = () => {
       <p className="byok-intro">
         Add your own API keys for OpenRouter, Google AI Studio, Grok, OpenAI, Groq or Anthropic.
         Keys are stored only in
-        your browser and are never saved on our servers. When present, your keys are used instead
-        of EcoQuery&apos;s keys for that provider.
+        your browser and are never saved on our servers. When present, your keys are used         instead of EcoQuery&apos;s key for that same provider. EcoQuery still
+        chooses the model, routing mode, and region.
       </p>
 
       <div className="byok-rows">
@@ -158,8 +158,9 @@ const ProviderKeyManager: React.FC = () => {
 
       <p className="byok-hint">
         Sent only as request headers on each chat call. EcoQuery never stores or logs them, and
-        they are dropped when this tab closes. If a request fails on your key, it falls back to
-        EcoQuery&apos;s own key automatically.
+        they are dropped when this tab closes. Your provider key is never used as the EcoQuery
+        API authentication token. If a request fails on your key, it falls back to EcoQuery&apos;s
+        own key for that provider automatically.
       </p>
     </div>
   );
