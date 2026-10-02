@@ -14,6 +14,23 @@ from calibration import aggregate_uncertainty_pct
 logger = logging.getLogger("EcoQuery.ledger")
 
 
+def _require_tenant(user_email: str, fn_name: str) -> str:
+    """Reject a tenant-scoped read that was not given a tenant.
+
+    `user_email=""` used to mean "no filter", so a caller that simply forgot
+    the argument silently received every user's records instead of failing.
+    A dropped or misspelled argument now raises rather than crossing tenants.
+    System-wide totals are a separately named operation (`get_stats()`), never
+    the default of a per-user helper.
+    """
+    if not user_email or not user_email.strip():
+        raise ValueError(
+            f"{fn_name} requires a user_email; an empty value would match every "
+            "tenant's records. Use get_stats() for system-wide aggregates."
+        )
+    return user_email
+
+
 class VerificationLedger:
     def __init__(self):
         self.client = None
@@ -145,11 +162,12 @@ class VerificationLedger:
 
     async def get_audit_log(self, limit: int = 50, skip: int = 0, user_email: str = "",
                             q: str = "", model: str = "", tier: str = "",
-                            sort: str = "timestamp", date_from: str = "", date_to: str = "") -> list:
+                            sort: str = "timestamp", date_from: str = "", date_to: str = "") -> tuple:
+        """Return one tenant's audit records -- never a cross-tenant dump."""
+        _require_tenant(user_email, "get_audit_log")
         if self.available and self.collection is not None:
-            query: dict = {}
-            if user_email:
-                query["user_email"] = user_email
+            # Unconditional: the guard above is belt, this filter is braces.
+            query: dict = {"user_email": user_email}
             if q:
                 query["query"] = {"$regex": q, "$options": "i"}
             if model:
@@ -215,14 +233,15 @@ class VerificationLedger:
         return {"total_queries": 0, "total_co2_saved_g": 0, "total_co2_emitted_g": 0, "total_api_cost": 0, "avg_latency_s": 0, "flagged_queries": 0, "green_query_pct": 0, "co2_uncertainty_pct": aggregate_uncertainty_pct()}
 
     async def get_analytics(self, user_email: str = "", days: int = 30) -> dict:
+        """Return one tenant's analytics -- never a cross-tenant aggregate."""
+        _require_tenant(user_email, "get_analytics")
         if not self.available or self.collection is None:
             return {"queries_by_day": [], "queries_by_tier": {}, "queries_by_model": {}, "carbon_by_day": [], "latency_by_model": {}}
 
         from datetime import timedelta
         since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-        query = {"timestamp": {"$gte": since}}
-        if user_email:
-            query["user_email"] = user_email
+        # Unconditional: the guard above is belt, this filter is braces.
+        query = {"timestamp": {"$gte": since}, "user_email": user_email}
 
         pipeline = [
             {"$match": query},
