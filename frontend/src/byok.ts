@@ -8,10 +8,9 @@
  * before that provider's own server keys, and none is ever logged, stored or
  * cached server-side.
  *
- * This module holds the keys for the current tab and turns them into request
- * headers. Keys live in sessionStorage, so they die with the tab; they are
- * never written to localStorage, never rendered back after being saved, and are
- * never sent anywhere except as headers on a chat request.
+ * This module holds unauthenticated keys for the current tab and turns them
+ * into request headers. Authenticated dashboard users persist keys through the
+ * encrypted backend BYOK API instead; provider keys are never rendered back.
  */
 
 export const BYOK_PROVIDERS = [

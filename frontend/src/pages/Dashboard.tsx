@@ -420,7 +420,7 @@ const Dashboard = () => {
               <ApiKeyManager token={token} API={API} uncertaintyPct={stats?.co2_uncertainty_pct} />
             </ErrorBoundary>
             <ErrorBoundary>
-              <ProviderKeyManager />
+              <ProviderKeyManager token={token} />
             </ErrorBoundary>
             <ErrorBoundary>
               <DashboardExport token={token} />

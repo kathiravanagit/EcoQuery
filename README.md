@@ -199,8 +199,11 @@ Behaviour:
 - Requests that skip the LLM entirely are unaffected; the headers only matter
   when a provider is actually called.
 
-In the browser, **Dashboard → Bring Your Own Keys** holds one key per provider
-in `sessionStorage`, so they die with the tab. They are attached automatically
+In the browser, unauthenticated **Dashboard → Bring Your Own Keys** holds one
+key per provider in `sessionStorage`, so they die with the tab. Authenticated
+users can persist keys through the dashboard: the backend encrypts each key at
+rest, scopes it to the account, and never returns the plaintext key to the
+browser. They are attached automatically
 as the headers above and can be switched off with *Prefer my keys when
 available*.
 

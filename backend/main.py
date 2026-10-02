@@ -21,6 +21,7 @@ from routers.orgs import router as orgs_router  # noqa: E402
 from routers.analytics import router as analytics_router  # noqa: E402
 from routers.webhooks import router as webhooks_router  # noqa: E402
 from routers.chat import router as chat_router  # noqa: E402
+from routers.byok import router as byok_router  # noqa: E402
 from routers.misc import router as misc_router  # noqa: E402
 from rate_limit import rate_limiter  # noqa: E402
 
@@ -424,6 +425,7 @@ app.include_router(orgs_router)
 app.include_router(analytics_router)
 app.include_router(webhooks_router)
 app.include_router(chat_router)
+app.include_router(byok_router)
 app.include_router(misc_router)
 
 

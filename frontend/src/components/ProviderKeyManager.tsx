@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Key, ShieldCheck, Trash2, Check } from 'lucide-react';
+import { Key, ShieldCheck, Trash2, Ban, Check } from 'lucide-react';
 import {
   BYOK_MAX_KEY_LENGTH,
   BYOK_PROVIDERS,
@@ -14,16 +14,19 @@ import {
   setPreferMyKeys,
 } from '../byok';
 import './ProviderKeyManager.css';
+import { API_URL as API } from '../config';
+
+interface Props {
+  token: string | null;
+}
 
 /**
  * Lets a user supply their own provider keys for chat requests.
  *
- * One row per provider. Each key is written to sessionStorage only and travels
- * as its own `X-<Provider>-Key` header; nothing is sent to EcoQuery for storage
- * and no saved key is ever rendered back out — `active` holds provider names,
- * never values.
+ * One row per provider. Authenticated users may persist encrypted provider
+ * credentials; the browser never receives them back after saving.
  */
-const ProviderKeyManager: React.FC = () => {
+const ProviderKeyManager: React.FC<Props> = ({ token }) => {
   const [active, setActive] = useState<ByokProvider[]>([]);
   const [drafts, setDrafts] = useState<Record<ByokProvider, string>>({
     openrouter: '', google: '', grok: '', openai: '', groq: '', anthropic: '',
@@ -33,10 +36,22 @@ const ProviderKeyManager: React.FC = () => {
   const [justSaved, setJustSaved] = useState<ByokProvider | null>(null);
 
   useEffect(() => {
-    // Provider names only — the key itself is never pulled into component state.
-    setActive(Object.keys(loadByokKeys()) as ByokProvider[]);
+    const load = async () => {
+      if (token) {
+        const response = await fetch(`${API}/api/user/byok`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setActive(data.providers as ByokProvider[]);
+          return;
+        }
+      }
+      setActive(Object.keys(loadByokKeys()) as ByokProvider[]);
+    };
+    void load();
     setPrefer(preferMyKeys());
-  }, []);
+  }, [token]);
 
   const submit = (e: React.FormEvent, provider: ByokProvider) => {
     e.preventDefault();
@@ -55,21 +70,66 @@ const ProviderKeyManager: React.FC = () => {
       return;
     }
 
-    if (saveByokKey(provider, value)) {
+    const persist = async () => {
+      if (token) {
+        const response = await fetch(`${API}/api/user/byok`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ provider, key: value }),
+        });
+        if (!response.ok) {
+          setError('Could not save that key securely on the server.');
+          return;
+        }
+      } else if (!saveByokKey(provider, value)) {
+        setError('Sign in to securely persist keys, or save one for this tab only.');
+        return;
+      }
       setActive((prev) => (prev.includes(provider) ? prev : [...prev, provider]));
       setDrafts((prev) => ({ ...prev, [provider]: '' }));
       setJustSaved(provider);
-    } else {
-      setError('Could not save that key for this tab.');
-    }
+    };
+    void persist();
   };
 
   const remove = (provider: ByokProvider) => {
-    clearByokKey(provider);
+    const deletePersisted = async () => {
+      if (token) {
+        const response = await fetch(`${API}/api/user/byok/${provider}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          setError('Could not delete the saved key.');
+          return;
+        }
+      } else {
+        clearByokKey(provider);
+      }
+    };
+
+    void deletePersisted();
     setActive((prev) => prev.filter((p) => p !== provider));
     setDrafts((prev) => ({ ...prev, [provider]: '' }));
     setJustSaved(null);
     setError('');
+  };
+
+  const revoke = async (provider: ByokProvider) => {
+    if (token) {
+      const response = await fetch(`${API}/api/user/byok/${provider}/revoke`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        setError('Could not revoke the saved key.');
+        return;
+      }
+    } else {
+      clearByokKey(provider);
+    }
+    setActive((prev) => prev.filter((p) => p !== provider));
+    setJustSaved(null);
   };
 
   const count = active.length;
@@ -80,8 +140,8 @@ const ProviderKeyManager: React.FC = () => {
 
       <p className="byok-intro">
         Add your own API keys for OpenRouter, Google AI Studio, Grok, OpenAI, Groq or Anthropic.
-        Keys are stored only in
-        your browser and are never saved on our servers. When present, your keys are used         instead of EcoQuery&apos;s key for that same provider. EcoQuery still
+        {token ? 'Keys are encrypted at rest and tied to your account. ' : 'Keys are stored only in your browser for this tab. '}
+        When present, your keys are used instead of EcoQuery&apos;s key for that same provider. EcoQuery still
         chooses the model, routing mode, and region.
       </p>
 
@@ -119,14 +179,26 @@ const ProviderKeyManager: React.FC = () => {
               </button>
 
               {hasKey && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => remove(provider)}
-                  aria-label={`Remove ${PROVIDER_LABELS[provider]} key`}
-                >
-                  <Trash2 size={14} />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => void revoke(provider)}
+                    aria-label={`Revoke ${PROVIDER_LABELS[provider]} key`}
+                    title="Revoke key"
+                  >
+                    <Ban size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => remove(provider)}
+                    aria-label={`Delete ${PROVIDER_LABELS[provider]} key`}
+                    title="Delete key permanently"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </>
               )}
             </form>
           );
@@ -157,8 +229,8 @@ const ProviderKeyManager: React.FC = () => {
       </div>
 
       <p className="byok-hint">
-        Sent only as request headers on each chat call. EcoQuery never stores or logs them, and
-        they are dropped when this tab closes. Your provider key is never used as the EcoQuery
+        Provider keys are decrypted only for the provider request, never returned to the browser,
+        logged, or included in analytics. Your provider key is never used as the EcoQuery
         API authentication token. If a request fails on your key, it falls back to EcoQuery&apos;s
         own key for that provider automatically.
       </p>

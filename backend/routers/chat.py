@@ -19,6 +19,7 @@ from ledger import ledger
 from verifier import verifier
 from websocket_manager import ws_manager
 from providers import provider_router, extract_byok_keys
+from byok_store import persistent_byok
 from energy import begin as begin_energy_sample, end as end_energy_sample, measurement_type as get_measurement_type
 from green_provider import PROVIDER_REGIONS
 
@@ -528,6 +529,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     # outbound provider calls, and never stored, logged or cached. Knowledge,
     # cache and zero-LLM answers simply leave it unused.
     byok_keys = extract_byok_keys(request.headers)
+    if user_email:
+        byok_keys = {**await persistent_byok.load_keys(user_email), **byok_keys}
 
     start_time = time.time()
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
@@ -714,6 +717,8 @@ async def chat_stream(req: ChatRequest, request: Request):
     # Optional bring-your-own-key; passed only to the outbound provider call.
     # Never stored, logged or cached, and unused on knowledge/cache answers.
     byok_keys = extract_byok_keys(request.headers)
+    if user_email:
+        byok_keys = {**await persistent_byok.load_keys(user_email), **byok_keys}
 
     classification, prompt_len, region_info, model_sel, savings, knowledge_res, cache_res, routing_mode = await _build_routing(req)
 

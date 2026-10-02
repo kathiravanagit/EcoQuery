@@ -73,7 +73,7 @@ const faqCategories = [
       },
       {
         question: 'Can I use my own API keys with EcoQuery?',
-        answer: 'EcoQuery uses configured server keys where available, and your keys are never required. You can save OpenRouter, Google, Grok, OpenAI, Groq, or Anthropic keys under Dashboard → Bring Your Own Keys, or send the matching X-*-Key header. They live in your browser for this tab only, disappear when you close it, are never stored or logged on our side, and fall back to a server key if one is configured. The response metadata reports byok_used, key_source, and approximation details for non-catalog providers.'
+        answer: 'EcoQuery uses configured server keys where available, and your keys are never required. You can save OpenRouter, Google, Grok, OpenAI, Groq, or Anthropic keys under Dashboard → Bring Your Own Keys, or send the matching X-*-Key header. Authenticated saved keys are encrypted at rest and scoped to your account; unauthenticated browser-only keys disappear when the tab closes. Keys are never returned in responses or logs and fall back to a server key if one is configured. The response metadata reports byok_used, key_source, and approximation details for non-catalog providers.'
       },
       {
         question: 'What regions does EcoQuery support?',
