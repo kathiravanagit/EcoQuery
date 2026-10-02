@@ -6,6 +6,7 @@ import './WorkspaceChat.css';
 import { EASE_FN } from '../../constants';
 import { Metadata, consumeSSE } from '../../sse';
 import { ApiFailure, apiFailure, describeApiError, errorCodeMessage } from '../../apiError';
+import { byokHeaders } from '../../byok';
 import Co2Estimate from '../Co2Estimate';
 
 interface Message {
@@ -156,7 +157,8 @@ const WorkspaceChat = ({ token }: Props) => {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          ...byokHeaders()
         },
         body: JSON.stringify({
           message: userMsg,

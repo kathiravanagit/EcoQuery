@@ -5,6 +5,7 @@ import { API_URL as API } from '../config';
 import './LiveDemo.css';
 import { Metadata, consumeSSE } from '../sse';
 import { apiFailure, describeApiError, errorCodeMessage } from '../apiError';
+import { byokHeaders } from '../byok';
 import Co2Estimate from './Co2Estimate';
 
 interface Message {
@@ -288,7 +289,7 @@ const LiveDemo = () => {
     try {
       const response = await fetch(`${API}/api/chat/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...byokHeaders() },
         body: JSON.stringify({
           message: userMsg,
           conversation: messages.filter(m => m.role !== 'system'),

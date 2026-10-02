@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Award, Leaf, ArrowRight } from 'lucide-react';
 import { Skeleton, PageSkeleton } from '../components/Skeleton';
 import ApiKeyManager from '../components/ApiKeyManager';
+import ProviderKeyManager from '../components/ProviderKeyManager';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { uncertaintySuffix } from '../co2';
 import { useAuth } from '../context/AuthContext';
@@ -417,6 +418,9 @@ const Dashboard = () => {
             </ErrorBoundary>
             <ErrorBoundary>
               <ApiKeyManager token={token} API={API} uncertaintyPct={stats?.co2_uncertainty_pct} />
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <ProviderKeyManager />
             </ErrorBoundary>
             <ErrorBoundary>
               <DashboardExport token={token} />
