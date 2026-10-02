@@ -35,10 +35,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="EcoQuery" />
 
-    <!-- Fonts: preconnect + preload for fast first paint -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Fonts are self-hosted from /fonts (see the @font-face rules in src/index.css).
+         Serving them same-origin keeps the CSP strict: style-src/font-src stay at
+         'self', so we never have to allowlist fonts.googleapis.com or fonts.gstatic.com. -->
     
     <!-- Structured Data -->
     <script type="application/ld+json">
@@ -61,17 +60,6 @@
         "url": "https://eco2query.vercel.app"
       }
     }
-    </script>
-    
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          // updateViaCache 'none': always revalidate the worker script itself.
-          // The default lets the HTTP cache delay an update, and a delayed
-          // service-worker update is how a stale page survives a deploy.
-          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
-        });
-      }
     </script>
   </head>
   <body>
