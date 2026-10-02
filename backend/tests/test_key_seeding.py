@@ -52,8 +52,8 @@ def test_failover_order_is_openrouter_then_google_then_grok():
     """
     assert PROVIDER_FALLBACK_ORDER == ("openrouter", "google", "grok")
     assert PROVIDER_FALLBACK_ORDER[-1] == "grok"
-    assert sorted(PROVIDER_BASE_URLS) == ["google", "grok", "openrouter"]
-    assert sorted(PROVIDER_FALLBACK_MODELS) == ["google", "grok"]
+    assert sorted(PROVIDER_BASE_URLS) == ["anthropic", "google", "grok", "groq", "openai", "openrouter"]
+    assert sorted(PROVIDER_FALLBACK_MODELS) == ["anthropic", "google", "grok", "groq", "openai"]
     # Grok cannot take an OpenRouter slug (`vendor/model`), so it needs a model
     # of its own — exactly as Google does. It also has to be non-empty: an
     # empty `GROK_MODEL=` is indistinguishable from a valid setting to

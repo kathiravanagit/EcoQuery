@@ -145,13 +145,16 @@ credential waiting for it:
 | `X-OpenRouter-Key` | `openrouter` |
 | `X-Google-Key` | `google` |
 | `X-Grok-Key` | `grok` — that is **xAI**; Groq (`gsk_…`) is an unrelated company |
+| `X-OpenAI-Key` | `openai` |
+| `X-Groq-Key` | `groq` |
+| `X-Anthropic-Key` | `anthropic` |
 
 The original single-key form is still accepted:
 
 | Header | Meaning |
 |--------|---------|
 | `X-Provider-Key` | Key for the provider named in `X-Provider` (default `openrouter`) |
-| `X-Provider` | Which provider the `X-Provider-Key` belongs to: `openrouter`, `google` or `grok` |
+| `X-Provider` | Which provider the `X-Provider-Key` belongs to: `openrouter`, `google`, `grok`, `openai`, `groq` or `anthropic` |
 
 ```bash
 curl -X POST https://ecoquery.onrender.com/api/chat/stream \
@@ -180,13 +183,17 @@ Behaviour:
   {
     "byok_used": true,
     "final_provider": "google",
-    "key_source": {"openrouter": "server", "google": "user", "grok": "none"}
+    "key_source": {"openrouter": "server", "google": "user", "grok": "none", "openai": "none", "groq": "none", "anthropic": "none"}
   }
   ```
 
   `key_source` gives the credential backing each provider *for that request* —
   `user`, `server` or `none` — while `final_provider` says which one actually
   served the call. Ownership values only; a credential is never echoed back.
+- OpenAI, Groq and Anthropic responses use provider/model-specific blended cost
+  estimates and a catalog carbon proxy. Their metadata sets
+  `api_cost_is_estimate` and `carbon_estimate_is_approximate` to `true` and
+  identifies the basis used for each estimate.
 - Knowledge-base and cached answers make no outbound call, so neither field is
   emitted (and it costs you nothing).
 - Requests that skip the LLM entirely are unaffected; the headers only matter

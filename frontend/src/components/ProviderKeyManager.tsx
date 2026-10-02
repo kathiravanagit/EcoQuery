@@ -26,7 +26,7 @@ import './ProviderKeyManager.css';
 const ProviderKeyManager: React.FC = () => {
   const [active, setActive] = useState<ByokProvider[]>([]);
   const [drafts, setDrafts] = useState<Record<ByokProvider, string>>({
-    openrouter: '', google: '', grok: '',
+    openrouter: '', google: '', grok: '', openai: '', groq: '', anthropic: '',
   });
   const [prefer, setPrefer] = useState(true);
   const [error, setError] = useState('');
@@ -79,7 +79,8 @@ const ProviderKeyManager: React.FC = () => {
       <h3><Key size={18} /> Bring Your Own Keys (Optional)</h3>
 
       <p className="byok-intro">
-        Add your own API keys for OpenRouter, Google AI Studio or Grok. Keys are stored only in
+        Add your own API keys for OpenRouter, Google AI Studio, Grok, OpenAI, Groq or Anthropic.
+        Keys are stored only in
         your browser and are never saved on our servers. When present, your keys are used instead
         of EcoQuery&apos;s keys for that provider.
       </p>

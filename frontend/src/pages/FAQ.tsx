@@ -23,7 +23,7 @@ const faqCategories = [
     items: [
       {
         question: 'What is EcoQuery?',
-        answer: 'EcoQuery is a carbon-aware AI query routing platform that automatically directs your AI queries to data centers powered by renewable energy. It reduces your AI carbon footprint by up to 93% without changing your AI models or infrastructure.'
+        answer: 'EcoQuery is a carbon-aware AI query routing platform that directs AI queries toward lower-intensity available routes. Its reported CO₂ reduction is an estimate based on the selected model, region, and comparison baseline.'
       },
       {
         question: 'How does EcoQuery reduce AI carbon emissions?',
@@ -48,11 +48,11 @@ const faqCategories = [
       },
       {
         question: 'Does routing to green data centers affect response quality?',
-        answer: 'No. EcoQuery uses the same high-quality models (Llama, Mistral, DeepSeek) regardless of which data center processes them. The only difference is the location, which affects carbon footprint but not model quality.'
+        answer: 'No. EcoQuery keeps the selected model family while choosing among available provider routes. The location changes the estimated carbon footprint; the provider or fallback model may affect quality and latency.'
       },
       {
         question: 'What AI models does EcoQuery support?',
-        answer: 'EcoQuery supports free-tier models including DeepSeek V4 Flash, Mistral 7B, Llama 3.1 8B, and others. Pro users can access premium models like GPT-4 and Claude with carbon-aware routing.'
+        answer: 'EcoQuery currently routes through its configured OpenRouter catalog with Google and Grok failover. OpenAI, Groq, and Anthropic can also be used when configured through BYOK or server keys; their carbon and cost metadata is marked as approximate.'
       },
       {
         question: 'How accurate is the carbon tracking?',
@@ -73,11 +73,11 @@ const faqCategories = [
       },
       {
         question: 'Can I use my own API keys with EcoQuery?',
-        answer: 'EcoQuery normally uses its own configured keys for OpenRouter, Google and Grok, and your keys are never required. If you would rather use your own, save them under Dashboard → Bring Your Own Keys — one row per provider — or send an X-OpenRouter-Key, X-Google-Key or X-Grok-Key header. They live in your browser for this tab only, disappear when you close it, are never stored or logged on our side, and fall back to our key if a provider rejects yours. The response metadata reports byok_used and key_source so you can see which side served the call.'
+        answer: 'EcoQuery uses configured server keys where available, and your keys are never required. You can save OpenRouter, Google, Grok, OpenAI, Groq, or Anthropic keys under Dashboard → Bring Your Own Keys, or send the matching X-*-Key header. They live in your browser for this tab only, disappear when you close it, are never stored or logged on our side, and fall back to a server key if one is configured. The response metadata reports byok_used, key_source, and approximation details for non-catalog providers.'
       },
       {
         question: 'What regions does EcoQuery support?',
-        answer: 'EcoQuery routes queries to green data centers in Sweden, Norway, France, Iceland, Canada, and Oregon (US). We are continuously adding new regions with high renewable energy coverage.'
+        answer: 'EcoQuery selects among the regions currently returned by its configured carbon-intensity and provider-region data sources. Availability can change as live feeds and provider routing change.'
       },
       {
         question: 'How does the verification system work?',
@@ -94,11 +94,11 @@ const faqCategories = [
       },
       {
         question: 'Can I upgrade or downgrade my plan anytime?',
-        answer: 'Plan management is coming soon. Currently, EcoQuery is free to use with all features included.'
+        answer: 'Plan management depends on the deployment configuration. EcoQuery provides a free tier, while paid plans may add higher limits, priority support, or reporting features.'
       },
       {
         question: 'Do you offer discounts for startups or open source?',
-        answer: 'EcoQuery is currently free for all users. For future premium features, contact kathiravanawork@gmail.com for startup and open source discounts.'
+        answer: 'Discount availability depends on the current plan configuration. Contact kathiravanawork@gmail.com for startup and open source pricing questions.'
       },
       {
         question: 'How do I delete my account?',

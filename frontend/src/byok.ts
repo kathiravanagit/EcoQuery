@@ -2,7 +2,8 @@
  * Browser half of bring-your-own-key (BYOK).
  *
  * The backend accepts one header per provider — `X-OpenRouter-Key`,
- * `X-Google-Key`, `X-Grok-Key` — plus the original `X-Provider-Key` +
+ * `X-Google-Key`, `X-Grok-Key`, `X-OpenAI-Key`, `X-Groq-Key`,
+ * `X-Anthropic-Key` — plus the original `X-Provider-Key` +
  * `X-Provider` form, in `backend/providers.py`. Every supplied key is tried
  * before that provider's own server keys, and none is ever logged, stored or
  * cached server-side.
@@ -13,23 +14,31 @@
  * never sent anywhere except as headers on a chat request.
  */
 
-export const BYOK_PROVIDERS = ['openrouter', 'google', 'grok'] as const;
+export const BYOK_PROVIDERS = [
+  'openrouter', 'google', 'grok', 'openai', 'groq', 'anthropic',
+] as const;
 export type ByokProvider = (typeof BYOK_PROVIDERS)[number];
 
 export type ByokKeys = Partial<Record<ByokProvider, string>>;
 
 /** Header name per provider — the browser half of `BYOK_HEADERS` in
- *  backend/providers.py. Grok here is xAI; there is no Groq. */
+ *  backend/providers.py. Grok here is xAI, while Groq is a separate provider. */
 export const PROVIDER_HEADERS: Record<ByokProvider, string> = {
   openrouter: 'X-OpenRouter-Key',
   google: 'X-Google-Key',
   grok: 'X-Grok-Key',
+  openai: 'X-OpenAI-Key',
+  groq: 'X-Groq-Key',
+  anthropic: 'X-Anthropic-Key',
 };
 
 export const PROVIDER_LABELS: Record<ByokProvider, string> = {
   openrouter: 'OpenRouter',
   google: 'Google AI Studio',
   grok: 'Grok (xAI)',
+  openai: 'OpenAI',
+  groq: 'Groq',
+  anthropic: 'Anthropic',
 };
 
 /** Suggested first characters, so a wrong key in the wrong row is visible. */
@@ -37,6 +46,9 @@ export const PROVIDER_KEY_HINTS: Record<ByokProvider, string> = {
   openrouter: 'sk-or-v1-...',
   google: 'AIza...',
   grok: 'xai-...',
+  openai: 'sk-...',
+  groq: 'gsk_...',
+  anthropic: 'sk-ant-...',
 };
 
 /** Mirrors BYOK_MAX_KEY_LENGTH in backend/providers.py. The server treats an

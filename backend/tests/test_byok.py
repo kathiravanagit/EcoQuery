@@ -23,12 +23,18 @@ from providers import (
     ProviderRouter,
     _with_byok,
     extract_byok_keys,
+    _providers_to_try,
     provider_router,
 )
+from router import compute_savings
+from routers.chat import _api_cost_rate, _build_metadata
 
 SENTINEL = "sk-byok-DO-NOT-LEAK-8f3a"
 GOOGLE_SENTINEL = "AIza-DO-NOT-LEAK-91b2"
 GROK_SENTINEL = "xai-DO-NOT-LEAK-c3d4"
+OPENAI_SENTINEL = "sk-openai-DO-NOT-LEAK"
+GROQ_SENTINEL = "gsk_DO-NOT-LEAK"
+ANTHROPIC_SENTINEL = "sk-ant-DO-NOT-LEAK"
 SERVER_KEY = "sk-server-77aa"
 
 
@@ -88,11 +94,17 @@ def test_every_per_provider_header_is_read_at_once():
         "X-OpenRouter-Key": SENTINEL,
         "X-Google-Key": GOOGLE_SENTINEL,
         "X-Grok-Key": GROK_SENTINEL,
+        "X-OpenAI-Key": OPENAI_SENTINEL,
+        "X-Groq-Key": GROQ_SENTINEL,
+        "X-Anthropic-Key": ANTHROPIC_SENTINEL,
     })
     assert supplied == {
         "openrouter": SENTINEL,
         "google": GOOGLE_SENTINEL,
         "grok": GROK_SENTINEL,
+        "openai": OPENAI_SENTINEL,
+        "groq": GROQ_SENTINEL,
+        "anthropic": ANTHROPIC_SENTINEL,
     }
 
 
@@ -218,6 +230,30 @@ def test_server_key_count_zero_when_only_the_caller_has_a_key():
     assert injected is True
 
 
+def test_new_provider_byok_is_injected_before_its_server_key():
+    keys, server_count, injected = _with_byok(
+        {"openai": [{"id": "openai-server", "key_value": "server-openai"}]},
+        {"openai": f"  {OPENAI_SENTINEL}  "},
+    )
+    assert injected is True
+    assert server_count == 1
+    assert [entry["key_value"] for entry in keys["openai"]] == [
+        OPENAI_SENTINEL,
+        "server-openai",
+    ]
+
+
+def test_invalid_direct_byok_values_are_ignored():
+    original = {"openai": [{"id": "openai-server", "key_value": "server-openai"}]}
+    keys, server_count, injected = _with_byok(
+        original,
+        {"openai": "x" * (providers_mod.BYOK_MAX_KEY_LENGTH + 1), "groq": None},
+    )
+    assert keys == original
+    assert server_count == 1
+    assert injected is False
+
+
 # ── key_source metadata ──────────────────────────────────────────────────────
 
 def test_key_source_reports_ownership_per_provider(caplog):
@@ -236,6 +272,9 @@ def test_key_source_reports_ownership_per_provider(caplog):
         "openrouter": "server",
         "google": "user",
         "grok": "none",
+        "openai": "none",
+        "groq": "none",
+        "anthropic": "none",
     }
     # Ownership only — no credential may be echoed back to the caller.
     assert GOOGLE_SENTINEL not in json.dumps(lineage)
@@ -413,6 +452,9 @@ def test_streaming_success_carries_key_source():
         "openrouter": "none",
         "google": "user",
         "grok": "none",
+        "openai": "none",
+        "groq": "none",
+        "anthropic": "none",
     }
     assert GOOGLE_SENTINEL not in json.dumps(lineage)
 
@@ -441,7 +483,10 @@ def test_the_http_response_carries_key_source():
         "fallback_reason": None,
         "success": True,
         "byok_used": True,
-        "key_source": {"openrouter": "server", "google": "user", "grok": "none"},
+        "key_source": {
+            "openrouter": "server", "google": "user", "grok": "none",
+            "openai": "none", "groq": "none", "anthropic": "none",
+        },
     }
     provider_response = {
         "content": "Test provider response",
@@ -473,6 +518,79 @@ def test_the_http_response_carries_key_source():
         "openrouter": "server",
         "google": "user",
         "grok": "none",
+        "openai": "none",
+        "groq": "none",
+        "anthropic": "none",
     }
     # Ownership only — the credential that was sent must not come back.
     assert GOOGLE_SENTINEL not in resp.text
+
+
+def test_new_provider_is_tried_only_when_supplied_or_configured():
+    assert _providers_to_try(
+        {"openrouter": [{"id": "server", "key_value": SERVER_KEY}]}, None
+    ) == ["openrouter", "google", "grok"]
+    assert _providers_to_try({}, {"openai": OPENAI_SENTINEL}) == [
+        "openrouter", "google", "grok", "openai"
+    ]
+    assert _providers_to_try(
+        {"anthropic": [{"id": "server", "key_value": "server-anthropic"}]}, None
+    ) == ["openrouter", "google", "grok", "anthropic"]
+
+
+@pytest.mark.parametrize(
+    ("provider", "key", "expected_model"),
+    [
+        ("openai", OPENAI_SENTINEL, "gpt-4o-mini"),
+        ("groq", GROQ_SENTINEL, "llama-3.3-70b-versatile"),
+        ("anthropic", ANTHROPIC_SENTINEL, "claude-3-5-haiku-latest"),
+    ],
+)
+def test_new_provider_byok_reaches_the_outbound_call(provider, key, expected_model):
+    with patch.object(providers_mod.key_manager, "get_all_providers_keys", return_value={}), \
+         patch.object(providers_mod.key_manager, "log_usage", MagicMock()), \
+         patch.object(provider_router, "_call_provider", _ok):
+        result = asyncio.run(_chat(
+            "openai/gpt-4o-mini", [{"role": "user", "content": "hi"}],
+            byok_keys={provider: key},
+        ))
+
+    assert result["provider_lineage"]["final_provider"] == provider
+    assert result["provider_lineage"]["final_model"] == expected_model
+    assert result["provider_lineage"]["byok_used"] is True
+
+
+def test_external_provider_cost_and_carbon_metadata_are_flagged():
+    rate, is_estimate = _api_cost_rate(
+        {"model": "nemotron-3-ultra-550b-a55b:free"},
+        {"final_provider": "openai", "final_model": "gpt-4o-mini"},
+    )
+    assert rate == 0.005
+    assert is_estimate is True
+
+    metadata = _build_metadata(
+        {"tier": "simple", "confidence": 0.9},
+        20,
+        {"region": "eu-north-1", "energy_source": "Wind", "carbon_intensity_g_kwh": 100},
+        {
+            "model": "nemotron-3-ultra-550b-a55b:free",
+            "provider": "OpenRouter",
+            "tier": "simple",
+            "carbon_score": 1,
+            "estimated_latency_s": 1,
+        },
+        compute_savings(1, 100, 20),
+        {"status": "verified", "reason": "test", "observed_tps": 10},
+        0.005,
+        0.2,
+        False,
+        10,
+        10,
+        provider_lineage={
+            "final_provider": "openai",
+            "final_model": "gpt-4o-mini",
+        },
+    )
+    assert metadata["carbon_estimate_is_approximate"] is True
+    assert metadata["api_cost_is_estimate"] is True
+    assert "openai/gpt-4o-mini" in metadata["api_cost_basis"]

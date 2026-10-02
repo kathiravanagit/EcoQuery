@@ -49,6 +49,14 @@ MODEL_COST_MAP = {
     "lfm-2.5-2.6b:free": 0.0,
 }
 
+# Conservative blended per-1K-token estimates for providers outside the free
+# catalog. These are deliberately surfaced as estimates, not billing records.
+PROVIDER_COST_MAP = {
+    "openai": 0.005,
+    "groq": 0.0006,
+    "anthropic": 0.001,
+}
+
 WORST_MODEL = {"model": "ling-3.0-flash", "carbon_score": 5, "provider": "InclusionAI"}
 WORST_INTENSITY = 710.0
 
@@ -60,6 +68,16 @@ WORST_INTENSITY = 710.0
 # for fewer beats handing back an empty response that reads like a dead
 # provider.
 MIN_OUTPUT_TOKENS = 128
+
+
+def _api_cost_rate(model_sel: dict, provider_lineage: dict | None) -> tuple[float, bool]:
+    """Return the rate and whether it is a provider/model approximation."""
+    final_provider = (provider_lineage or {}).get("final_provider")
+    final_model = (provider_lineage or {}).get("final_model")
+    if final_provider in PROVIDER_COST_MAP:
+        return PROVIDER_COST_MAP[final_provider], True
+    model_id = final_model or model_sel["model"]
+    return MODEL_COST_MAP.get(model_id, MODEL_COST_MAP.get(model_sel["model"], 0.001)), False
 
 
 def _effective_max_tokens(max_output_tokens: int | None) -> int:
@@ -314,6 +332,15 @@ def _build_metadata(
     actual_model_name = model_sel["model"]
     if not llm_used:
         actual_model_name = "ecoquery-knowledge" if answer_source == "ecoquery_knowledge" else "ecoquery-stored-response"
+    cost_rate, cost_is_estimate = _api_cost_rate(model_sel, provider_lineage)
+    final_provider = (provider_lineage or {}).get("final_provider", model_sel["provider"])
+    final_model = (provider_lineage or {}).get("final_model", actual_model_name)
+    external_provider_estimate = final_provider in PROVIDER_COST_MAP
+    if external_provider_estimate and llm_used:
+        routed_model_display = (
+            f"{final_provider} {final_model} (approximate carbon proxy) "
+            f"via {region_info['region']} ({region_info['energy_source']})"
+        )
 
     measurement_status = get_measurement_type(reading=energy_reading, provider_reported=False)
     co2e_value = round(energy_reading.energy_kwh * region_info.get("carbon_intensity_g_kwh", 0), 4) if energy_reading else (0.0 if not llm_used else savings["estimated_co2_g"])
@@ -349,6 +376,11 @@ def _build_metadata(
         "confidence": round(classification["confidence"], 3),
         "is_mocked": is_mocked,
         "api_cost": api_cost,
+        "api_cost_is_estimate": cost_is_estimate,
+        "api_cost_basis": (
+            f"{final_provider}/{final_model} blended estimate at ${cost_rate}/1K tokens"
+            if cost_is_estimate else "catalog model cost map"
+        ),
         "latency_seconds": latency_seconds,
         "estimated_latency_s": 0.01 if not llm_used else model_sel.get("estimated_latency_s", 0),
         "verification_status": v_result["status"],
@@ -367,6 +399,12 @@ def _build_metadata(
         "attempted_providers": (provider_lineage or {}).get("attempted_providers", []),
         "final_provider": (provider_lineage or {}).get("final_provider", model_sel["provider"]),
         "final_model": (provider_lineage or {}).get("final_model", actual_model_name),
+        "carbon_estimate_is_approximate": external_provider_estimate,
+        "carbon_estimate_basis": (
+            f"Catalog carbon proxy applied to {final_provider}/{final_model}; "
+            "provider energy and region are not directly reported."
+            if external_provider_estimate else "Catalog model calibration and routed region"
+        ),
         "fallback_reason": (provider_lineage or {}).get("fallback_reason") or model_sel.get("reason", "Direct selection"),
         "quality_safeguard": model_sel.get("quality_safeguard"),
         "success": not is_mocked,
@@ -611,7 +649,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
         output_tokens = usage.get("completion_tokens", output_tokens)
         if prompt_tokens and output_tokens:
-            rate = MODEL_COST_MAP.get(model_sel["model"], 0.001)
+            rate, _cost_is_estimate = _api_cost_rate(model_sel, provider_lineage)
             api_cost = round((prompt_tokens * rate / 1000) + (output_tokens * rate / 1000), 6)
 
         # Store successful response in persistent cache for future queries
@@ -795,6 +833,8 @@ async def chat_stream(req: ChatRequest, request: Request):
 
         cleaned_reply = clean_response(full_reply)
         output_tokens = len(cleaned_reply.split())
+        rate, _cost_is_estimate = _api_cost_rate(model_sel, provider_lineage)
+        api_cost = round((prompt_tokens * rate / 1000) + (output_tokens * rate / 1000), 6)
 
         latency_seconds = round(time.time() - start_time, 3)
         v_result = verifier.verify_completion(
@@ -835,5 +875,3 @@ async def chat_stream(req: ChatRequest, request: Request):
         )})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
-
-

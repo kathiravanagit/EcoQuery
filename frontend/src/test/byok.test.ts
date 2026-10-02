@@ -15,6 +15,9 @@ import {
 const SECRET = 'sk-or-v1-DO-NOT-LEAK-8f3a';
 const GOOGLE_SECRET = 'AIza-DO-NOT-LEAK-91b2';
 const GROK_SECRET = 'xai-DO-NOT-LEAK-c3d4';
+const OPENAI_SECRET = 'sk-DO-NOT-LEAK-openai';
+const GROQ_SECRET = 'gsk_DO-NOT-LEAK-groq';
+const ANTHROPIC_SECRET = 'sk-ant-DO-NOT-LEAK-anthropic';
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -32,6 +35,9 @@ describe('byokHeaders', () => {
       openrouter: 'X-OpenRouter-Key',
       google: 'X-Google-Key',
       grok: 'X-Grok-Key',
+      openai: 'X-OpenAI-Key',
+      groq: 'X-Groq-Key',
+      anthropic: 'X-Anthropic-Key',
     });
 
     saveByokKey('google', GOOGLE_SECRET);
@@ -42,11 +48,17 @@ describe('byokHeaders', () => {
     saveByokKey('openrouter', SECRET);
     saveByokKey('google', GOOGLE_SECRET);
     saveByokKey('grok', GROK_SECRET);
+    saveByokKey('openai', OPENAI_SECRET);
+    saveByokKey('groq', GROQ_SECRET);
+    saveByokKey('anthropic', ANTHROPIC_SECRET);
 
     expect(byokHeaders()).toEqual({
       'X-OpenRouter-Key': SECRET,
       'X-Google-Key': GOOGLE_SECRET,
       'X-Grok-Key': GROK_SECRET,
+      'X-OpenAI-Key': OPENAI_SECRET,
+      'X-Groq-Key': GROQ_SECRET,
+      'X-Anthropic-Key': ANTHROPIC_SECRET,
     });
   });
 

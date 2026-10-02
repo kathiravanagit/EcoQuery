@@ -9,7 +9,9 @@ from key_manager import key_manager
 
 logger = logging.getLogger("EcoQuery.providers")
 
-# Known endpoints for providers compatible with OpenAI spec. Order matters —
+# Known endpoints for providers compatible with OpenAI spec. The legacy
+# failover order below remains unchanged; additional providers are tried only
+# when configured or supplied on a request.
 # see `providers_to_try`: OpenRouter is first because its catalogue models are
 # free, Google is the automatic failover, and xAI's Grok runs last because it
 # is billed per token and must never precede a free route.
@@ -18,6 +20,10 @@ PROVIDER_BASE_URLS = {
     "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
     # xAI exposes an OpenAI-compatible surface under /v1.
     "grok": "https://api.x.ai/v1",
+    "openai": "https://api.openai.com/v1",
+    "groq": "https://api.groq.com/openai/v1",
+    # Anthropic's compatibility endpoint accepts the OpenAI client shape.
+    "anthropic": "https://api.anthropic.com/v1",
 }
 
 # Model used when the selected OpenRouter id is not valid on a provider's own
@@ -34,6 +40,9 @@ PROVIDER_FALLBACK_MODELS = {
     # *absent*, so an empty `GROK_MODEL=` would otherwise send a blank model id
     # on every failover and break Grok in a way no test would catch.
     "grok": os.getenv("GROK_MODEL") or "grok-4-fast",
+    "openai": os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
+    "groq": os.getenv("GROQ_MODEL") or "llama-3.3-70b-versatile",
+    "anthropic": os.getenv("ANTHROPIC_MODEL") or "claude-3-5-haiku-latest",
 }
 
 # Failover order for both the completion and the streaming path.
@@ -47,6 +56,9 @@ PROVIDER_FALLBACK_ORDER = ("openrouter", "google", "grok")
 #   X-Grok-Key        a key for grok — that is xAI, not Groq; the two are
 #                     unrelated companies and a Groq credential (gsk_...) is
 #                     rejected by api.x.ai
+#   X-OpenAI-Key      a key for openai
+#   X-Groq-Key        a key for groq
+#   X-Anthropic-Key   a key for anthropic
 # plus the original generic form:
 #   X-Provider-Key    a key for the provider named in X-Provider
 #                     (default `openrouter`)
@@ -62,6 +74,9 @@ BYOK_HEADERS = {
     "X-OpenRouter-Key": "openrouter",
     "X-Google-Key": "google",
     "X-Grok-Key": "grok",
+    "X-OpenAI-Key": "openai",
+    "X-Groq-Key": "groq",
+    "X-Anthropic-Key": "anthropic",
 }
 
 
@@ -73,7 +88,8 @@ def _byok_value(headers, name: str) -> str:
     provider would reject a truncated credential anyway. Dropping one provider's
     key must not discard the others, which is why this is per header.
     """
-    value = (headers.get(name) or "").strip()
+    raw_value = headers.get(name)
+    value = raw_value.strip() if isinstance(raw_value, str) else ""
     return value if 0 < len(value) <= BYOK_MAX_KEY_LENGTH else ""
 
 
@@ -97,7 +113,11 @@ def extract_byok_keys(headers) -> dict[str, str]:
     # same provider.
     generic = _byok_value(headers, "X-Provider-Key")
     if generic:
-        candidate = (headers.get("X-Provider") or "openrouter").strip().lower()
+        raw_candidate = headers.get("X-Provider")
+        candidate = (
+            raw_candidate.strip().lower()
+            if isinstance(raw_candidate, str) else "openrouter"
+        )
         provider = candidate if candidate in PROVIDER_BASE_URLS else "openrouter"
         keys.setdefault(provider, generic)
 
@@ -113,7 +133,11 @@ def _key_source(grouped_keys: dict) -> dict[str, str]:
     actually served the call. Values only — a key is never included.
     """
     source: dict[str, str] = {}
-    for provider in PROVIDER_FALLBACK_ORDER:
+    providers = list(PROVIDER_FALLBACK_ORDER)
+    providers.extend(
+        provider for provider in PROVIDER_BASE_URLS if provider not in providers
+    )
+    for provider in providers:
         bucket = grouped_keys.get(provider, [])
         if not bucket:
             source[provider] = "none"
@@ -122,6 +146,15 @@ def _key_source(grouped_keys: dict) -> dict[str, str]:
         else:
             source[provider] = "server"
     return source
+
+
+def _providers_to_try(grouped_keys: dict, byok_keys: dict[str, str] | None) -> list[str]:
+    """Keep the legacy order, then try newly configured providers."""
+    providers = list(PROVIDER_FALLBACK_ORDER)
+    for provider in (*grouped_keys.keys(), *(byok_keys or {}).keys()):
+        if provider in PROVIDER_BASE_URLS and provider not in providers:
+            providers.append(provider)
+    return providers
 
 
 def _with_byok(grouped_keys: dict, byok_keys: dict[str, str] | None) -> tuple[dict, int, bool]:
@@ -139,10 +172,18 @@ def _with_byok(grouped_keys: dict, byok_keys: dict[str, str] | None) -> tuple[di
     merged = {provider: list(bucket) for provider, bucket in grouped_keys.items()}
     injected = False
     for provider, key in byok_keys.items():
-        if provider not in PROVIDER_BASE_URLS:
+        if (
+            provider not in PROVIDER_BASE_URLS
+            or not isinstance(key, str)
+            or not (0 < len(key.strip()) <= BYOK_MAX_KEY_LENGTH)
+        ):
             continue
         bucket = merged.setdefault(provider, [])
-        bucket.insert(0, {"id": BYOK_SENTINEL_ID, "key_value": key, "byok": True})
+        bucket.insert(0, {
+            "id": BYOK_SENTINEL_ID,
+            "key_value": key.strip(),
+            "byok": True,
+        })
         injected = True
 
     if not injected:
@@ -182,7 +223,7 @@ class ProviderRouter:
         grouped_keys, server_key_count, byok_injected = _with_byok(grouped_keys, byok_keys)
 
         # Priority order of providers to try
-        providers_to_try = list(PROVIDER_FALLBACK_ORDER)
+        providers_to_try = _providers_to_try(grouped_keys, byok_keys)
         
         last_error = None
         attempts = []
@@ -325,7 +366,7 @@ class ProviderRouter:
         """Streaming chat completion with strict fallback routing."""
         grouped_keys = key_manager.get_all_providers_keys()
         grouped_keys, server_key_count, byok_injected = _with_byok(grouped_keys, byok_keys)
-        providers_to_try = list(PROVIDER_FALLBACK_ORDER)
+        providers_to_try = _providers_to_try(grouped_keys, byok_keys)
         attempts = []
         last_error = None
         
@@ -423,7 +464,9 @@ class ProviderRouter:
 
     async def check_health(self) -> dict:
         """Check the health of all supported providers."""
-        providers = list(PROVIDER_FALLBACK_ORDER)
+        providers = _providers_to_try(
+            key_manager.get_all_providers_keys(), None
+        )
         health = {}
         
         for provider in providers:
