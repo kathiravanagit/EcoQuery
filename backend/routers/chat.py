@@ -61,6 +61,21 @@ PROVIDER_COST_MAP = {
 WORST_MODEL = {"model": "ling-3.0-flash", "carbon_score": 5, "provider": "InclusionAI"}
 WORST_INTENSITY = 710.0
 
+# Rough g CO2/kWh by grid mix, used where a provider's region data records a
+# fuel type rather than a measured intensity. Module-level because both the
+# manual-model path in `_build_routing` and the post-call reconciliation in
+# `_reconcile_final_route` must agree on it.
+GRID_ESTIMATES = {
+    "Hydro/Nuclear": 15, "Hydro": 30, "Nuclear": 50, "Wind": 100,
+    "Wind/Nuclear": 80, "Wind/Gas": 180, "Gas/Wind": 200, "Gas": 350,
+    "Mixed": 300, "Wind/Coal": 350, "Coal/Gas": 500, "Coal": 650,
+}
+
+# What the grid half of a CO2 estimate was derived from. Surfaced so a figure
+# is never read as locating the call in a place we cannot substantiate.
+CARBON_BASIS_FINAL_PROVIDER = "final-provider-region"
+CARBON_BASIS_SELECTED_REGION = "selected-region"
+
 # Floor for a caller-chosen `max_output_tokens`. The schema accepts 1, but a
 # reasoning model can spend a small budget on its own thinking and reply with
 # nothing: `gemini-flash-latest` returned content=None at max_tokens 8, 16 and
@@ -219,6 +234,62 @@ async def _require_chat_access(request: Request, *, allow_anonymous: bool) -> st
     return email
 
 
+def _final_provider_region(final_provider: str | None) -> dict | None:
+    """Grid facts for the provider that actually served the call, or None.
+
+    `PROVIDER_REGIONS` only covers the vendors it was written for; openrouter,
+    grok, openai and groq have no entry, so most requests come back None and
+    keep the region chosen at routing time.
+    """
+    if not final_provider:
+        return None
+    info = PROVIDER_REGIONS.get(str(final_provider).lower())
+    if not info:
+        return None
+    greenest = info.get("greenest_region")
+    region_data = (info.get("regions") or {}).get(greenest) or {}
+    grid_type = region_data.get("grid", "Mixed")
+    return {
+        "region": greenest,
+        "energy_source": grid_type,
+        "carbon_intensity_g_kwh": GRID_ESTIMATES.get(grid_type, 350),
+        "method": "final-provider-region",
+    }
+
+
+def _reconcile_final_route(
+    region_info: dict, model_sel: dict, savings: dict,
+    provider_lineage: dict | None, prompt_len: int,
+) -> tuple[dict, dict]:
+    """Re-price the route that ran, and record which grid it was priced against.
+
+    CO2 here is model-carbon-score x grid intensity. The grid half was picked
+    at routing time from the carbon-optimal region, but a fallback decides who
+    actually serves the call -- so that region can describe somewhere other
+    than the place that did the work.
+
+    Where we hold region data for the serving provider we re-derive both
+    intensity and savings from it. Where we do not, the planned intensity is
+    kept and `carbon_basis` says so, rather than implying a location we cannot
+    name. `region_info` is copied first: the dict may be the cached carbon
+    payload, and mutating it would rewrite the cache for every later request.
+    """
+    final_region = _final_provider_region((provider_lineage or {}).get("final_provider"))
+    base = dict(region_info)
+    if final_region is None:
+        base["carbon_basis"] = CARBON_BASIS_SELECTED_REGION
+        return base, savings
+
+    base.update(final_region)
+    base["carbon_basis"] = CARBON_BASIS_FINAL_PROVIDER
+    recomputed = compute_savings(
+        model_sel["carbon_score"],
+        final_region["carbon_intensity_g_kwh"],
+        prompt_length=prompt_len,
+    )
+    return base, recomputed
+
+
 async def _build_routing(req: ChatRequest):
     classification = await classifier.classify(req.message)
     prompt_len = len(req.message)
@@ -259,11 +330,6 @@ async def _build_routing(req: ChatRequest):
                     greenest = provider_info["greenest_region"]
                     region_data = provider_info["regions"].get(greenest, {})
                     grid_type = region_data.get("grid", "Mixed")
-                    GRID_ESTIMATES = {
-                        "Hydro/Nuclear": 15, "Hydro": 30, "Nuclear": 50, "Wind": 100,
-                        "Wind/Nuclear": 80, "Wind/Gas": 180, "Gas/Wind": 200, "Gas": 350,
-                        "Mixed": 300, "Wind/Coal": 350, "Coal/Gas": 500, "Coal": 650,
-                    }
                     intensity = GRID_ESTIMATES.get(grid_type, 350)
                     region_info = {
                         "region": greenest,
@@ -357,6 +423,10 @@ def _build_metadata(
         "grid_source": region_info.get("data_source", "Mock"),
         "grid_timestamp": region_info.get("grid_timestamp"),
         "grid_intensity_g_per_kwh": 0.0 if not llm_used else region_info.get("carbon_intensity_g_kwh", 0),
+        # Which grid that intensity came from: the provider that actually
+        # served the call where we hold region data for it, otherwise the
+        # region routing selected (which may not be where it ran).
+        "carbon_basis": region_info.get("carbon_basis", CARBON_BASIS_SELECTED_REGION),
         "energy_assumption_kwh_per_1000_tokens": 0.0 if not llm_used else savings.get("energy_assumption_kwh_per_1000_tokens", 0),
         "calibration_version": None if not llm_used else savings.get("calibration_version"),
         "calibration_source": None if not llm_used else savings.get("calibration_source"),
@@ -367,7 +437,7 @@ def _build_metadata(
         "carbon_formula": "energy_kwh × grid_intensity_g_per_kwh",
         "carbon_assumptions": [
             "Cloud-provider energy is estimated unless the provider reports energy directly.",
-            "Region and grid intensity may be inferred from the selected routing region.",
+            "Grid intensity comes from the provider that served the call where EcoQuery holds region data for it, otherwise from the selected routing region; `carbon_basis` says which applied.",
         ] if llm_used else ["No external LLM inference was used; total application electricity is not measured by this result."],
         "carbon_baseline": {"model": WORST_MODEL["model"], "region": "ap-south-1 (Mumbai)", "grid_intensity_g_per_kwh": WORST_INTENSITY},
         "co2e_g": co2e_value,
@@ -466,6 +536,7 @@ async def _record_and_notify(
         "is_mocked": is_mocked, "classifier_method": classification["method"],
         "classifier_confidence": classification["confidence"],
         "carbon_method": "zero-llm-cache" if not llm_used else region_info.get("method", "mock-fallback"),
+        "carbon_basis": region_info.get("carbon_basis", CARBON_BASIS_SELECTED_REGION),
         "api_cost": api_cost, "latency_seconds": latency_seconds,
         "verification_status": v_result["status"],
         "verification_confidence": v_result["confidence"],
@@ -648,6 +719,12 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                 "message": "The configured provider returned no usable response.",
             })
 
+        # The fallback chain above may have swapped the model; the provider
+        # router may have swapped the provider. Price the route that ran.
+        region_info, savings = _reconcile_final_route(
+            region_info, model_sel, savings, provider_lineage, prompt_len,
+        )
+
         usage = result.get("usage", {})
         prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
         output_tokens = usage.get("completion_tokens", output_tokens)
@@ -806,7 +883,12 @@ async def chat_stream(req: ChatRequest, request: Request):
         max_tokens = _effective_max_tokens(req.max_output_tokens)
 
     async def generate():
+        # `region_info`/`savings` are assigned below by the reconciliation, so
+        # they must be declared nonlocal too -- otherwise Python treats them as
+        # locals of `generate()` for the whole body and every earlier read hits
+        # UnboundLocalError.
         nonlocal api_cost, prompt_tokens, output_tokens, is_mocked, full_reply, provider_lineage
+        nonlocal region_info, savings
         try:
             async for token in provider_router.stream_completion(
                 model_id=target_model,
@@ -840,6 +922,13 @@ async def chat_stream(req: ChatRequest, request: Request):
         output_tokens = len(cleaned_reply.split())
         rate, _cost_is_estimate = _api_cost_rate(model_sel, provider_lineage)
         api_cost = round((prompt_tokens * rate / 1000) + (output_tokens * rate / 1000), 6)
+
+        # The provider router may have swapped the provider mid-call; price
+        # the route that ran rather than the one routing-time chose. Ahead of
+        # the verifier so the figure it checks is the figure we report.
+        region_info, savings = _reconcile_final_route(
+            region_info, model_sel, savings, provider_lineage, prompt_len,
+        )
 
         latency_seconds = round(time.time() - start_time, 3)
         v_result = verifier.verify_completion(
