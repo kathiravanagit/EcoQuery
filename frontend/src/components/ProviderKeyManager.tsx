@@ -4,143 +4,161 @@ import {
   BYOK_MAX_KEY_LENGTH,
   BYOK_PROVIDERS,
   ByokProvider,
-  byokHeaders,
-  clearByok,
-  isByokProvider,
-  loadByok,
-  saveByok,
+  PROVIDER_HEADERS,
+  PROVIDER_KEY_HINTS,
+  PROVIDER_LABELS,
+  clearByokKey,
+  loadByokKeys,
+  preferMyKeys,
+  saveByokKey,
+  setPreferMyKeys,
 } from '../byok';
 import './ProviderKeyManager.css';
 
-const PROVIDER_LABELS: Record<ByokProvider, string> = {
-  openrouter: 'OpenRouter',
-  google: 'Google',
-  grok: 'Grok (xAI)',
-};
-
 /**
- * Lets a user supply their own provider key for chat requests.
+ * Lets a user supply their own provider keys for chat requests.
  *
- * The key is written to sessionStorage only and travels as an `X-Provider-Key`
- * header; it is never sent to EcoQuery for storage and is never rendered back
- * out after saving.
+ * One row per provider. Each key is written to sessionStorage only and travels
+ * as its own `X-<Provider>-Key` header; nothing is sent to EcoQuery for storage
+ * and no saved key is ever rendered back out — `active` holds provider names,
+ * never values.
  */
 const ProviderKeyManager: React.FC = () => {
-  const [provider, setProvider] = useState<ByokProvider>('openrouter');
-  const [draft, setDraft] = useState('');
-  const [hasKey, setHasKey] = useState(false);
+  const [active, setActive] = useState<ByokProvider[]>([]);
+  const [drafts, setDrafts] = useState<Record<ByokProvider, string>>({
+    openrouter: '', google: '', grok: '',
+  });
+  const [prefer, setPrefer] = useState(true);
   const [error, setError] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [justSaved, setJustSaved] = useState<ByokProvider | null>(null);
 
   useEffect(() => {
-    const existing = loadByok();
-    if (existing) {
-      setHasKey(true);
-      setProvider(existing.provider);
-    }
-    // Only the provider is read back — never the key itself.
+    // Provider names only — the key itself is never pulled into component state.
+    setActive(Object.keys(loadByokKeys()) as ByokProvider[]);
+    setPrefer(preferMyKeys());
   }, []);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent, provider: ByokProvider) => {
     e.preventDefault();
     setError('');
-    setSaved(false);
+    setJustSaved(null);
 
-    if (!draft.trim()) {
-      setError('Enter a provider key, or remove the saved one.');
+    const value = drafts[provider].trim();
+    if (!value) {
+      setError(`Enter a ${PROVIDER_LABELS[provider]} key, or remove the saved one.`);
       return;
     }
-    if (draft.trim().length > BYOK_MAX_KEY_LENGTH) {
+    if (value.length > BYOK_MAX_KEY_LENGTH) {
       // The server silently ignores anything longer, which would look like
       // "BYOK is on" while every request still used EcoQuery's own keys.
       setError(`Keys longer than ${BYOK_MAX_KEY_LENGTH} characters are rejected by the provider.`);
       return;
     }
 
-    if (saveByok({ provider, key: draft })) {
-      setHasKey(true);
-      setDraft('');
-      setSaved(true);
+    if (saveByokKey(provider, value)) {
+      setActive((prev) => (prev.includes(provider) ? prev : [...prev, provider]));
+      setDrafts((prev) => ({ ...prev, [provider]: '' }));
+      setJustSaved(provider);
     } else {
       setError('Could not save that key for this tab.');
     }
   };
 
-  const remove = () => {
-    clearByok();
-    setHasKey(false);
-    setDraft('');
-    setSaved(false);
+  const remove = (provider: ByokProvider) => {
+    clearByokKey(provider);
+    setActive((prev) => prev.filter((p) => p !== provider));
+    setDrafts((prev) => ({ ...prev, [provider]: '' }));
+    setJustSaved(null);
     setError('');
   };
 
-  const headerSample = byokHeaders()['X-Provider'];
+  const count = active.length;
 
   return (
     <div className="byok-card">
-      <h3><Key size={18} /> Provider Key (Bring Your Own)</h3>
+      <h3><Key size={18} /> Bring Your Own Keys (Optional)</h3>
 
-      <form onSubmit={submit}>
-        <div className="byok-row">
-          <div className="byok-field byok-field--provider">
-            <label htmlFor="byok-provider">Provider</label>
-            <select
-              id="byok-provider"
-              value={provider}
-              onChange={(e) => {
-                const next = e.target.value;
-                setProvider(isByokProvider(next) ? next : 'openrouter');
-                setSaved(false);
-              }}
+      <p className="byok-intro">
+        Add your own API keys for OpenRouter, Google AI Studio or Grok. Keys are stored only in
+        your browser and are never saved on our servers. When present, your keys are used instead
+        of EcoQuery&apos;s keys for that provider.
+      </p>
+
+      <div className="byok-rows">
+        {BYOK_PROVIDERS.map((provider) => {
+          const hasKey = active.includes(provider);
+          return (
+            <form
+              key={provider}
+              className="byok-row"
+              onSubmit={(e) => submit(e, provider)}
             >
-              {BYOK_PROVIDERS.map((id) => (
-                <option key={id} value={id}>{PROVIDER_LABELS[id]}</option>
-              ))}
-            </select>
-          </div>
+              <div className="byok-provider">
+                <span className="byok-provider-name">{PROVIDER_LABELS[provider]}</span>
+                <code className="byok-header">{PROVIDER_HEADERS[provider]}</code>
+              </div>
 
-          <div className="byok-field">
-            <label htmlFor="byok-key">API key</label>
-            <input
-              id="byok-key"
-              type="password"
-              value={draft}
-              onChange={(e) => { setDraft(e.target.value); setError(''); setSaved(false); }}
-              placeholder={hasKey ? 'A key is saved for this tab' : 'sk-...'}
-              autoComplete="off"
-              spellCheck={false}
-              aria-describedby="byok-hint"
-            />
-          </div>
-        </div>
+              <input
+                type="password"
+                value={drafts[provider]}
+                onChange={(e) => {
+                  setDrafts((prev) => ({ ...prev, [provider]: e.target.value }));
+                  setError('');
+                  setJustSaved(null);
+                }}
+                placeholder={hasKey ? 'A key is saved for this tab' : PROVIDER_KEY_HINTS[provider]}
+                aria-label={`${PROVIDER_LABELS[provider]} API key`}
+                autoComplete="off"
+                spellCheck={false}
+              />
 
-        {error && <div className="byok-error" role="alert">{error}</div>}
+              <button type="submit" className="btn btn-primary" aria-label={`Save ${PROVIDER_LABELS[provider]} key`}>
+                {justSaved === provider ? <Check size={14} /> : <Key size={14} />}
+                {hasKey ? 'Replace' : 'Save'}
+              </button>
 
-        <div className="byok-actions">
-          <button type="submit" className="btn btn-primary" aria-label="Save provider key">
-            <Check size={14} /> Save for this tab
-          </button>
-          {hasKey && (
-            <button type="button" className="btn btn-secondary" onClick={remove} aria-label="Remove provider key">
-              <Trash2 size={14} /> Remove
-            </button>
-          )}
-        </div>
-      </form>
-
-      <div className={`byok-status ${hasKey ? '' : 'byok-status--empty'}`}>
-        <ShieldCheck size={14} />
-        {saved
-          ? 'Saved for this tab — it will be sent with your next request.'
-          : hasKey
-            ? `Active — requests will send your ${PROVIDER_LABELS[headerSample as ByokProvider] ?? 'saved'} key.`
-            : 'No key saved — requests use EcoQuery\'s own keys.'}
+              {hasKey && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => remove(provider)}
+                  aria-label={`Remove ${PROVIDER_LABELS[provider]} key`}
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </form>
+          );
+        })}
       </div>
 
-      <p className="byok-hint" id="byok-hint">
-        Sent only as the <code>X-Provider</code> / <code>X-Provider-Key</code> request headers. EcoQuery
-        never stores or logs it, and it is dropped when this tab closes. If a request fails on your key,
-        it falls back to EcoQuery's own key automatically.
+      {error && <div className="byok-error" role="alert">{error}</div>}
+
+      <label className="byok-toggle">
+        <input
+          type="checkbox"
+          checked={prefer}
+          onChange={(e) => {
+            setPreferMyKeys(e.target.checked);
+            setPrefer(e.target.checked);
+          }}
+        />
+        <span>Prefer my keys when available</span>
+      </label>
+
+      <div className={`byok-status ${count ? '' : 'byok-status--empty'}`}>
+        <ShieldCheck size={14} />
+        {!prefer
+          ? 'Your keys are saved but not attached — requests use EcoQuery\'s own keys.'
+          : count
+            ? `Using ${count} of your ${count === 1 ? 'key' : 'keys'} + EcoQuery keys for the rest.`
+            : 'No keys saved — requests use EcoQuery\'s own keys.'}
+      </div>
+
+      <p className="byok-hint">
+        Sent only as request headers on each chat call. EcoQuery never stores or logs them, and
+        they are dropped when this tab closes. If a request fails on your key, it falls back to
+        EcoQuery&apos;s own key automatically.
       </p>
     </div>
   );

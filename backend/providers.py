@@ -41,60 +41,113 @@ PROVIDER_FALLBACK_ORDER = ("openrouter", "google", "grok")
 
 
 # ── Bring your own key ──────────────────────────────────────────────────────
-# Optional per-request credentials, accepted from two headers:
-#   X-OpenRouter-Key  shorthand for the default provider
-#   X-Provider-Key    a key for the provider named in `X-Provider`
+# Optional per-request credentials, accepted from one header per provider:
+#   X-OpenRouter-Key  a key for openrouter
+#   X-Google-Key      a key for google
+#   X-Grok-Key        a key for grok — that is xAI, not Groq; the two are
+#                     unrelated companies and a Groq credential (gsk_...) is
+#                     rejected by api.x.ai
+# plus the original generic form:
+#   X-Provider-Key    a key for the provider named in X-Provider
 #                     (default `openrouter`)
-# The value is used for one outbound call and nothing else: it is never passed
-# to `key_manager`, never written to the usage ledger or the response cache,
-# and never interpolated into a log line — a BYOK failure is logged with the
+# Every value is used for one outbound call and nothing else: none is ever
+# passed to `key_manager`, written to the usage ledger or the response cache,
+# or interpolated into a log line — a BYOK failure is logged with the
 # exception type only, because provider SDK errors can quote the credential.
 BYOK_SENTINEL_ID = "__byok__"
 BYOK_MAX_KEY_LENGTH = 512
 
+# Header name -> provider, for the per-provider form.
+BYOK_HEADERS = {
+    "X-OpenRouter-Key": "openrouter",
+    "X-Google-Key": "google",
+    "X-Grok-Key": "grok",
+}
 
-def extract_byok_key(headers) -> tuple[str, str] | None:
-    """Return `(provider, key)` from the BYOK headers, or `None` when absent.
+
+def _byok_value(headers, name: str) -> str:
+    """Header value trimmed and validated, or `''` when unusable.
+
+    A malformed or oversized header is treated as absent rather than as an
+    error: the caller still gets a working request on the server's keys, and a
+    provider would reject a truncated credential anyway. Dropping one provider's
+    key must not discard the others, which is why this is per header.
+    """
+    value = (headers.get(name) or "").strip()
+    return value if 0 < len(value) <= BYOK_MAX_KEY_LENGTH else ""
+
+
+def extract_byok_keys(headers) -> dict[str, str]:
+    """Return `{provider: key}` for every BYOK header supplied, possibly empty.
 
     Accepts any mapping with a `.get`. Starlette's headers are case-insensitive,
     which is a superset of what this needs; tests pass plain dicts.
     """
     if headers is None:
-        return None
+        return {}
 
-    openrouter_key = (headers.get("X-OpenRouter-Key") or "").strip()
-    generic_key = (headers.get("X-Provider-Key") or "").strip()
+    keys: dict[str, str] = {}
+    for name, provider in BYOK_HEADERS.items():
+        value = _byok_value(headers, name)
+        if value:
+            keys[provider] = value
 
-    provider = "openrouter"
-    key = ""
-    if openrouter_key:
-        key = openrouter_key
-    elif generic_key:
-        key = generic_key
+    # The generic form, kept for callers following the original contract.
+    # `setdefault` keeps the specific header authoritative when both name the
+    # same provider.
+    generic = _byok_value(headers, "X-Provider-Key")
+    if generic:
         candidate = (headers.get("X-Provider") or "openrouter").strip().lower()
         provider = candidate if candidate in PROVIDER_BASE_URLS else "openrouter"
+        keys.setdefault(provider, generic)
 
-    # A malformed or oversized header is treated as absent rather than as an
-    # error: the caller still gets a working request on the server's keys.
-    if not key or len(key) > BYOK_MAX_KEY_LENGTH:
-        return None
-    return provider, key
+    return keys
 
 
-def _with_byok(grouped_keys: dict, byok: tuple[str, str] | None) -> tuple[dict, int, bool]:
-    """Prepend the caller's key to its provider bucket.
+def _key_source(grouped_keys: dict) -> dict[str, str]:
+    """Which credential backs each provider for this request.
 
-    Returns `(keys, server_key_count, byok_injected)`. Putting it first means it
-    is tried before any server key, while every server key after it remains as
-    the fallback the API contract promises.
+    `user` when the caller supplied one, `server` when only server keys are
+    configured, `none` when neither. This answers where each provider *would*
+    draw its key from; `provider_lineage.final_provider` says which provider
+    actually served the call. Values only — a key is never included.
+    """
+    source: dict[str, str] = {}
+    for provider in PROVIDER_FALLBACK_ORDER:
+        bucket = grouped_keys.get(provider, [])
+        if not bucket:
+            source[provider] = "none"
+        elif any(entry.get("byok") for entry in bucket):
+            source[provider] = "user"
+        else:
+            source[provider] = "server"
+    return source
+
+
+def _with_byok(grouped_keys: dict, byok_keys: dict[str, str] | None) -> tuple[dict, int, bool]:
+    """Prepend each caller key to its own provider bucket.
+
+    Returns `(keys, server_key_count, byok_injected)`. Putting a supplied key
+    first means it is tried before that provider's server keys, while every
+    server key after it remains as the fallback the API contract promises. A
+    provider the caller said nothing about is left untouched.
     """
     server_key_count = sum(len(v) for v in grouped_keys.values())
-    if not byok:
+    if not byok_keys:
         return grouped_keys, server_key_count, False
-    provider, key = byok
-    bucket = list(grouped_keys.get(provider, []))
-    bucket.insert(0, {"id": BYOK_SENTINEL_ID, "key_value": key, "byok": True})
-    return {**grouped_keys, provider: bucket}, server_key_count, True
+
+    merged = {provider: list(bucket) for provider, bucket in grouped_keys.items()}
+    injected = False
+    for provider, key in byok_keys.items():
+        if provider not in PROVIDER_BASE_URLS:
+            continue
+        bucket = merged.setdefault(provider, [])
+        bucket.insert(0, {"id": BYOK_SENTINEL_ID, "key_value": key, "byok": True})
+        injected = True
+
+    if not injected:
+        return grouped_keys, server_key_count, False
+    return merged, server_key_count, True
 
 
 def provider_target_model(provider: str, model_id: str) -> str:
@@ -122,11 +175,11 @@ class ProviderRouter:
 
     async def chat_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024,
-        byok: tuple[str, str] | None = None,
+        byok_keys: dict[str, str] | None = None,
     ) -> dict:
         """Unified chat completion with strict fallback routing."""
         grouped_keys = key_manager.get_all_providers_keys()
-        grouped_keys, server_key_count, byok_injected = _with_byok(grouped_keys, byok)
+        grouped_keys, server_key_count, byok_injected = _with_byok(grouped_keys, byok_keys)
 
         # Priority order of providers to try
         providers_to_try = list(PROVIDER_FALLBACK_ORDER)
@@ -176,6 +229,9 @@ class ProviderRouter:
                         "success": True,
                         # Which credential served the call — never the key.
                         "byok_used": is_byok,
+                        # Per-provider key ownership for this request. Values
+                        # only — a credential is never echoed back.
+                        "key_source": _key_source(grouped_keys),
                     }
                     return result
                 except Exception as e:
@@ -264,11 +320,11 @@ class ProviderRouter:
 
     async def stream_completion(
         self, model_id: str, messages: list, max_tokens: int = 1024,
-        byok: tuple[str, str] | None = None,
+        byok_keys: dict[str, str] | None = None,
     ):
         """Streaming chat completion with strict fallback routing."""
         grouped_keys = key_manager.get_all_providers_keys()
-        grouped_keys, server_key_count, byok_injected = _with_byok(grouped_keys, byok)
+        grouped_keys, server_key_count, byok_injected = _with_byok(grouped_keys, byok_keys)
         providers_to_try = list(PROVIDER_FALLBACK_ORDER)
         attempts = []
         last_error = None
@@ -316,6 +372,7 @@ class ProviderRouter:
                             "success": True,
                             # Which credential served the call — never the key.
                             "byok_used": is_byok,
+                            "key_source": _key_source(grouped_keys),
                         }}
                         return
 

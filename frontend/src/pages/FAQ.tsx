@@ -73,7 +73,7 @@ const faqCategories = [
       },
       {
         question: 'Can I use my own API keys with EcoQuery?',
-        answer: 'EcoQuery normally uses its own configured keys for OpenRouter, Google and Grok, and your browser key is never required. If you would rather use your own, save it under Dashboard → Provider Key (or send it as an X-Provider-Key header): it rides along on the request, is never stored or logged on our side, disappears when you close the tab, and falls back to our key if the provider rejects yours.'
+        answer: 'EcoQuery normally uses its own configured keys for OpenRouter, Google and Grok, and your keys are never required. If you would rather use your own, save them under Dashboard → Bring Your Own Keys — one row per provider — or send an X-OpenRouter-Key, X-Google-Key or X-Grok-Key header. They live in your browser for this tab only, disappear when you close it, are never stored or logged on our side, and fall back to our key if a provider rejects yours. The response metadata reports byok_used and key_source so you can see which side served the call.'
       },
       {
         question: 'What regions does EcoQuery support?',

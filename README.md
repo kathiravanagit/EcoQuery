@@ -135,39 +135,67 @@ there too. Anonymous callers on either endpoint get the stricter rate limit.
 
 ### Bring your own key (BYOK)
 
-Both chat endpoints accept an optional per-request provider credential, so you
-can bill your own account instead of the server's keys:
+Both chat endpoints accept optional per-provider credentials, so you can bill
+your own account instead of the server's keys. Supply as many as you like on
+the same request — whichever provider the router lands on will find your
+credential waiting for it:
+
+| Header | Provider |
+|--------|----------|
+| `X-OpenRouter-Key` | `openrouter` |
+| `X-Google-Key` | `google` |
+| `X-Grok-Key` | `grok` — that is **xAI**; Groq (`gsk_…`) is an unrelated company |
+
+The original single-key form is still accepted:
 
 | Header | Meaning |
 |--------|---------|
-| `X-OpenRouter-Key` | Key for the default provider (OpenRouter) |
 | `X-Provider-Key` | Key for the provider named in `X-Provider` (default `openrouter`) |
 | `X-Provider` | Which provider the `X-Provider-Key` belongs to: `openrouter`, `google` or `grok` |
 
 ```bash
 curl -X POST https://ecoquery.onrender.com/api/chat/stream \
   -H "X-OpenRouter-Key: $MY_OPENROUTER_KEY" \
+  -H "X-Google-Key: $MY_GOOGLE_KEY" \
   -H "Content-Type: application/json" \
   -d '{"message": "How much CO2 does a chat query emit?"}'
 ```
 
 Behaviour:
 
-- Your key is tried **before** any server key for that provider. If the
-  provider rejects it, the request transparently falls back to the server's
-  keys — you only get an error if both are exhausted, which is returned as
-  `PROVIDER_KEY_REJECTED`.
-- The key is used for that one outbound call and nothing else. It is never
+- Each supplied key is tried **before** any server key for *its* provider. If
+  the provider rejects it, the request transparently falls back to that
+  provider's server keys — you only get an error if both are exhausted, which
+  is returned as `PROVIDER_KEY_REJECTED`. Keys are independent: a rejected
+  Google key never stops your OpenRouter key from being used.
+- Each key is used for that one outbound call and nothing else. None is ever
   written to the key store, the usage ledger, the response cache or a log
   line; a rejected key is logged as an exception type only, because provider
   SDK errors can quote the credential back.
-- Nothing is recorded against your account for a BYOK request — the response
-  metadata reports `byok_used: true` so you can confirm which credential
-  served it.
-- Knowledge-base and cached answers make no outbound call, so the header goes
-  unused (and costs you nothing).
-- Requests that skip the LLM entirely are unaffected; the header only matters
+- An empty or oversized (>512 characters) header is treated as absent, per
+  header, so one malformed value cannot silently discard the others.
+- The response metadata reports `byok_used` plus a `key_source` map:
+
+  ```json
+  {
+    "byok_used": true,
+    "final_provider": "google",
+    "key_source": {"openrouter": "server", "google": "user", "grok": "none"}
+  }
+  ```
+
+  `key_source` gives the credential backing each provider *for that request* —
+  `user`, `server` or `none` — while `final_provider` says which one actually
+  served the call. Ownership values only; a credential is never echoed back.
+- Knowledge-base and cached answers make no outbound call, so neither field is
+  emitted (and it costs you nothing).
+- Requests that skip the LLM entirely are unaffected; the headers only matter
   when a provider is actually called.
+
+In the browser, **Dashboard → Bring Your Own Keys** holds one key per provider
+in `sessionStorage`, so they die with the tab. They are attached automatically
+as the headers above and can be switched off with *Prefer my keys when
+available*.
 
 ---
 
