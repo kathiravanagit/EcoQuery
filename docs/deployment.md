@@ -39,3 +39,64 @@ Production requires secure secrets management and robust infrastructure.
 
 ### Provider Fallback Behavior
 EcoQuery seamlessly routes across providers. Failover order is `openrouter` → `google` → `grok`: OpenRouter's catalogue models are free, the Google failover is cheap, and xAI's Grok is billed per token, so the paid provider is only reached when both free routes fail. Grok is a failover rather than a selectable model — it never appears in the model catalogue. If every provider fails, the system returns a 503 error with structured JSON and lineage. The frontend gracefully handles this or automatically retries with a fallback provider.
+
+## 4. Backup & Restore
+
+### Taking a backup
+
+```bash
+bash scripts/backup-mongo.sh          # needs mongodump and MONGODB_URL
+```
+
+Writes `backups/ecoquery_<timestamp>/` (gzip). `backups/` is gitignored, so a
+dump never enters the repository.
+
+The script refuses to start without `MONGODB_URL`, and fails if the dump
+contains no collections. Both checks exist because `mongodump` exits `0`
+whether it wrote a database or nothing at all — an empty backup and a healthy
+one are indistinguishable from `$?` alone.
+
+### Testing that backups restore
+
+```bash
+python scripts/verify_backup_restore.py     # needs mongodump + mongorestore
+```
+
+Exit `0` means the round trip held; `1` means it did not; `2` means the drill
+could not run at all. It runs in CI on every push (`backup-restore-drill`).
+
+The drill seeds a throwaway database with documents shaped like the real ones
+plus their indexes, dumps it with the same `mongodump` the runbook uses,
+**drops the source**, restores into a second throwaway database, and compares
+every document and index field for field. Dropping the source first is what
+makes the test meaningful: from that moment the dump is the only copy that
+can possibly answer for the data.
+
+Scope, stated plainly so this does not read as more than it is:
+
+- It proves the **procedure** round-trips — tools, flags, gzip path, index
+  metadata, namespace remapping.
+- It does **not** prove that a particular file under `backups/` is complete.
+  That artifact came from production and the drill never reads production
+  data. To validate a specific dump, restore it into a scratch database and
+  count what comes back.
+- It cannot touch `ecoquery`. Both databases have fixed names
+  (`ecoquery_drill_src` / `ecoquery_drill_dst`), `--db` overrides whatever
+  database the URI carries, and the restore remaps namespaces with
+  `--nsFrom`/`--nsTo`. A non-loopback server additionally requires
+  `--allow-remote`.
+
+### Restoring — a human decision
+
+This overwrites live data. Rehearse it before you need it; a restore
+rehearsed for the first time during an incident is a second incident.
+
+```bash
+mongorestore --uri="$MONGODB_URL" --gzip --drop --dir=backups/ecoquery_<timestamp>
+mongosh "$MONGODB_URL" --eval 'db.users.countDocuments()'
+```
+
+`--drop` is load-bearing rather than a convenience flag. Without it every
+document fails on a duplicate `_id`, and `mongorestore` reports
+*0 restored / N failed* while still exiting `0` — success on the terminal,
+nothing in the database. Count afterwards regardless of what it printed.

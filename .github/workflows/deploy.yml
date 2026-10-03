@@ -60,6 +60,48 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # The backup procedure is exercised, not merely documented. A dump that has
+  # never been restored proves only that a command exited zero on the day it
+  # ran, so this runs the real mongodump/mongorestore against a throwaway
+  # database on every push and fails if a single document or index does not
+  # round trip. It is independent of the deploy jobs on purpose: a broken
+  # drill is worth knowing about, but it is not a reason to hold a release.
+  backup-restore-drill:
+    name: Backup → Restore Drill
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      # The runner ships no mongodump. Pinned, like the Vercel CLI below, so
+      # a tool upgrade is a reviewed change rather than whatever fastdl is
+      # serving that afternoon.
+      - name: Install MongoDB Database Tools
+        run: |
+          set -euo pipefail
+          TOOLS_VERSION=100.11.0
+          curl -fsSL "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-${TOOLS_VERSION}.tgz" -o /tmp/mdb-tools.tgz
+          tar -xzf /tmp/mdb-tools.tgz -C /tmp
+          sudo install -m 0755 "/tmp/mongodb-database-tools-ubuntu2404-x86_64-${TOOLS_VERSION}/bin/"* /usr/local/bin/
+          mongodump --version
+          mongorestore --version
+      - name: Run the backup/restore drill
+        run: python scripts/verify_backup_restore.py --uri mongodb://127.0.0.1:27017/
+
   deploy-frontend:
     name: Deploy Frontend → Vercel
     needs: [lint-test-frontend]
