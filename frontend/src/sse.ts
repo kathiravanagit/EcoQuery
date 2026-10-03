@@ -109,6 +109,71 @@ export interface SSEOptions {
   idleTimeoutMs?: number;
 }
 
+/** Tags one user action — a click of Send, or of Retry.
+ *
+ *  Reused when that same send is attempted again, so the server can hand back
+ *  what it already produced instead of paying to produce it twice. A new
+ *  message, or a deliberate re-ask, gets a fresh key: reusing one there would
+ *  turn the second answer into a replay of the first. */
+export function newIdempotencyKey(): string {
+  // randomUUID is unavailable on insecure origins, and this key is a
+  // de-duplication hint rather than a credential, so a fallback is acceptable.
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  let out = '';
+  for (let i = 0; i < 32; i += 1) {
+    out += Math.floor(Math.random() * 16).toString(16);
+  }
+  return out;
+}
+
+export interface StreamFetchOptions {
+  /** Encoded as JSON here rather than requiring a pre-stringified body. */
+  body: unknown;
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+}
+
+/** POSTs the stream request, retrying once when the connection itself fails.
+ *
+ *  The `Idempotency-Key` is carried across both attempts, and that is what
+ *  makes the retry safe: if the first attempt reached a finished answer and
+ *  only the response was lost, the second receives that answer rather than
+ *  paying for a second generation of the same send.
+ *
+ *  Only a rejected `fetch` is retried. Any response — a 4xx or 5xx, an empty
+ *  body or a malformed one — means the server was reached and replied, so
+ *  re-sending would be guessing instead of recovering, and could double a
+ *  provider call that already ran. Retrying those is how a client turns one
+ *  failing server into a stampede. */
+export async function fetchStream(
+  url: string,
+  options: StreamFetchOptions,
+  key: string,
+): Promise<Response> {
+  const attempt = () =>
+    fetch(url, {
+      method: 'POST',
+      signal: options.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': key,
+        ...options.headers,
+      },
+      body: JSON.stringify(options.body),
+    });
+
+  try {
+    return await attempt();
+  } catch (error) {
+    // A caller-initiated abort is an answer, not a transport failure. Retrying
+    // one would issue a fresh request immediately after cancellation.
+    if (options.signal?.aborted) throw error;
+    return await attempt();
+  }
+}
+
 export async function consumeSSE(
   body: ReadableStream<Uint8Array>,
   callbacks: SSECallbacks,

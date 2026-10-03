@@ -9,7 +9,10 @@
  *    are still streaming in;
  *  - the homepage Live demo can abort its in-flight request through a real,
  *    labelled button and restarts cleanly afterwards (no stuck spinner, no
- *    half-written reply left behind).
+ *    half-written reply left behind);
+ *  - both surfaces send an `Idempotency-Key` the server will accept, so a
+ *    send that reaches the server twice is answered once instead of paid for
+ *    twice.
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import LiveDemo from '../components/LiveDemo';
@@ -219,6 +222,45 @@ describe('Live demo aria-live announcements', () => {
     await waitFor(() => {
       expect(liveRegion(container)?.textContent).toContain('incomplete');
     });
+  });
+});
+
+describe('Chat surfaces tag their requests with an idempotency key', () => {
+  // Mirrors `idempotency.normalise_key` on the server: outside this shape the
+  // header is not rejected, it is ignored — deduplication would switch itself
+  // off silently.
+  const SERVER_ACCEPTS = /^[A-Za-z0-9_-]{8,128}$/;
+
+  function keyOf(call: FetchCall): string {
+    const headers = (call[1]?.headers ?? {}) as Record<string, string>;
+    return headers['Idempotency-Key'];
+  }
+
+  it('sends a server-acceptable key from the Live demo', async () => {
+    nextStream = openStream();
+    render(<LiveDemo />);
+
+    await askInDemo('Why is the sky blue?');
+
+    const calls = chatCalls();
+    expect(calls).toHaveLength(1);
+    expect(keyOf(calls[0])).toMatch(SERVER_ACCEPTS);
+  });
+
+  it('sends a server-acceptable key from the workspace chat', async () => {
+    const stream = openStream();
+    nextStream = stream;
+    const { container } = render(<WorkspaceChat token="test-token" />);
+
+    fireEvent.change(screen.getByPlaceholderText('Ask anything...'), {
+      target: { value: 'Explain photosynthesis' },
+    });
+    fireEvent.submit(container.querySelector('form')!);
+
+    await waitFor(() => expect(chatCalls()).toHaveLength(1));
+    expect(keyOf(chatCalls()[0])).toMatch(SERVER_ACCEPTS);
+
+    stream.close();
   });
 });
 

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Paperclip, X, ChevronDown, ChevronUp, Leaf, ShieldCheck, Zap, Square } from 'lucide-react';
 import { API_URL as API } from '../config';
 import './LiveDemo.css';
-import { Metadata, consumeSSE } from '../sse';
+import { Metadata, consumeSSE, fetchStream, newIdempotencyKey } from '../sse';
 import { apiFailure, describeApiError, errorCodeMessage } from '../apiError';
 import { byokHeaders } from '../byok';
 import Co2Estimate from './Co2Estimate';
@@ -304,6 +304,10 @@ const LiveDemo = () => {
     setIsTyping(true);
     const controller = new AbortController();
     activeRequest.current = controller;
+    // Fresh key per send, so a transport-level retry reuses it — letting the
+    // server replay an answer it already produced — while a different message
+    // never inherits a previous one's result.
+    const idemKey = newIdempotencyKey();
     let cancelled = false;
     // Full reply text so far, and the display copy of any stream failure —
     // both are what the live region announces once the run settles.
@@ -329,17 +333,16 @@ const LiveDemo = () => {
     }
 
     try {
-      const response = await fetch(`${API}/api/chat/stream`, {
-        method: 'POST',
+      const response = await fetchStream(`${API}/api/chat/stream`, {
         signal: controller.signal,
-        headers: { 'Content-Type': 'application/json', ...byokHeaders() },
-        body: JSON.stringify({
+        headers: byokHeaders(),
+        body: {
           message: userMsg,
           conversation: messages.filter(m => m.role !== 'system'),
           ...(overrideModel ? { model_id: overrideModel } : {}),
           ...(attachedImages.length > 0 ? { images: attachedImages } : {}),
-        })
-      });
+        },
+      }, idemKey);
 
       // A 401/429/5xx arrives as an ordinary JSON body, not an event stream —
       // consuming it as SSE would leave a permanently empty reply bubble.

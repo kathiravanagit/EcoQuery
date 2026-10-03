@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import asyncio
 import time
 import logging
+import hashlib
 import json
 import re
 import os
@@ -20,6 +21,7 @@ from ledger import ledger
 from verifier import verifier
 from websocket_manager import ws_manager
 from providers import provider_router, extract_byok_keys
+from idempotency import idempotency_store, normalise_key
 from byok_store import persistent_byok
 from energy import begin as begin_energy_sample, end as end_energy_sample, measurement_type as get_measurement_type
 from green_provider import PROVIDER_REGIONS
@@ -814,9 +816,54 @@ async def chat_endpoint(req: ChatRequest, request: Request):
     )
 
 
+def _request_fingerprint(req: ChatRequest, principal: str) -> str:
+    """Digest of the exact request a replay would be answering, for one caller.
+
+    Two independent conditions. The key says "this id was seen"; the body says
+    "seen for *this* question" — without it a reused key hands one prompt's
+    answer to a different prompt. The principal says "seen by *this* caller":
+    the store is process-wide, so without it a tenant who obtained another's
+    key could be served that tenant's answer. Anonymous callers all share an
+    empty principal and are separated by the key alone, which is unguessable.
+
+    Canonicalised so that key order in the conversation cannot make an
+    identical request look different.
+    """
+    payload = json.dumps(req.model_dump(), sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(f"{principal}\n{payload}".encode("utf-8")).hexdigest()
+
+
+def _replay_stored(stored: dict):
+    """Emit a finished answer in the frames a live stream would have sent.
+
+    The original was written token by token; the client only accumulates text,
+    so one frame carrying the whole reply produces the identical bubble and
+    keeps the replay free of the work it exists to avoid.
+
+    `idempotent_replay` is set so a caller — and the tests — can tell a
+    replayed answer from a freshly generated one rather than having to infer it
+    from timing.
+    """
+    yield f"data: {json.dumps({'token': stored['reply']})}\n\n"
+    metadata = {**stored.get('metadata', {}), 'idempotent_replay': True}
+    yield f"data: {json.dumps({'done': True, 'metadata': metadata})}\n\n"
+
+
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest, request: Request):
     user_email = await _require_chat_access(request, allow_anonymous=_ALLOW_ANONYMOUS_CHAT_STREAM)
+
+    # After auth, before anything costs money: a send that has already been
+    # answered is answered again from memory. Deliberately upstream of routing
+    # and classification, which a replay has no need to perform.
+    idem_key = normalise_key(request.headers.get("Idempotency-Key"))
+    fingerprint = _request_fingerprint(req, user_email)
+    stored = idempotency_store.get(idem_key)
+    # Three things must line up: the key was seen, seen for this question, and
+    # seen by this caller. Any two of them is not enough — a reused key must not
+    # be handed another prompt's answer, nor another tenant's.
+    if stored is not None and stored.get("fingerprint") == fingerprint:
+        return StreamingResponse(_replay_stored(stored), media_type="text/event-stream")
     # Optional bring-your-own-key; passed only to the outbound provider call.
     # Never stored, logged or cached, and unused on knowledge/cache answers.
     byok_keys = extract_byok_keys(request.headers)
@@ -1034,12 +1081,23 @@ async def chat_stream(req: ChatRequest, request: Request):
         if user_email:
             await auth_db.increment_user_tokens(user_email, prompt_tokens + output_tokens)
 
-        yield f"data: {json.dumps({'done': True, 'metadata': _build_metadata(
+        metadata = _build_metadata(
             classification, prompt_len, region_info, model_sel, savings,
             v_result, api_cost, latency_seconds, is_mocked, output_tokens, prompt_tokens,
             answer_source="llm", knowledge_match=False,
             knowledge_confidence=knowledge_res["confidence"], llm_used=True, routing_mode=routing_mode,
-            cache_hit=False, provider_lineage=provider_lineage
-        )})}\n\n"
+            cache_hit=False, provider_lineage=provider_lineage,
+        )
+        # Stored exactly where the terminal frame is emitted, so the invariant
+        # holds that anything replayable was answered in full: an errored,
+        # cancelled or aborted stream never reaches this line and therefore
+        # leaves nothing behind for a retry to find.
+        idempotency_store.put(idem_key, {
+            "reply": cleaned_reply,
+            "metadata": metadata,
+            "fingerprint": fingerprint,
+        })
+
+        yield f"data: {json.dumps({'done': True, 'metadata': metadata})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")

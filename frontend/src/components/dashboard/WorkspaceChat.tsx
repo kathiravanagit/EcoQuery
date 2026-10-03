@@ -4,7 +4,7 @@ import { Send, Leaf, ChevronDown, ChevronUp, RefreshCw, AlertCircle, Square } fr
 import { API_URL as API } from '../../config';
 import './WorkspaceChat.css';
 import { EASE_FN } from '../../constants';
-import { Metadata, consumeSSE } from '../../sse';
+import { Metadata, consumeSSE, fetchStream, newIdempotencyKey } from '../../sse';
 import { ApiFailure, apiFailure, describeApiError, errorCodeMessage } from '../../apiError';
 import { byokHeaders } from '../../byok';
 import Co2Estimate from '../Co2Estimate';
@@ -160,27 +160,28 @@ const WorkspaceChat = ({ token }: Props) => {
     setIsTyping(true);
     const controller = new AbortController();
     activeRequest.current = controller;
+    // Fresh key per send: a transport-level retry reuses it so the server can
+    // replay an answer it already produced rather than generate a second one.
+    const idemKey = newIdempotencyKey();
     // Full reply so far, plus the display copy of any stream failure; either
     // is announced once through the live region when the run settles.
     let replyText = '';
     let failureText: string | null = null;
 
     try {
-      const response = await fetch(`${API}/api/chat/stream`, {
+      const response = await fetchStream(`${API}/api/chat/stream`, {
         signal: controller.signal,
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
+        headers: {
           'Authorization': `Bearer ${token}`,
           ...byokHeaders()
         },
-        body: JSON.stringify({
+        body: {
           message: userMsg,
           conversation: conversation,
           ...(overrideModel ? { model_id: overrideModel } : {}),
           max_output_tokens: 200
-        })
-      });
+        },
+      }, idemKey);
 
       // A 401/429/5xx arrives as an ordinary JSON body, not an event stream —
       // consuming it as SSE would leave a permanently empty reply bubble.
