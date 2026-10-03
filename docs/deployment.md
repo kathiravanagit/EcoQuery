@@ -36,9 +36,47 @@ Production requires secure secrets management and robust infrastructure.
 - **Backend:** ECS or Google Cloud Run for auto-scaling.
 - **Database:** MongoDB Atlas Dedicated cluster.
 - **Security:** Secrets MUST be stored in a vault or Render secrets. Production requires a strong `JWT_SECRET` and real MongoDB/provider credentials. Set `KEY_ENCRYPTION_KEY` (32+ characters) for dedicated provider-key encryption; if it is omitted on Render, the API falls back to `JWT_SECRET`. Set `REDIS_URL` for distributed rate limiting; without it the process limiter is used. Rotate any credentials that appeared in old Git history.
+- **Revision identity:** `/api/health` resolves `APP_VERSION`/Render's commit
+  metadata and otherwise the checked-out Git revision. It no longer reports
+  `dev` as a production version. Record the returned `version` with deploy
+  and incident logs.
+- **Provider deadline:** `PROVIDER_TIMEOUT_SECONDS` defaults to 25 seconds and
+  is clamped to the platform-safe 5–25 second range. This leaves time for
+  provider failover before Render closes a request. The streaming client also
+  retries only transport failures with the same idempotency key.
 
 ### Provider Fallback Behavior
 EcoQuery seamlessly routes across providers. Failover order is `openrouter` → `google` → `grok`: OpenRouter's catalogue models are free, the Google failover is cheap, and xAI's Grok is billed per token, so the paid provider is only reached when both free routes fail. Grok is a failover rather than a selectable model — it never appears in the model catalogue. If every provider fails, the system returns a 503 error with structured JSON and lineage. The frontend gracefully handles this or automatically retries with a fallback provider.
+
+### Independent provider verification
+
+Provider configuration is not evidence that a key can complete a request.
+`python scripts/provider_diagnostics.py` performs a redacted, one-shot
+completion probe and reports `ok`, `empty_response`, or a typed failure
+without printing credentials. The manual GitHub Actions workflow
+**Provider completion probes** runs the same check with the
+`OPENROUTER_API_KEY`, `GOOGLE_API_KEY`, and `GROK_API_KEY` repository secrets
+and fails unless all three independently return text. Run it after rotating
+keys or changing provider model configuration.
+
+### Credential cleanup
+
+The local `backend/keys.db` file is intentionally ignored and must never be
+copied into a deployment artifact. Remove any historical copy and rotate every
+credential that appeared in it; the application reseeds only the current
+environment credentials at startup. A fresh deployment should start with no
+local database file and secrets supplied by Render.
+
+### Carbon and energy provenance
+
+Cloud emissions remain estimates: provider energy telemetry is not available to
+EcoQuery. Electricity Maps values are labelled live only when that zone
+successfully answers; otherwise the API explicitly labels the IEA 2024 static
+baseline or a stale cached observation. Local NVML/RAPL readings are measured
+only as a counter delta between the request's opening and closing samples;
+without an opening counter they are rejected rather than attributing lifetime
+GPU energy to one request. Zero-energy measurements carry zero uncertainty
+instead of a contradictory nonzero relative band.
 
 ## 4. Backup & Restore
 

@@ -1,0 +1,13 @@
+name: Keep Render warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend liveness endpoint
+        run: curl --fail --show-error --silent --max-time 15 https://ecoquery.onrender.com/health

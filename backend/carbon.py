@@ -255,6 +255,7 @@ async def get_carbon_optimal_region() -> dict:
         # would push the endpoint past its deadline. Static baselines are local,
         # so the fallback costs nothing.
         fanout.cancel()
+        await asyncio.gather(fanout, return_exceptions=True)
         logger.warning(
             f"Carbon intensity fan-out exceeded {ELECTRICITY_MAPS_TIMEOUT}s — using static baselines"
         )

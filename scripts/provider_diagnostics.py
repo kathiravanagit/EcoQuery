@@ -5,6 +5,7 @@ Usage from the repository root:
 """
 
 import asyncio
+import argparse
 import os
 import sys
 import time
@@ -92,11 +93,23 @@ async def check(provider: str, env_name: str, base_url: str, model: str) -> dict
     return result
 
 
-async def main() -> None:
+async def main(required: set[str]) -> int:
     results = await asyncio.gather(*(check(provider, *target) for provider, target in TARGETS.items()))
     for result in results:
         print(result)
+    failed_required = [
+        result["provider"]
+        for result in results
+        if result["provider"] in required and result["status"] != "ok"
+    ]
+    if failed_required:
+        print(f"Required provider probes failed: {', '.join(failed_required)}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--require", nargs="*", choices=sorted(TARGETS), default=[])
+    args = parser.parse_args()
+    raise SystemExit(asyncio.run(main(set(args.require))))

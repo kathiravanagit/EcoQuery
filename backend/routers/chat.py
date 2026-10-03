@@ -439,6 +439,14 @@ def _build_metadata(
 
     measurement_status = get_measurement_type(reading=energy_reading, provider_reported=False)
     co2e_value = round(energy_reading.energy_kwh * region_info.get("carbon_intensity_g_kwh", 0), 4) if energy_reading else (0.0 if not llm_used else savings["estimated_co2_g"])
+    measured_zero = bool(energy_reading is not None and energy_reading.energy_kwh == 0)
+    uncertainty_range = (
+        {"min": 0, "max": 0}
+        if measured_zero
+        else ({"min": 0, "max": 0} if not llm_used else savings.get("uncertainty_range_g", {"min": 0, "max": 0}))
+    )
+    uncertainty_components = {} if measured_zero or not llm_used else savings.get("uncertainty_components", {})
+    uncertainty_relative = 0.0 if measured_zero or not llm_used else savings.get("uncertainty_relative", 0.0)
     metadata = {
         "model_used": routed_model_display,
         "model_id": actual_model_name,
@@ -458,9 +466,9 @@ def _build_metadata(
         "energy_assumption_kwh_per_1000_tokens": 0.0 if not llm_used else savings.get("energy_assumption_kwh_per_1000_tokens", 0),
         "calibration_version": None if not llm_used else savings.get("calibration_version"),
         "calibration_source": None if not llm_used else savings.get("calibration_source"),
-        "uncertainty_range_g": {"min": 0, "max": 0} if not llm_used else savings.get("uncertainty_range_g", {"min": 0, "max": 0}),
-        "uncertainty_components": {} if not llm_used else savings.get("uncertainty_components", {}),
-        "uncertainty_relative": 0.0 if not llm_used else savings.get("uncertainty_relative", 0.0),
+        "uncertainty_range_g": uncertainty_range,
+        "uncertainty_components": uncertainty_components,
+        "uncertainty_relative": uncertainty_relative,
         "energy_source": "zero-emission" if not llm_used else region_info.get("energy_source", "Unknown"),
         "carbon_formula": "energy_kwh × grid_intensity_g_per_kwh",
         "carbon_assumptions": [

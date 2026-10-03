@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from calibration import combined_relative_uncertainty, aggregate_uncertainty_pct
 from router import compute_savings
+from routers.chat import _build_metadata
 
 
 PROMPT = "Explain quantum entanglement in 200 words please"
@@ -74,6 +75,26 @@ class TestAggregateBand:
         assert aggregate_uncertainty_pct() == round(
             combined_relative_uncertainty() * 100, 1
         )
+
+
+def test_zero_measured_emissions_do_not_claim_nonzero_relative_uncertainty():
+    metadata = _build_metadata(
+        {"tier": "simple", "confidence": 1.0},
+        50,
+        {"region": "local", "energy_source": "GPU", "carbon_intensity_g_kwh": 0},
+        {"model": "local", "provider": "Ollama (Local)", "tier": "green", "carbon_score": 1},
+        compute_savings(1, 13.0),
+        {"status": "verified", "reason": "test", "observed_tps": 1},
+        0.0,
+        1.0,
+        False,
+        1,
+        1,
+        energy_reading=type("Reading", (), {"energy_kwh": 0.0, "source": "nvidia_nvml"})(),
+    )
+    assert metadata["co2e_g"] == 0
+    assert metadata["uncertainty_relative"] == 0
+    assert metadata["uncertainty_components"] == {}
 
 
 def test_stats_endpoint_carries_the_band(client):

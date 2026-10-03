@@ -14,6 +14,7 @@ from ledger import ledger
 from models import CARBON_MODELS
 from websocket_manager import ws_manager
 from carbon import get_carbon_optimal_region
+from deployment import deployment_version
 router = APIRouter(tags=["misc"])
 
 # Set once at import so `/api/health` can report whether this process is a
@@ -102,7 +103,7 @@ async def health(response: Response):
         "status": "ok",
         "service_alive": True,
         "ready": True,
-        "version": os.getenv("APP_VERSION", "dev"),
+        "version": deployment_version(),
         "started_at": datetime.fromtimestamp(_PROCESS_STARTED_AT, tz=timezone.utc).isoformat(),
         "uptime_s": round(time.time() - _PROCESS_STARTED_AT, 1),
         "database_connected": bool(ledger.available and auth_db.available),

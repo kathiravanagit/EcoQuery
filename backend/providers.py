@@ -2,6 +2,7 @@
 
 import logging
 import os
+import math
 from openai import AsyncOpenAI
 import json
 import time
@@ -48,6 +49,16 @@ PROVIDER_FALLBACK_MODELS = {
 
 # Failover order for both the completion and the streaming path.
 PROVIDER_FALLBACK_ORDER = ("openrouter", "google", "grok")
+try:
+    PROVIDER_TIMEOUT_SECONDS = min(
+        25.0,
+        max(5.0, float(os.getenv("PROVIDER_TIMEOUT_SECONDS", "25"))),
+    )
+    if not math.isfinite(PROVIDER_TIMEOUT_SECONDS):
+        raise ValueError
+except ValueError:
+    logger.warning("Invalid PROVIDER_TIMEOUT_SECONDS; using 25 seconds")
+    PROVIDER_TIMEOUT_SECONDS = 25.0
 
 
 # ── Bring your own key ──────────────────────────────────────────────────────
@@ -402,7 +413,7 @@ class ProviderRouter:
         }))
 
     async def _call_provider(self, api_key, base_url, target_model, messages, max_tokens):
-        client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
+        client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=PROVIDER_TIMEOUT_SECONDS)
         response = await client.chat.completions.create(
             model=target_model,
             messages=messages,
@@ -456,7 +467,7 @@ class ProviderRouter:
                 
                 try:
                     started_at = time.perf_counter()
-                    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
+                    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=PROVIDER_TIMEOUT_SECONDS)
                     stream = await client.chat.completions.create(
                         model=target_model,
                         messages=messages,

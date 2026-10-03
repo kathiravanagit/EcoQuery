@@ -45,6 +45,8 @@ services:
       # only in a staging service that you want people browsing.
       - key: ENABLE_API_DOCS
         value: "false"
+      - key: PROVIDER_TIMEOUT_SECONDS
+        value: "25"
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

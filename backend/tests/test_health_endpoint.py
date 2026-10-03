@@ -56,6 +56,7 @@ def test_health_reports_operational_context(client):
     assert data["started_at"]
     assert data["uptime_s"] >= 0
     assert data["probe_duration_ms"] >= 0
+    assert data["version"] not in {"dev", "unknown"}
 
 
 def test_status_and_http_code_agree(client):
