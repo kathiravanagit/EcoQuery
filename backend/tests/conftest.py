@@ -27,6 +27,19 @@ def reset_rate_limiter():
 
 
 @pytest.fixture(autouse=True)
+def reset_circuit_breaker():
+    """The breaker exists to remember failures across requests, which is exactly
+    what a shared global must not do across test cases: three failures on a
+    provider in one test would make the next one skip that provider and pass
+    for the wrong reason (or fail for none)."""
+    from circuit_breaker import provider_breaker
+
+    provider_breaker.reset()
+    yield
+    provider_breaker.reset()
+
+
+@pytest.fixture(autouse=True)
 def mock_external_providers():
     provider_response = {
         "content": "Test provider response",

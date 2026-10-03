@@ -6,6 +6,7 @@ from openai import AsyncOpenAI
 import json
 import time
 from key_manager import key_manager
+from circuit_breaker import is_outage, provider_breaker
 
 logger = logging.getLogger("EcoQuery.providers")
 
@@ -267,7 +268,23 @@ class ProviderRouter:
         
         last_error = None
         attempts = []
-        for provider, keys in _attempt_order(grouped_keys, providers_to_try):
+        batches = _attempt_order(grouped_keys, providers_to_try)
+        # A provider that has been failing is skipped rather than paid for
+        # again -- but never so many that nothing is left: partition always
+        # leaves at least one to attempt, so an open breaker can degrade
+        # latency without ever becoming an outage of our own making.
+        allowed, tripped = provider_breaker.partition([p for p, _keys in batches])
+        for skipped in tripped:
+            attempts.append({
+                "provider": skipped,
+                "model": provider_target_model(skipped, model_id),
+                "status": "skipped",
+                "failure_reason": "CircuitOpen",
+            })
+        allowed = set(allowed)
+        for provider, keys in batches:
+            if provider not in allowed:
+                continue
             if not keys:
                 continue
                 
@@ -296,6 +313,7 @@ class ProviderRouter:
                         logger.warning(f"{provider} returned no text for {target_model}; trying the next provider")
                         continue
                     attempts.append({"provider": provider, "model": target_model, "status": "success", "latency_seconds": latency})
+                    provider_breaker.record_success(provider)
                     if not is_byok:
                         key_manager.log_usage(key_id, provider, target_model, result.get("usage", {}).get("completion_tokens", 0), "success")
                     logger.info(f"Successfully generated with {provider} using model {target_model}")
@@ -317,6 +335,11 @@ class ProviderRouter:
                 except Exception as e:
                     last_error = e
                     attempts.append({"provider": provider, "model": target_model, "status": "failed", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": type(e).__name__})
+                    if is_outage(e):
+                        # A 400 means we wrote the request badly; a 429 or a
+                        # timeout means this provider did not serve us. Only
+                        # the second kind earns a trip.
+                        provider_breaker.record_failure(provider)
                     if is_byok:
                         # The credential belongs to the caller: log the exception
                         # type only (provider SDK errors can quote the key), record
@@ -409,7 +432,19 @@ class ProviderRouter:
         attempts = []
         last_error = None
         
-        for provider, keys in _attempt_order(grouped_keys, providers_to_try):
+        batches = _attempt_order(grouped_keys, providers_to_try)
+        allowed, tripped = provider_breaker.partition([p for p, _keys in batches])
+        for skipped in tripped:
+            attempts.append({
+                "provider": skipped,
+                "model": provider_target_model(skipped, model_id),
+                "status": "skipped",
+                "failure_reason": "CircuitOpen",
+            })
+        allowed = set(allowed)
+        for provider, keys in batches:
+            if provider not in allowed:
+                continue
             for key_data in keys:
                 key_id = key_data["id"]
                 api_key = key_data["key_value"]
@@ -439,6 +474,7 @@ class ProviderRouter:
                             
                     if emitted:
                         attempts.append({"provider": provider, "model": target_model, "status": "success", "latency_seconds": round(time.perf_counter() - started_at, 3)})
+                        provider_breaker.record_success(provider)
                         if not is_byok:
                             key_manager.log_usage(key_id, provider, target_model, 10, "success") # Approx tokens for stream
                         yield {"provider_lineage": {
@@ -466,6 +502,8 @@ class ProviderRouter:
                 except Exception as e:
                     last_error = e
                     attempts.append({"provider": provider, "model": target_model, "status": "failed", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": type(e).__name__})
+                    if is_outage(e):
+                        provider_breaker.record_failure(provider)
                     if is_byok:
                         # Caller-owned credential: exception type only, and no
                         # server key is logged or deactivated because of it.

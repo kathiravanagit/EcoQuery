@@ -22,10 +22,11 @@ Scope, stated plainly so the tests and the docs do not overclaim:
 Set `IDEMPOTENCY_TTL_S=0` to turn the whole thing off.
 """
 
-import os
 import time
 from collections import OrderedDict
 from threading import Lock
+
+from shared import _env_number
 
 # How long a finished answer stays replayable. Long enough to outlive a flaky
 # connection or a user noticing a blank bubble, short enough that a reply does
@@ -48,19 +49,8 @@ _ALLOWED_CHARS = frozenset(
 )
 
 
-def _env_number(name: str, default: float, low: float, high: float) -> float:
-    """Read a bounded float. Anything unusable falls back rather than raises:
-    a bad environment variable must not stop the server from starting."""
-    raw = os.getenv(name)
-    if raw is None or not raw.strip():
-        return default
-    try:
-        value = float(raw)
-    except ValueError:
-        return default
-    return value if low <= value <= high else default
-
-
+# Bounds and lifetime of the store. Read through the shared parser so a bad
+# value falls back rather than preventing startup.
 TTL_S = _env_number("IDEMPOTENCY_TTL_S", DEFAULT_TTL_S, 0.0, 86400.0)
 MAX_ENTRIES = int(_env_number("IDEMPOTENCY_MAX_ENTRIES", float(DEFAULT_MAX_ENTRIES), 0.0, 100000.0))
 

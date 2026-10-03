@@ -95,6 +95,7 @@ async def health(response: Response):
     """
     from auth import auth_db
     from key_manager import key_manager
+    from circuit_breaker import provider_breaker
 
     probe_started = time.perf_counter()
     checks = {
@@ -146,6 +147,10 @@ async def health(response: Response):
         checks["provider_keys"] = {name: len(items) for name, items in grouped.items()}
     except Exception:
         checks["provider_keys"] = {}
+    # Per-provider breakers, so an operator can see that a vendor is being
+    # skipped without reconstructing it from logs. Empty until this process
+    # has actually tried one: no evidence, no verdict.
+    checks["provider_circuit_breakers"] = provider_breaker.snapshot()
     checks["provider_ready"] = bool(
         any(checks["provider_keys"].values()) or checks["provider_configured"]
     )
