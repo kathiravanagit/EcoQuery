@@ -80,11 +80,51 @@ def rate_limit_policy(path: str) -> int:
     return 30
 
 
+def resolve_request_id(raw: str | None) -> str:
+    """Accept a caller's id only when it is safe to reflect and to log.
+
+    The header is echoed back verbatim on the response and interpolated into
+    a log line, so whitespace and control characters are rejected — that is
+    the injection surface. Over-long or otherwise malformed ids are replaced
+    rather than refused: a correlation id is a convenience, and failing a
+    request over one would make a broken client fatal.
+    """
+    candidate = (raw or "").strip()
+    if not candidate or len(candidate) > 128 or any(char.isspace() for char in candidate):
+        return str(uuid.uuid4())
+    return candidate
+
+
+async def request_id_middleware(request: Request, call_next):
+    """Give *every* response a correlation id, and log every completed request.
+
+    Placed inside CORS but outside everything that can short-circuit, because
+    a request id attached only by the happy path is useless: the responses
+    worth tracing are 429s, 413s and CSRF 403s, and each of those returns from
+    a middleware nested inside this one. The access log lives here for the
+    same reason — one line per request, whatever answered it.
+
+    The exception is an unhandled error, which unwinds straight past this
+    middleware on its way to Starlette's ServerErrorMiddleware.
+    `unhandled_exception_handler` therefore owns the id in that case.
+    """
+    request.state.request_id = resolve_request_id(request.headers.get("X-Request-ID"))
+    start = time.time()
+    response = await call_next(request)
+    elapsed = round((time.time() - start) * 1000)
+    response.headers["X-Request-ID"] = request.state.request_id
+    logger.info(
+        "request completed method=%s path=%s status=%s duration_ms=%s request_id=%s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed,
+        request.state.request_id,
+    )
+    return response
+
+
 async def rate_limit_middleware(request: Request, call_next):
-    request_id = request.headers.get("X-Request-ID", "").strip()
-    if not request_id or len(request_id) > 128 or any(char.isspace() for char in request_id):
-        request_id = str(uuid.uuid4())
-    request.state.request_id = request_id
     applied_limit = rate_limit_policy(request.url.path)
     remaining = applied_limit
     if request.url.path.startswith("/api/") and request.method != "GET":
@@ -113,18 +153,7 @@ async def rate_limit_middleware(request: Request, call_next):
             resp.headers["X-RateLimit-Reset"] = str(int(now + RATE_LIMIT_DURATION))
             resp.headers["Retry-After"] = str(RATE_LIMIT_DURATION)
             return resp
-    start = time.time()
     response = await call_next(request)
-    elapsed = round((time.time() - start) * 1000)
-    response.headers["X-Request-ID"] = request_id
-    logger.info(
-        "request completed method=%s path=%s status=%s duration_ms=%s request_id=%s",
-        request.method,
-        request.url.path,
-        response.status_code,
-        elapsed,
-        request_id,
-    )
     if request.url.path.startswith("/api/"):
         response.headers["X-RateLimit-Limit"] = str(applied_limit)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
@@ -336,8 +365,18 @@ class BodySizeLimitMiddleware:
             # stop reading; the ASGI server closes the connection.
 
 
-# Registered last so it is the outermost middleware after CORS (see below).
+# Added before the request-id middleware so that it sits *inside* it: a body
+# rejected for size never reaches the router, yet the middleware wrapping it
+# still gives it a correlation id and an access-log line.
 app.add_middleware(BodySizeLimitMiddleware)
+
+# Correlation ids and the access log sit here rather than in the rate limiter:
+# a 429, a 413 or a CSRF 403 is generated below this point, so an id attached
+# only where the happy path returns would be missing from exactly the responses
+# an operator needs to trace. CORS stays outermost so those same responses
+# still carry the headers a browser must see (test_cors_middleware_is_the_
+# outermost_one guards that ordering).
+app.middleware("http")(request_id_middleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -415,11 +454,19 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    """Catch-all: log the traceback, return a clean 500."""
+    """Catch-all: log the traceback with the correlation id, return a clean 500.
+
+    This response never travels back through `request_id_middleware` — the
+    exception unwinds straight past it — so the id is attached here, or a
+    caller who reports a 500 has nothing to quote and the traceback in the log
+    has nothing to correlate it with. Both matter most on precisely this path.
+    """
+    request_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
     logger.error(
-        "Unhandled error on %s %s: %s",
+        "Unhandled error on %s %s (request_id=%s): %s",
         request.method,
         request.url.path,
+        request_id,
         exc,
         exc_info=True,
     )
@@ -430,7 +477,9 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
             "error_code": "INTERNAL_ERROR",
             "message": "Something went wrong on our side. Please try again.",
             "success": False,
+            "request_id": request_id,
         },
+        headers={"X-Request-ID": request_id},
     )
 
 app.include_router(auth_router)
