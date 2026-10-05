@@ -30,6 +30,9 @@ For quick sharing without strict SLAs.
 - **Backend (Render):** Uses `render.yaml`. Connects to MongoDB Atlas Free Tier.
 - **Frontend (Vercel):** Connects to the Render backend URL.
 - **Config:** Mocked API responses can be enabled via `ECO_QUERY_TESTING=1` to save API costs.
+- **Keep-alive:** The scheduled GitHub Actions probe retries `/health` for up to
+  90 seconds so a suspended free-tier service has time to cold-start without
+  masking a genuinely unavailable deployment.
 
 ## 3. Production Environment
 Production requires secure secrets management and robust infrastructure.

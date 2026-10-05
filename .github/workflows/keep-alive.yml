@@ -10,4 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping backend liveness endpoint
-        run: curl --fail --show-error --silent --max-time 15 https://ecoquery.onrender.com/health
+        # Render's free service can be suspended between scheduled runs. Allow
+        # the cold start to finish, but keep a bounded retry budget so a dead
+        # deployment still fails this workflow.
+        run: >-
+          curl --fail --show-error --silent
+          --connect-timeout 10
+          --max-time 30
+          --retry 5
+          --retry-delay 5
+          --retry-max-time 90
+          --retry-all-errors
+          https://ecoquery.onrender.com/health
