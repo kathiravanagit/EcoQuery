@@ -118,7 +118,7 @@ H1's quality condition holds only if EcoQuery's mean overall score is within 0.3
 - **Hypothesis being tested:** selection changes and estimated savings come from the carbon term itself rather than from latency or cost, which happen to correlate with it in the current catalog.
 - **Metric:** route agreement rate with the full router (how often a different model is chosen); estimated CO₂e; rubric scores; latency.
 - **Isolation:** `w2 = 0` for every mode; all other weights and the fixed normalisation ranges untouched.
-- **Caveat:** [METHODOLOGY.md](METHODOLOGY.md) reports carbon and latency correlate at **r = +0.887** across the seven-model catalog, so a small effect would be evidence about the catalog, not proof the term is inert.
+- **Caveat:** [METHODOLOGY.md](METHODOLOGY.md) reports carbon and latency correlate at **r = +0.915** across the seven-model catalog, so a small effect would be evidence about the catalog, not proof the term is inert.
 - **Status:** not executed.
 
 ### 4. Without grid data

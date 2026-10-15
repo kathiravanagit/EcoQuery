@@ -69,7 +69,7 @@ Measured across all tiers, modes, prompt lengths and a 10–1000 gCO2e/kWh inten
 
 ### Limit: intensity can only flip a genuine conflict
 
-Grid intensity scales the carbon term of every candidate equally, so it changes the outcome only where carbon and latency *disagree*. In the current seven-model catalog those two properties correlate at **r = +0.887** — the greener model is also the faster one almost everywhere — and `lfm-2.5-2.6b` is simultaneously the greenest, fastest and cheapest model available. The catalog contains just three green-but-slow pairs (`nemotron-3-super-120b`/`dots-3-note`, `nemotron-3-nano-omni`/`qwen3.8-27b`, `north-mini-code`/`qwen3.8-27b`) and none at all between the `complex` tier's two candidates.
+Grid intensity scales the carbon term of every candidate equally, so it changes the outcome only where carbon and latency *disagree*. In the current seven-model catalog those two properties correlate at **r = +0.915** — the greener model is also the faster one almost everywhere — and `lfm-2.5-2.6b` is simultaneously the greenest, fastest and cheapest model available. The catalog contains just two green-but-slow pairs (`nemotron-3-super-120b`/`dots-3-note`, `nemotron-3.5-super-vl`/`dots-3-note`) and none at all between the `complex` tier's two candidates.
 
 The intensity sweep therefore changes the selected model in **5 of 45** tier × mode × prompt-length cells. This is a property of the catalog, not of the weights: adding a deliberately green-but-slow model would raise it, and no reweighting can. Note also that `green` and `low-cost` are *supposed* to be intensity-invariant — each always selects the greenest or cheapest eligible model, whatever the grid.
 

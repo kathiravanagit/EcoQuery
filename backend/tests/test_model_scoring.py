@@ -16,6 +16,8 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import pytest  # noqa: E402
+
 import router  # noqa: E402
 from router import select_model  # noqa: E402
 
@@ -39,18 +41,72 @@ def _latency(model_id):
     return router.MODEL_LATENCY.get(model_id, 2.0)
 
 
+# --- a catalog that states its requirement ----------------------------------
+#
+# The two tests below guard a property of the *scoring code*: that `mode` and
+# grid intensity reach the decision at all. Both were once false -- every mode
+# returned the same model, and carbon intensity never arrived.
+#
+# The live catalog cannot serve as their fixture. Demonstrating the property
+# needs a model that is faster but dirtier than the greenest eligible one, and
+# whether the catalog holds such a model depends on which vendor models happen
+# to be free this month. OpenRouter retired the only one that did
+# (qwen3.8-27b, latency 1.4 against north-mini-code's 1.6), after which `green`
+# and `fast` selected the same model in every tier and these two tests failed
+# -- not because select_model changed, but because the vendor list did. A
+# controlled catalog states the requirement and cannot go stale.
+_SLOW_GREEN = {
+    "id": "fixture-green-slow:free",
+    "provider": "Fixture",
+    "tier": "green",
+    "carbon_score": 1,
+    "capability": "medium",
+    "openrouter_id": "fixture/green-slow:free",
+    "description": "greenest but slowest",
+    "supports_images": False,
+}
+_FAST_DIRTY = {
+    "id": "fixture-fast-dirty:free",
+    "provider": "Fixture",
+    "tier": "green",
+    "carbon_score": 8,
+    "capability": "medium",
+    "openrouter_id": "fixture/fast-dirty:free",
+    "description": "fastest but dirtiest",
+    "supports_images": False,
+}
+
+
+@pytest.fixture
+def conflicting_catalog(monkeypatch):
+    """Two medium-capability models that disagree on carbon and latency.
+
+    The reference scales (CARBON_REFERENCE_G, LATENCY_REFERENCE_S,
+    COST_REFERENCE) are deliberately left as the live catalog sets them: they
+    are meant to be fixed constants, and a fixture that moved them would be
+    exercising a different formula. Both fixture latencies sit inside the real
+    LATENCY_REFERENCE_S range of (0.9, 2.5).
+    """
+    monkeypatch.setattr(router, "CARBON_MODELS", [_SLOW_GREEN, _FAST_DIRTY])
+    monkeypatch.setattr(router, "MODEL_LATENCY", {
+        _SLOW_GREEN["id"]: 1.8,
+        _FAST_DIRTY["id"]: 1.0,
+    })
+
+
 # --- the two properties this unit exists to fix -----------------------------
 
-def test_routing_mode_changes_the_pick():
-    """Modes must not be decorative: green and fast disagree on medium."""
+def test_routing_mode_changes_the_pick(conflicting_catalog):
+    """Modes must not be decorative: green and fast disagree."""
     green = _model_id("medium", mode="green")
     fast = _model_id("medium", mode="fast")
-    assert green != fast, "routing mode had no effect on the selected model"
+    assert green == _SLOW_GREEN["id"]
+    assert fast == _FAST_DIRTY["id"]
     assert _carbon_score(green) < _carbon_score(fast)
     assert _latency(fast) < _latency(green)
 
 
-def test_dirtier_grid_selects_a_greener_model():
+def test_dirtier_grid_selects_a_greener_model(conflicting_catalog):
     """Grid intensity must reach the decision, not be normalized away.
 
     In `fast` mode the latency term normally wins, but on a carbon-intensive
@@ -58,7 +114,8 @@ def test_dirtier_grid_selects_a_greener_model():
     """
     clean = _model_id("medium", mode="fast", ci=10, pl=500)
     dirty = _model_id("medium", mode="fast", ci=1000, pl=500)
-    assert clean != dirty, "carbon intensity had no effect on the selection"
+    assert clean == _FAST_DIRTY["id"]
+    assert dirty == _SLOW_GREEN["id"]
     assert _carbon_score(dirty) < _carbon_score(clean)
 
 

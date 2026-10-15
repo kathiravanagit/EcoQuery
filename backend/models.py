@@ -42,13 +42,13 @@ CARBON_MODELS = [
         "supports_images": True,
     },
     {
-        "id": "qwen3.8-27b:free",
-        "provider": "Qwen",
+        "id": "nemotron-3.5-super-vl:free",
+        "provider": "NVIDIA",
         "tier": "green",
-        "carbon_score": 4,
+        "carbon_score": 5,
         "capability": "medium",
-        "openrouter_id": "qwen/qwen3.8-27b:free",
-        "description": "27B vision-language model, image and video input",
+        "openrouter_id": "nvidia/nemotron-3.5-super-vl:free",
+        "description": "120B MoE (12B active) vision-language model, 1M context, image and video input",
         "supports_images": True,
     },
     {
@@ -85,13 +85,20 @@ CARBON_MODELS = [
 
 # Must be an entry of CARBON_MODELS — chat.py looks the vision model up there
 # to reject image uploads when no vision-capable model is available.
-VISION_MODEL = "qwen3.8-27b:free"
+#
+# Was `qwen3.8-27b:free`, which OpenRouter retired: no qwen free model remains
+# in the catalog at all, so every image upload was routing to an id that 404s.
+# Replaced only after live-probing it for a real completion at >16 max_tokens
+# — the two Gemma candidates both answer 429 "rate-limited upstream", and a
+# model that is listed and free but never answers is the failure this comment
+# exists to prevent.
+VISION_MODEL = "nemotron-3.5-super-vl:free"
 
 # Ordered fallback chain — try these in order if primary fails
 FALLBACK_MODELS = [
     "nvidia/nemotron-3-ultra-550b-a55b:free",
     "nvidia/nemotron-3-super-120b-a12b:free",
-    "qwen/qwen3.8-27b:free",
+    "nvidia/nemotron-3.5-super-vl:free",
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     "dots-studio/dots-3-note-preview:free",
     "cohere/north-mini-code:free",

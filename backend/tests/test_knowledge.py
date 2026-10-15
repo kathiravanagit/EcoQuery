@@ -7,6 +7,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from fastapi.testclient import TestClient
 from main import app
 from knowledge import knowledge_base
+from models import CARBON_MODELS
+
+# Any real catalog id. The manual branch no-ops for an id the catalog does not
+# contain, so pinning a vendor's slug here means the test stops testing
+# anything the day that vendor retires it -- which is exactly what happened to
+# qwen3.8-27b. Read it from the catalog so it cannot go stale.
+MANUAL_MODEL = CARBON_MODELS[0]["id"]
 
 
 @pytest.fixture
@@ -85,7 +92,7 @@ def test_chat_direct_knowledge_zero_llm(client):
 def test_chat_manual_model_selection_bypasses_knowledge(client):
     resp = client.post("/api/chat", json={
         "message": "What is photosynthesis?",
-        "model_id": "qwen3.8-27b:free"
+        "model_id": MANUAL_MODEL
     })
     assert resp.status_code == 200
     data = resp.json()
@@ -94,7 +101,7 @@ def test_chat_manual_model_selection_bypasses_knowledge(client):
     assert meta["llm_used"] is True
     # The requested id has to exist in the catalog, otherwise the manual
     # branch silently no-ops and the test passes without testing anything.
-    assert meta["requested_model"] == "qwen3.8-27b:free"
+    assert meta["requested_model"] == MANUAL_MODEL
     assert meta["knowledge_match"] is False
     assert meta["answer_source"] == "llm"
 

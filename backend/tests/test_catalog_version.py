@@ -22,6 +22,7 @@ from catalog_version import (
     CAPABILITIES,
     REQUIRED_FIELDS,
     TIERS,
+    VISION_MODEL,
     catalog_version,
     validate_catalog,
 )
@@ -142,8 +143,13 @@ def test_an_empty_catalog_is_rejected():
 # ── Cross-module references ──────────────────────────────────────────────────
 
 def test_removing_one_model_breaks_every_reference_to_it():
-    """One deletion should surface as one problem per consumer, not one."""
-    trimmed = [m for m in CARBON_MODELS if m["id"] != "qwen3.8-27b:free"]
+    """One deletion should surface as one problem per consumer, not one.
+
+    Trims VISION_MODEL rather than a hard-coded id: the id it names changes
+    whenever a vendor retires a model, and a test that pins the old spelling
+    silently stops testing the mechanism the moment the catalog moves on.
+    """
+    trimmed = [m for m in CARBON_MODELS if m["id"] != VISION_MODEL]
     problems = validate_catalog(trimmed)
     assert any("VISION_MODEL" in p for p in problems), "vision model gone unreported"
     assert any("MODEL_LATENCY" in p for p in problems)
@@ -152,7 +158,7 @@ def test_removing_one_model_breaks_every_reference_to_it():
 
 
 def test_cross_module_checks_can_be_skipped():
-    trimmed = [m for m in CARBON_MODELS if m["id"] != "qwen3.8-27b:free"]
+    trimmed = [m for m in CARBON_MODELS if m["id"] != VISION_MODEL]
     assert validate_catalog(trimmed, check_tables=False) == []
 
 
