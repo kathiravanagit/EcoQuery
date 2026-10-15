@@ -30,9 +30,16 @@ For quick sharing without strict SLAs.
 - **Backend (Render):** Uses `render.yaml`. Connects to MongoDB Atlas Free Tier.
 - **Frontend (Vercel):** Connects to the Render backend URL.
 - **Config:** Mocked API responses can be enabled via `ECO_QUERY_TESTING=1` to save API costs.
-- **Keep-alive:** The scheduled GitHub Actions probe retries `/health` for up to
-  90 seconds so a suspended free-tier service has time to cold-start without
-  masking a genuinely unavailable deployment.
+- **Keep-alive (it does not actually keep the service warm):** Render's free
+  tier sleeps after 15 idle minutes, and GitHub does not honour the workflow's
+  `*/10` schedule — the median gap between real runs is **~284 minutes**
+  (30 runs measured Oct 9-15: min 134, max 561). So the backend is suspended
+  before essentially every probe, and the request that wakes it is paying for
+  the boot. Expect the first request to a cold URL to take minutes, not
+  seconds. The probe allows `/health` up to 300 s across its retries for that
+  reason; the budget is still a bound, so a genuinely dead deployment fails
+  the workflow instead of passing silently. To have it actually warm, ping it
+  from somewhere that runs more often than GitHub's cron queue does.
 
 ## 3. Production Environment
 Production requires secure secrets management and robust infrastructure.

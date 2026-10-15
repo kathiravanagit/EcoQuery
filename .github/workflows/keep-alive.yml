@@ -10,15 +10,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping backend liveness endpoint
-        # Render's free service can be suspended between scheduled runs. Allow
-        # the cold start to finish, but keep a bounded retry budget so a dead
-        # deployment still fails this workflow.
+        # Every scheduled run is a cold start, not a warm ping. Render's free
+        # tier sleeps after 15 idle minutes, and GitHub does not honour this
+        # workflow's */10 schedule: the median gap between actual runs is
+        # ~284 minutes (measured over 30 runs, min 134, max 561). So the
+        # service is suspended before essentially every probe and the request
+        # that wakes it must be allowed to wait for the boot.
+        #
+        # The budget is sized for that boot rather than for a healthy service
+        # (which answers /health in well under a second). 300s is still a
+        # bound: a genuinely dead deployment fails here after 5 minutes
+        # instead of passing silently.
         run: >-
           curl --fail --show-error --silent
           --connect-timeout 10
-          --max-time 30
+          --max-time 60
           --retry 5
           --retry-delay 5
-          --retry-max-time 90
+          --retry-max-time 300
           --retry-all-errors
           https://ecoquery.onrender.com/health
