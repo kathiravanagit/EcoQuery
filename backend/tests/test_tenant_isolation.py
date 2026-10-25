@@ -11,6 +11,7 @@ so "same answer for everyone" is detectable, not just "someone's data leaked".
 """
 
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,7 +24,13 @@ ALICE = "alice@example.com"
 BOB = "bob@example.com"
 
 
-def _record(user, marker, day):
+def _record(user, marker, days_ago):
+    # Relative, not fixed: /api/analytics only returns the last 30 days, so a
+    # hardcoded date silently ages out of the window and the test starts
+    # failing on a calendar boundary rather than on a regression.
+    stamp = (datetime.now(timezone.utc) - timedelta(days=days_ago)).replace(
+        hour=10, minute=0, second=0, microsecond=0
+    )
     return {
         "_id": f"{marker}-id",
         "user_email": user,
@@ -37,14 +44,14 @@ def _record(user, marker, day):
         "api_cost": 0.0001,
         "latency_seconds": 0.5,
         "verification_status": "verified",
-        "timestamp": f"2026-09-{day}T10:00:00+00:00",
+        "timestamp": stamp.isoformat(),
     }
 
 
 DOCS = [
-    _record(ALICE, "alice-a", "20"),
-    _record(ALICE, "alice-b", "21"),
-    _record(BOB, "bob-a", "22"),
+    _record(ALICE, "alice-a", 1),
+    _record(ALICE, "alice-b", 3),
+    _record(BOB, "bob-a", 5),
 ]
 
 
