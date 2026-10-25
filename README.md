@@ -22,20 +22,6 @@ service still uses bounded provider deadlines and explicit failover.
 
 ---
 
-## Screenshots
-
-![EcoQuery landing page: the control plane for sustainable AI](docs/images/landing-desktop.jpg)
-
-The live router answering from the knowledge layer — no model inference, no emissions, with the decision trace recorded and shown to the caller:
-
-![EcoQuery live router: a knowledge-direct answer with inference avoided](docs/images/live-router.jpg)
-
-<img src="docs/images/landing-mobile.jpg" alt="EcoQuery on a phone" width="320">
-
-<sub>Captured against the production deployment on 2026-10-25. The aggregate figures in the screenshots are live counters and move as queries are routed.</sub>
-
----
-
 ## Problem
 
 LLM inference costs — both financial and environmental — are significant and invisible to users. Carbon intensity varies more than 50x across data regions (13 g CO₂/kWh on the Nordic grid vs 710 g CO₂/kWh on the Indian grid), and consumers have no way to verify that the model they requested was actually used.
