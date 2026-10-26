@@ -10,6 +10,7 @@ import json
 import logging
 import asyncio
 import uuid
+import ipaddress
 from jose import JWTError, jwt
 from dotenv import load_dotenv
 
@@ -34,6 +35,35 @@ RATE_LIMIT_DURATION = 60
 # Anonymous callers get a tighter budget than authenticated ones on every
 # write endpoint. Chat is stricter still (see `rate_limit_policy`).
 ANONYMOUS_DEFAULT_LIMIT = 10
+
+
+def client_ip(request: Request) -> str:
+    """Return the caller's address rather than the platform proxy's.
+
+    uvicorn trusts `X-Forwarded-For` only from 127.0.0.1 by default and the
+    start command never widens that, so on Render `request.client.host` is the
+    edge proxy for *every* caller. Keying on it made the anonymous budget
+    global: one caller could spend all five chat requests a minute and lock
+    every other visitor out of the public demo, and the same bucket governed
+    signup, login and contact.
+
+    The header is read from the right because a proxy appends: an address the
+    client injected itself stays to the left and can never be mistaken for the
+    one the proxy observed. Unparseable entries are skipped, so a malformed
+    header falls back to the socket peer instead of crashing the limiter.
+    """
+    forwarded = request.headers.get("x-forwarded-for", "")
+    for hop in reversed([part.strip() for part in forwarded.split(",")]):
+        if not hop:
+            continue
+        try:
+            ipaddress.ip_address(hop)
+        except ValueError:
+            continue
+        return hop
+    if request.client and request.client.host:
+        return request.client.host
+    return "anonymous"
 
 
 def rate_limit_identity(request: Request) -> tuple[str, bool]:
@@ -64,8 +94,7 @@ def rate_limit_identity(request: Request) -> tuple[str, bool]:
         if subject:
             return str(subject), True
 
-    host = request.client.host if request.client else "anonymous"
-    return host, False
+    return client_ip(request), False
 
 
 def rate_limit_policy(path: str) -> int:

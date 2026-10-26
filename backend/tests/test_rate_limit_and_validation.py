@@ -202,3 +202,51 @@ def test_webhook_events_list_is_bounded():
         WebhookCreateRequest(
             url="https://example.com", events=["query.routed"] * 11
         )
+
+
+# ── Client identity behind the platform proxy ──────────────────────────────
+
+def _request(headers=None, client=("203.0.113.9", 12345)):
+    from starlette.requests import Request
+
+    raw = [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
+    return Request({
+        "type": "http",
+        "method": "POST",
+        "path": "/api/chat",
+        "query_string": b"",
+        "headers": raw,
+        "client": client,
+    })
+
+
+def test_forwarded_for_uses_the_hop_the_proxy_appended():
+    """A client-supplied entry sits to the left and must not win."""
+    from main import client_ip
+
+    assert client_ip(_request({"X-Forwarded-For": "6.6.6.6, 198.51.100.7"})) == "198.51.100.7"
+    assert client_ip(_request({"X-Forwarded-For": "198.51.100.7"})) == "198.51.100.7"
+
+
+def test_missing_or_malformed_forwarded_for_falls_back_to_the_socket_peer():
+    from main import client_ip
+
+    assert client_ip(_request()) == "203.0.113.9"
+    assert client_ip(_request({"X-Forwarded-For": "not-an-ip"})) == "203.0.113.9"
+    assert client_ip(_request({"X-Forwarded-For": " , "})) == "203.0.113.9"
+
+
+def test_anonymous_budgets_are_per_client_not_shared_between_callers(client):
+    """Regression: every caller used to be bucketed by the Render proxy's IP.
+
+    The whole public demo therefore shared one five-a-minute budget, so a
+    single visitor could lock everyone else out.
+    """
+    alice = {"X-Forwarded-For": "198.51.100.11"}
+    bob = {"X-Forwarded-For": "198.51.100.12"}
+
+    for _ in range(5):
+        assert client.post("/api/chat", json={"message": "hello"}, headers=alice).status_code != 429
+    assert client.post("/api/chat", json={"message": "hello"}, headers=alice).status_code == 429
+
+    assert client.post("/api/chat", json={"message": "hello"}, headers=bob).status_code != 429
