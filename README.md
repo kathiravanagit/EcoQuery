@@ -18,7 +18,7 @@ The scheduled `Keep Render warm` workflow pings `/health` every ten minutes to
 reduce free-tier cold starts. It is a latency mitigation, not an SLA: the
 service still uses bounded provider deadlines and explicit failover.
 
-**Live:** [eco2query.vercel.app](https://eco2query.vercel.app) · **Backend:** [ecoquery.onrender.com](https://ecoquery.onrender.com)
+**Live:** [www.ecoquery.tech](https://www.ecoquery.tech) · **Backend:** [ecoquery.onrender.com](https://ecoquery.onrender.com)
 
 ---
 
@@ -257,7 +257,7 @@ GROK_API_KEY=xai-...                  # Last-resort failover (paid: xAI credit)
 GROK_MODEL=grok-4-fast                # Optional: which xAI model Grok answers on
 ELECTRICITY_MAPS_API_KEY=em_...       # Optional (uses static fallback)
 MONGODB_URL=mongodb+srv://...         # Optional (degrades without)
-ALLOWED_ORIGINS=https://eco2query.vercel.app,http://localhost:5173
+ALLOWED_ORIGINS=https://www.ecoquery.tech,https://ecoquery.tech,http://localhost:5173
 ALLOW_ANONYMOUS_CHAT=false             # POST /api/chat (Bearer API) — locked by default
 ALLOW_ANONYMOUS_CHAT_STREAM=true       # POST /api/chat/stream — public homepage demo
 

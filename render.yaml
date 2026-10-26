@@ -38,9 +38,9 @@ services:
       - key: GOOGLE_REDIRECT_URI
         value: https://ecoquery.onrender.com/api/auth/google/callback
       - key: FRONTEND_URL
-        value: https://eco2query.vercel.app
+        value: https://www.ecoquery.tech
       - key: ALLOWED_ORIGINS
-        value: https://eco2query.vercel.app
+        value: https://www.ecoquery.tech,https://ecoquery.tech,https://eco2query.vercel.app
       # Swagger/ReDoc/OpenAPI stay unmounted in production; flip to "true"
       # only in a staging service that you want people browsing.
       - key: ENABLE_API_DOCS

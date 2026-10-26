@@ -16,7 +16,7 @@ import { resolve } from 'node:path';
  * all frozen at their first value.
  */
 
-const ORIGIN = 'https://eco2query.vercel.app';
+const ORIGIN = 'https://www.ecoquery.tech';
 
 // Vitest serves modules from an http origin under jsdom, so `import.meta.url`
 // is not a file URL here — resolve from the working directory instead.

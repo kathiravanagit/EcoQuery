@@ -234,6 +234,8 @@ configured_origins = {
 configured_origins.update({
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://www.ecoquery.tech",
+    "https://ecoquery.tech",
     "https://eco2query.vercel.app",
 })
 
@@ -494,7 +496,7 @@ app.include_router(misc_router)
 @app.get("/")
 async def root():
     docs_message = " Swagger UI: /docs." if api_docs_enabled else " API documentation is disabled in production."
-    return {"message": f"EcoQuery API.{docs_message} Frontend: https://eco2query.vercel.app"}
+    return {"message": f"EcoQuery API.{docs_message} Frontend: https://www.ecoquery.tech"}
 
 
 if __name__ == "__main__":

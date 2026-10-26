@@ -14,7 +14,7 @@ logger = logging.getLogger("EcoQuery.email")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@ecoquery.app")
 FROM_NAME = os.getenv("FROM_NAME", "EcoQuery")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://eco2query.vercel.app")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.ecoquery.tech")
 OTP_EXPIRY_MINUTES = 10
 RESET_EXPIRY_MINUTES = 60
 

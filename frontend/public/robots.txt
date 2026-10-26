@@ -6,4 +6,4 @@ Disallow: /admin
 Disallow: /profile
 Disallow: /teams
 
-Sitemap: https://eco2query.vercel.app/sitemap.xml
+Sitemap: https://www.ecoquery.tech/sitemap.xml
