@@ -6,7 +6,7 @@ import secrets
 from schemas import OrgCreateRequest, OrgInviteRequest
 from auth import get_current_user
 from email_service import email_service
-from shared import ORGANIZATIONS, ORG_INVITES, ORG_API_KEYS
+from shared import ORGANIZATIONS, ORG_INVITES, ORG_API_KEYS, mask_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,18 @@ async def create_org(req: OrgCreateRequest, current_user: dict = Depends(get_cur
     return {"status": "ok", "org": org}
 
 
+def _masked_org_keys(org: dict) -> list:
+    """The keys a member may *see*, never the ones they could use.
+
+    Rebuilt rather than masked in place: ORG_API_KEYS holds the live list that
+    authenticates requests, and blanking it here would break every org key.
+    """
+    return [
+        {**record, "key": mask_api_key(record.get("key", ""))}
+        for record in ORG_API_KEYS.get(org["id"], org.get("api_keys", []))
+    ]
+
+
 @router.get("")
 async def list_orgs(current_user: dict = Depends(get_current_user)):
     user_orgs = [o for o in ORGANIZATIONS.values() if current_user["email"] in o.get("members", [])]
@@ -70,9 +82,9 @@ async def list_orgs(current_user: dict = Depends(get_current_user)):
             org.pop("_id", None)
             ORGANIZATIONS[org["id"]] = org
         user_orgs = [o for o in stored_orgs if current_user["email"] in o.get("members", [])]
-    for o in user_orgs:
-        o["api_keys"] = ORG_API_KEYS.get(o["id"], o.get("api_keys", []))
-    return {"orgs": user_orgs}
+    # Copies, not edits: these dicts are the ones ORGANIZATIONS holds, and a
+    # masked list written back into them would outlive the response.
+    return {"orgs": [{**o, "api_keys": _masked_org_keys(o)} for o in user_orgs]}
 
 
 @router.get("/{org_id}")
@@ -81,9 +93,8 @@ async def get_org(org_id: str, current_user: dict = Depends(get_current_user)):
     if not org or current_user["email"] not in org.get("members", []):
         raise HTTPException(status_code=404, detail="Organization not found")
     org.setdefault("api_keys", [])
-    org["api_keys"] = ORG_API_KEYS.get(org_id, org.get("api_keys", []))
-    ORG_API_KEYS[org_id] = org["api_keys"]
-    return {"org": org}
+    ORG_API_KEYS[org_id] = ORG_API_KEYS.get(org_id, org.get("api_keys", []))
+    return {"org": {**org, "api_keys": _masked_org_keys(org)}}
 
 
 @router.post("/{org_id}/invite")

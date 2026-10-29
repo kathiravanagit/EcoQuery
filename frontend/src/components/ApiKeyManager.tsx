@@ -27,8 +27,10 @@ export const maskKey = (key: string): string =>
 
 const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
   const [apiKey, setApiKey] = useState('');
-  // Hidden on load and hidden again after a copy: the only moment the whole
-  // key is on screen is right after it is generated.
+  // `apiKey` is masked once loaded, because the server only ever returns the
+  // whole key from the POST that creates it. This flag says whether the value
+  // in hand is the real one, and so whether it can be copied or revealed.
+  const [usable, setUsable] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState('');
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,7 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
       const d = await r.json();
       const key = d.api_key || '';
       setApiKey(key);
+      setUsable(false);
       setRevealed(false);
       if (key) fetchStats();
     } catch (e) {
@@ -82,6 +85,7 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
       if (!r.ok) throw await apiFailure(r, 'Failed to generate API key');
       const d = await r.json();
       setApiKey(d.api_key);
+      setUsable(true);
       setRevealed(true);
       setShowRevokeConfirm(false);
       fetchStats();
@@ -99,6 +103,7 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
       const r = await fetch(`${API}/api/user/api-key/revoke`, { method: 'POST', headers });
       if (r.ok) {
         setApiKey('');
+        setUsable(false);
         setStats(null);
         setShowRevokeConfirm(false);
       } else {
@@ -124,6 +129,11 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
 
   useEffect(() => { fetchKey(); }, [token]);
 
+  // Masked unless this session created the key and asked to see it.
+  const displayKey = usable ? (revealed ? apiKey : maskKey(apiKey)) : apiKey;
+  // The curl hint never carries the secret, revealed or not.
+  const hintKey = usable ? maskKey(apiKey) : apiKey;
+
   if (loading) {
     return (
       <div className="api-key-card">
@@ -144,27 +154,36 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
       {apiKey ? (
         <>
           <div className="api-key-display">
-            <code>{revealed ? apiKey : maskKey(apiKey)}</code>
-            <button
-              className="btn-icon"
-              onClick={() => setRevealed((shown) => !shown)}
-              aria-label={revealed ? 'Hide API key' : 'Show API key'}
-            >
-              {revealed ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-            <button
-              className="btn-icon"
-              onClick={() => {
-                copyToClipboard(apiKey, 'key');
-                setRevealed(false);
-              }}
-              aria-label="Copy API key"
-            >
-              {copied === 'key' ? <Check size={16} /> : <Copy size={16} />}
-            </button>
+            <code>{displayKey}</code>
+            {usable && (
+              <>
+                <button
+                  className="btn-icon"
+                  onClick={() => setRevealed((shown) => !shown)}
+                  aria-label={revealed ? 'Hide API key' : 'Show API key'}
+                >
+                  {revealed ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+                <button
+                  className="btn-icon"
+                  onClick={() => {
+                    copyToClipboard(apiKey, 'key');
+                    setRevealed(false);
+                  }}
+                  aria-label="Copy API key"
+                >
+                  {copied === 'key' ? <Check size={16} /> : <Copy size={16} />}
+                </button>
+              </>
+            )}
           </div>
-          {revealed && (
+          {usable && revealed && (
             <p className="api-key-hint">Copy it now — it hides again after you copy.</p>
+          )}
+          {!usable && (
+            <p className="api-key-hint">
+              The full key is only shown when it is created. If you did not save it, generate a new one — the old one stops working.
+            </p>
           )}
 
           <div className="api-key-actions">
@@ -242,7 +261,7 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
       )}
 
       <p className="api-key-hint">
-        Use this key to call EcoQuery API from your own apps: <code>Authorization: Bearer {revealed ? apiKey : (maskKey(apiKey) || '&lt;key&gt;')}</code>
+        Use this key to call EcoQuery API from your own apps: <code>Authorization: Bearer {hintKey || '&lt;key&gt;'}</code>
       </p>
     </div>
   );

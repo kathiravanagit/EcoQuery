@@ -12,6 +12,7 @@ from jose import JWTError, jwt
 from auth import SECRET_KEY, ALGORITHM, get_current_user, get_admin_user
 from ledger import ledger
 from models import CARBON_MODELS
+from shared import mask_api_key
 from websocket_manager import ws_manager
 from carbon import get_carbon_optimal_region
 from deployment import deployment_version
@@ -417,7 +418,10 @@ async def get_api_key(current_user: dict = Depends(get_current_user)):
     key = await _get_api_key(current_user["email"])
     if not key:
         return {"api_key": "", "message": "No API key generated yet. POST /api/user/api-key to create one."}
-    return {"api_key": key}
+    # Masked: the only response that ever carries the whole key is the POST
+    # that creates it. A stored key handed back on every page load is a live
+    # credential sitting in any screenshot, screen share or XSS payload.
+    return {"api_key": mask_api_key(key)}
 
 
 @router.post("/api/user/api-key/revoke")

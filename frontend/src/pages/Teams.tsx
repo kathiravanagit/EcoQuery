@@ -214,12 +214,19 @@ const Teams = () => {
                   <div className="card" style={{ padding: '1.5rem' }}>
                     <h3 style={{ marginBottom: '0.75rem' }}><Key size={16} /> Shared API Keys</h3>
                     {selectedOrg.api_keys?.length === 0 && orgKeys.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No keys yet.</p>}
-                    {[...(selectedOrg.api_keys || []), ...orgKeys.map(k => ({ key: k }))].map((k: { key: string }, i: number) => (
+                    {[
+                      ...(selectedOrg.api_keys || []).map((k: { key: string }) => ({ key: k.key, usable: false })),
+                      ...orgKeys.map((k) => ({ key: k, usable: true })),
+                    ].map((k, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                         <code style={{ flex: 1, padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '4px', fontSize: '0.8rem' }}>{k.key}</code>
-                        <button className="btn-icon" onClick={() => copyToClipboard(k.key)} aria-label="Copy key">
-                          {copied === k.key ? <Check size={16} /> : <Copy size={16} />}
-                        </button>
+                        {/* Only a key generated in this session can be copied; the
+                            server sends the stored ones masked. */}
+                        {k.usable && (
+                          <button className="btn-icon" onClick={() => copyToClipboard(k.key)} aria-label="Copy key">
+                            {copied === k.key ? <Check size={16} /> : <Copy size={16} />}
+                          </button>
+                        )}
                       </div>
                     ))}
                     {user?.email === selectedOrg.owner && <button className="btn btn-secondary" style={{ marginTop: '0.5rem' }} onClick={genOrgKey}><Key size={16} /> Generate Key</button>}
