@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Copy, Check, RotateCcw, Trash2, Loader2, BarChart3, Leaf, DollarSign } from 'lucide-react';
+import { Key, Copy, Check, RotateCcw, Trash2, Loader2, BarChart3, Leaf, DollarSign, Eye, EyeOff } from 'lucide-react';
 import { apiFailure, describeApiError } from '../apiError';
 import Co2Estimate from './Co2Estimate';
 import './ApiKeyManager.css';
@@ -17,8 +17,19 @@ interface Props {
   uncertaintyPct?: number;
 }
 
+/**
+ * `eq_` plus 48 hex characters is unreadable and too long to hide by eye, so
+ * only the prefix stays visible — enough to tell two keys apart, not enough to
+ * use one from a screenshot, a shoulder or a screen share.
+ */
+export const maskKey = (key: string): string =>
+  key.length <= 10 ? '*'.repeat(key.length) : `${key.slice(0, 10)}${'*'.repeat(12)}`;
+
 const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
   const [apiKey, setApiKey] = useState('');
+  // Hidden on load and hidden again after a copy: the only moment the whole
+  // key is on screen is right after it is generated.
+  const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState('');
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -39,6 +50,7 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
       const d = await r.json();
       const key = d.api_key || '';
       setApiKey(key);
+      setRevealed(false);
       if (key) fetchStats();
     } catch (e) {
       setError(describeApiError(e, 'Failed to load API key'));
@@ -70,6 +82,7 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
       if (!r.ok) throw await apiFailure(r, 'Failed to generate API key');
       const d = await r.json();
       setApiKey(d.api_key);
+      setRevealed(true);
       setShowRevokeConfirm(false);
       fetchStats();
     } catch (e) {
@@ -131,15 +144,28 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
       {apiKey ? (
         <>
           <div className="api-key-display">
-            <code>{apiKey}</code>
+            <code>{revealed ? apiKey : maskKey(apiKey)}</code>
             <button
               className="btn-icon"
-              onClick={() => copyToClipboard(apiKey, 'key')}
+              onClick={() => setRevealed((shown) => !shown)}
+              aria-label={revealed ? 'Hide API key' : 'Show API key'}
+            >
+              {revealed ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+            <button
+              className="btn-icon"
+              onClick={() => {
+                copyToClipboard(apiKey, 'key');
+                setRevealed(false);
+              }}
               aria-label="Copy API key"
             >
               {copied === 'key' ? <Check size={16} /> : <Copy size={16} />}
             </button>
           </div>
+          {revealed && (
+            <p className="api-key-hint">Copy it now — it hides again after you copy.</p>
+          )}
 
           <div className="api-key-actions">
             {showRevokeConfirm ? (
@@ -216,7 +242,7 @@ const ApiKeyManager: React.FC<Props> = ({ token, API, uncertaintyPct }) => {
       )}
 
       <p className="api-key-hint">
-        Use this key to call EcoQuery API from your own apps: <code>Authorization: Bearer {apiKey || '&lt;key&gt;'}</code>
+        Use this key to call EcoQuery API from your own apps: <code>Authorization: Bearer {revealed ? apiKey : (maskKey(apiKey) || '&lt;key&gt;')}</code>
       </p>
     </div>
   );
