@@ -45,7 +45,6 @@ SYSTEM_PROMPT = (
 # default below only applies to an id we don't recognise.
 MODEL_COST_MAP = {
     "nemotron-3-ultra-550b-a55b:free": 0.0,
-    "nemotron-3-super-120b-a12b:free": 0.0,
     "dots-3-note-preview:free": 0.0,
     "nemotron-3.5-super-vl:free": 0.0,
     "nemotron-3-nano-omni-30b-a3b-reasoning:free": 0.0,

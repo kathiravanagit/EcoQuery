@@ -22,16 +22,6 @@ CARBON_MODELS = [
         "supports_images": False,
     },
     {
-        "id": "nemotron-3-super-120b-a12b:free",
-        "provider": "NVIDIA",
-        "tier": "green",
-        "carbon_score": 5,
-        "capability": "high",
-        "openrouter_id": "nvidia/nemotron-3-super-120b-a12b:free",
-        "description": "120B hybrid, balanced performance and efficiency",
-        "supports_images": False,
-    },
-    {
         "id": "dots-3-note-preview:free",
         "provider": "Dots Studio",
         "tier": "balanced",
@@ -42,11 +32,18 @@ CARBON_MODELS = [
         "supports_images": True,
     },
     {
+        # OpenRouter retired the free variant of `nemotron-3-super-120b-a12b`
+        # (the paid id survives, so the slug itself still resolves for paying
+        # accounts — which is how a dead free id hides from a price check).
+        # `nemotron-3.5-super-vl` fills that slot: same 120B/12B-active class,
+        # already in the catalog, so no new energy proxy is invented.
         "id": "nemotron-3.5-super-vl:free",
         "provider": "NVIDIA",
         "tier": "green",
         "carbon_score": 5,
-        "capability": "medium",
+        # Promoted from medium: it is the only other 120B-class free model, and
+        # `complex` filters to `high` — without it that tier has one candidate.
+        "capability": "high",
         "openrouter_id": "nvidia/nemotron-3.5-super-vl:free",
         "description": "120B MoE (12B active) vision-language model, 1M context, image and video input",
         "supports_images": True,
@@ -97,7 +94,6 @@ VISION_MODEL = "nemotron-3.5-super-vl:free"
 # Ordered fallback chain — try these in order if primary fails
 FALLBACK_MODELS = [
     "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "nvidia/nemotron-3-super-120b-a12b:free",
     "nvidia/nemotron-3.5-super-vl:free",
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     "dots-studio/dots-3-note-preview:free",

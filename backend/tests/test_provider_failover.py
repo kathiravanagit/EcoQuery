@@ -1,10 +1,10 @@
-"""OpenRouter -> Google failover, including a provider that answers with no text.
+﻿"""OpenRouter -> Google failover, including a provider that answers with no text.
 
-A provider can return `content: ""` — a safety block, or a `max_tokens` budget
+A provider can return `content: ""` â€” a safety block, or a `max_tokens` budget
 a reasoning model spends before it emits anything (gemini-flash-latest returns
 `content=None` at `max_tokens=16`). That used to fall through without being
 recorded, so the caller was told "all configured providers failed" while
-`provider_attempts` showed the provider as never tried — which reads as a
+`provider_attempts` showed the provider as never tried â€” which reads as a
 broken Google key when the key is fine.
 
 These tests pin both halves: the failover has to happen, and every attempt has
@@ -32,15 +32,15 @@ GROUPED = {
 MSGS = [{"role": "user", "content": "hi"}]
 
 
-# ── Invocation helpers (call the real implementation past conftest's patch) ───
+# â”€â”€ Invocation helpers (call the real implementation past conftest's patch) â”€â”€â”€
 
-def _chat(model_id="nvidia/nemotron-3-super-120b-a12b:free", max_tokens=16):
+def _chat(model_id="nvidia/nemotron-3.5-super-vl:free", max_tokens=16):
     return asyncio.run(
         ProviderRouter.chat_completion(provider_router, model_id, MSGS, max_tokens)
     )
 
 
-def _stream(model_id="nvidia/nemotron-3-super-120b-a12b:free", max_tokens=16):
+def _stream(model_id="nvidia/nemotron-3.5-super-vl:free", max_tokens=16):
     """Not `async def`: returns the async generator itself."""
     return ProviderRouter.stream_completion(provider_router, model_id, MSGS, max_tokens)
 
@@ -55,7 +55,7 @@ def _collect(agen):
     return asyncio.run(drain())
 
 
-# ── Fake transports ──────────────────────────────────────────────────────────
+# â”€â”€ Fake transports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async def _empty_openrouter(api_key, base_url, target_model, messages, max_tokens):
     """OpenRouter returns no text; Google answers."""
@@ -113,7 +113,7 @@ def _enter(patches):
     return stack
 
 
-# ── Non-streaming ────────────────────────────────────────────────────────────
+# â”€â”€ Non-streaming â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def test_no_text_from_openrouter_still_reaches_google(caplog):
     with _enter(_patched()), \
@@ -171,7 +171,7 @@ def test_empty_response_is_logged_against_the_key(caplog):
                for call in log_usage.call_args_list)
 
 
-# ── Streaming ────────────────────────────────────────────────────────────────
+# â”€â”€ Streaming â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def test_stream_with_no_tokens_from_openrouter_falls_through_to_google():
     with _enter(_patched()), \

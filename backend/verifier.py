@@ -29,7 +29,6 @@ WARMUP_SECONDS = 30
 ESTIMATED_THRESHOLDS: Dict[str, Dict[str, float]] = {
     # ── Actual EcoQuery catalog ───────────────────────────────────────────
     "nemotron-3-ultra-550b-a55b:free": {"min_tps": 8.0, "max_tps": 150.0, "expected_tps": 45.0, "avg_latency_s": 10.0},
-    "nemotron-3-super-120b-a12b:free": {"min_tps": 15.0, "max_tps": 220.0, "expected_tps": 70.0, "avg_latency_s": 7.5},
     "dots-3-note-preview:free": {"min_tps": 20.0, "max_tps": 250.0, "expected_tps": 75.0, "avg_latency_s": 7.0},
     # Bare generation measured at 188.6 tps median (131-197) and 2.12 s over
     # three live calls. These are end-to-end handler figures, so they sit below
@@ -40,6 +39,11 @@ ESTIMATED_THRESHOLDS: Dict[str, Dict[str, float]] = {
     "lfm-2.5-2.6b:free": {"min_tps": 30.0, "max_tps": 300.0, "expected_tps": 120.0, "avg_latency_s": 5.0},
 
     # ── Retired catalog entries (historical ledger records only) ──────────
+    # OpenRouter kept the paid id but dropped the `:free` one, so the slot went
+    # to `nemotron-3.5-super-vl`, the other free 120B/12B-active model already
+    # in the catalog. Records written while this one was live still need a
+    # threshold.
+    "nemotron-3-super-120b-a12b:free": {"min_tps": 15.0, "max_tps": 220.0, "expected_tps": 70.0, "avg_latency_s": 7.5},
     # OpenRouter retired every qwen free model; this one had to leave the
     # catalog, but records written while it was live still need a threshold.
     "qwen3.8-27b:free": {"min_tps": 25.0, "max_tps": 280.0, "expected_tps": 100.0, "avg_latency_s": 5.5},

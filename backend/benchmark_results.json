@@ -112,13 +112,13 @@
   "ecoquery_model_selection": {
     "simple": "lfm-2.5-2.6b:free",
     "medium": "north-mini-code:free",
-    "complex": "nemotron-3-super-120b-a12b:free"
+    "complex": "nemotron-3.5-super-vl:free"
   },
   "provenance": {
-    "git_commit": "d3ec5ed73a9c7479e30ed543b44ea3025e5dce1a",
+    "git_commit": "26e00637b525bf9b8c5f9dcdaebb7e756ebf2ef1",
     "catalog_version": {
-      "digest": "sha256:bb982f19a00243c0da816ee2ab11aa393170e138e40a2226bc138435c482c716",
-      "entry_count": 7
+      "digest": "sha256:e6ea72e3bf3b549667266b36e18966492692e9b65c1bf0270aa14761d7f1fb75",
+      "entry_count": 6
     },
     "prompt_count": 30,
     "prompt_set_hash": "sha256:083524bcb3a69ee175850691be9bfb37a1fa32af156cc8c7ca0a590990618133",
@@ -127,7 +127,6 @@
       "dots-studio/dots-3-note-preview:free",
       "liquid/lfm-2.5-2.6b:free",
       "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-      "nvidia/nemotron-3-super-120b-a12b:free",
       "nvidia/nemotron-3-ultra-550b-a55b:free",
       "nvidia/nemotron-3.5-super-vl:free"
     ],
@@ -140,6 +139,6 @@
       "python": "3.13.15",
       "platform": "Windows-11-10.0.22631-SP0"
     },
-    "generated_at": "2026-10-15T16:22:54.115963+00:00"
+    "generated_at": "2026-10-29T10:20:24.231352+00:00"
   }
 }

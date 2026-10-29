@@ -232,16 +232,16 @@ class GreenProviderRouter:
         # retired slug here silently routes every greenest-provider query into a
         # 404/charge.
         GREEN_MODELS = {
-            "google": "nvidia/nemotron-3-super-120b-a12b:free",
+            "google": "nvidia/nemotron-3.5-super-vl:free",
             "meta": "dots-studio/dots-3-note-preview:free",
-            "mistral": "nvidia/nemotron-3-super-120b-a12b:free",
+            "mistral": "nvidia/nemotron-3.5-super-vl:free",
             "nvidia": "nvidia/nemotron-3-ultra-550b-a55b:free",
-            "cohere": "nvidia/nemotron-3-super-120b-a12b:free",
+            "cohere": "nvidia/nemotron-3.5-super-vl:free",
             "anthropic": "nvidia/nemotron-3-ultra-550b-a55b:free",
-            "microsoft": "nvidia/nemotron-3-super-120b-a12b:free",
-            "amazon": "nvidia/nemotron-3-super-120b-a12b:free",
-            "deepseek": "nvidia/nemotron-3-super-120b-a12b:free",
-            "xiaomi": "nvidia/nemotron-3-super-120b-a12b:free",
+            "microsoft": "nvidia/nemotron-3.5-super-vl:free",
+            "amazon": "nvidia/nemotron-3.5-super-vl:free",
+            "deepseek": "nvidia/nemotron-3.5-super-vl:free",
+            "xiaomi": "nvidia/nemotron-3.5-super-vl:free",
         }
 
         return GREEN_MODELS.get(provider, "nvidia/nemotron-3-ultra-550b-a55b:free")

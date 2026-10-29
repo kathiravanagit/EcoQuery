@@ -20,7 +20,7 @@ Relative to always-largest, the router cuts estimated CO2e by 59% (0.0922 g → 
 | --- | --- |
 | Simple | `lfm-2.5-2.6b:free` |
 | Medium | `north-mini-code:free` |
-| Complex | `nemotron-3-super-120b-a12b:free` |
+| Complex | `nemotron-3.5-super-vl:free` |
 
 A `medium` query with classifier confidence below 0.75 is escalated to the
 `complex` selection, since the router only trusts its own tier guess when the

@@ -20,7 +20,6 @@ SUPPORTED_ROUTING_MODES = ("green", "balanced", "quality", "fast", "low-cost")
 # is good enough", so the tiers only separate if these are ordered sensibly.
 MODEL_LATENCY = {
     "nemotron-3-ultra-550b-a55b:free": 2.5,
-    "nemotron-3-super-120b-a12b:free": 2.1,
     "nemotron-3.5-super-vl:free": 2.1,
     "dots-3-note-preview:free": 1.9,
     "nemotron-3-nano-omni-30b-a3b-reasoning:free": 1.7,
