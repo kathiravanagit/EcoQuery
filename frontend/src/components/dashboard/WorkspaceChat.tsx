@@ -153,7 +153,7 @@ const WorkspaceChat = ({ token }: Props) => {
     if (!input.trim() || !token) return;
     
     const userMsg = input;
-    const conversation = messages.filter(m => m.role !== 'system');
+    const conversation = messages.filter(m => m.role !== 'system' && Boolean(m.content?.trim()));
     
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setInput('');

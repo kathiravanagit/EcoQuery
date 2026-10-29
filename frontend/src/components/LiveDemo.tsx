@@ -338,7 +338,7 @@ const LiveDemo = () => {
         headers: byokHeaders(),
         body: {
           message: userMsg,
-          conversation: messages.filter(m => m.role !== 'system'),
+          conversation: messages.filter(m => m.role !== 'system' && Boolean(m.content?.trim())),
           ...(overrideModel ? { model_id: overrideModel } : {}),
           ...(attachedImages.length > 0 ? { images: attachedImages } : {}),
         },

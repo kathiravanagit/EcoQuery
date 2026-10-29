@@ -35,7 +35,7 @@ PROVIDER_BASE_URLS = {
 # stays current without a code change. Grok is in the same position: it cannot
 # take an OpenRouter slug either, so it answers on an xAI model of its own.
 PROVIDER_FALLBACK_MODELS = {
-    "google": "gemini-flash-latest",
+    "google": os.getenv("GOOGLE_MODEL") or "gemini-flash-latest",
     # Overridable because the health probe is the only thing that can confirm
     # an xAI model id, and that needs a credited account to reach. The `or` is
     # load-bearing: `os.getenv(k, default)` only applies when the variable is
@@ -307,64 +307,71 @@ class ProviderRouter:
                 target_model = provider_target_model(provider, model_id)
                 base_url = PROVIDER_BASE_URLS.get(provider)
                 
-                try:
-                    started_at = time.perf_counter()
-                    result = await self._call_provider(api_key, base_url, target_model, messages, max_tokens)
-                    latency = round(time.perf_counter() - started_at, 3)
-                    if not (result.get("content") or "").strip():
-                        # The provider answered, but with no text: a safety block,
-                        # or a `max_tokens` budget a reasoning model spends before
-                        # it emits a token (gemini-flash-latest returns content=None
-                        # at max_tokens=16). Falling through unrecorded left the
-                        # request dying with "all providers failed" while
-                        # `provider_attempts` showed this provider as never tried.
-                        attempts.append({"provider": provider, "model": target_model, "status": "empty_response", "latency_seconds": latency, "failure_reason": "EmptyContent"})
+                models_to_try = [target_model]
+                if provider == "openrouter" and not is_byok:
+                    try:
+                        from models import FALLBACK_MODELS
+                        for fb in FALLBACK_MODELS:
+                            if fb != target_model and fb not in models_to_try:
+                                models_to_try.append(fb)
+                    except ImportError:
+                        pass
+
+                succeeded = False
+                recorded_attempt = False
+                for cur_model in models_to_try:
+                    try:
+                        started_at = time.perf_counter()
+                        result = await self._call_provider(api_key, base_url, cur_model, messages, max_tokens)
+                        latency = round(time.perf_counter() - started_at, 3)
+                        if not (result.get("content") or "").strip():
+                            attempts.append({"provider": provider, "model": cur_model, "status": "empty_response", "latency_seconds": latency, "failure_reason": "EmptyContent"})
+                            if not is_byok:
+                                key_manager.log_usage(key_id, provider, cur_model, 0, "empty response")
+                            logger.warning(f"{provider} returned no text for {cur_model}; trying the next provider")
+                            recorded_attempt = True
+                            break
+                        attempts.append({"provider": provider, "model": cur_model, "status": "success", "latency_seconds": latency})
+                        provider_breaker.record_success(provider)
                         if not is_byok:
-                            key_manager.log_usage(key_id, provider, target_model, 0, "empty response")
-                        logger.warning(f"{provider} returned no text for {target_model}; trying the next provider")
-                        continue
-                    attempts.append({"provider": provider, "model": target_model, "status": "success", "latency_seconds": latency})
-                    provider_breaker.record_success(provider)
-                    if not is_byok:
-                        key_manager.log_usage(key_id, provider, target_model, result.get("usage", {}).get("completion_tokens", 0), "success")
-                    logger.info(f"Successfully generated with {provider} using model {target_model}")
-                    result["provider_lineage"] = {
-                        "requested_provider": "openrouter",
-                        "requested_model": model_id,
-                        "attempted_providers": attempts,
-                        "final_provider": provider,
-                        "final_model": target_model,
-                        "fallback_reason": "provider fallback" if len(attempts) > 1 else None,
-                        "success": True,
-                        # Which credential served the call — never the key.
-                        "byok_used": is_byok,
-                        # Per-provider key ownership for this request. Values
-                        # only — a credential is never echoed back.
-                        "key_source": _key_source(grouped_keys),
-                    }
-                    return result
-                except Exception as e:
-                    last_error = e
-                    attempts.append({"provider": provider, "model": target_model, "status": "failed", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": type(e).__name__})
-                    if is_outage(e):
-                        # A 400 means we wrote the request badly; a 429 or a
-                        # timeout means this provider did not serve us. Only
-                        # the second kind earns a trip.
+                            key_manager.log_usage(key_id, provider, cur_model, result.get("usage", {}).get("completion_tokens", 0), "success")
+                        logger.info(f"Successfully generated with {provider} using model {cur_model}")
+                        result["provider_lineage"] = {
+                            "requested_provider": "openrouter",
+                            "requested_model": model_id,
+                            "attempted_providers": attempts,
+                            "final_provider": provider,
+                            "final_model": cur_model,
+                            "fallback_reason": "provider fallback" if len(attempts) > 1 or cur_model != target_model else None,
+                            "success": True,
+                            "byok_used": is_byok,
+                            "key_source": _key_source(grouped_keys),
+                        }
+                        succeeded = True
+                        return result
+                    except Exception as e:
+                        last_error = e
+                        err_str = str(e).lower()
+                        if any(code in err_str for code in ("401", "403", "expired", "invalid_api_key")):
+                            break
+                        if cur_model != models_to_try[-1] and any(term in err_str for term in ("429", "rate limit", "ratelimit", "404", "not found")):
+                            logger.warning(f"{provider} model {cur_model} rate-limited/unavailable ({type(e).__name__}); trying next model in chain")
+                            continue
+                        break
+
+                if not succeeded and not recorded_attempt:
+                    attempts.append({"provider": provider, "model": target_model, "status": "failed", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": type(last_error).__name__})
+                    if is_outage(last_error):
                         provider_breaker.record_failure(provider)
                     if is_byok:
-                        # The credential belongs to the caller: log the exception
-                        # type only (provider SDK errors can quote the key), record
-                        # no usage against a server key, and never mark one
-                        # inactive because of it.
                         logger.warning(
                             "Supplied API key rejected by %s (%s); falling back to server keys",
-                            provider, type(e).__name__,
+                            provider, type(last_error).__name__,
                         )
                     else:
-                        logger.warning(f"Key {key_id} for {provider} failed: {e}")
-                        key_manager.log_usage(key_id, provider, target_model, 0, f"error: {str(e)[:50]}")
-
-                        if any(code in str(e).lower() for code in ("401", "403", "expired", "invalid")):
+                        logger.warning(f"Key {key_id} for {provider} failed: {last_error}")
+                        key_manager.log_usage(key_id, provider, target_model, 0, f"error: {str(last_error)[:50]}")
+                        if any(code in str(last_error).lower() for code in ("401", "403", "expired", "invalid")):
                             key_manager.mark_key_inactive(key_id)
         
         # A supplied key with no server key behind it: the caller's credential
@@ -462,71 +469,94 @@ class ProviderRouter:
                 is_byok = bool(key_data.get("byok"))
                 
                 target_model = provider_target_model(provider, model_id)
-                
                 base_url = PROVIDER_BASE_URLS.get(provider)
                 
-                try:
-                    started_at = time.perf_counter()
-                    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=PROVIDER_TIMEOUT_SECONDS)
-                    stream = await client.chat.completions.create(
-                        model=target_model,
-                        messages=messages,
-                        max_tokens=max_tokens,
-                        stream=True,
-                    )
-                    
-                    emitted = False
-                    async for chunk in stream:
-                        delta = chunk.choices[0].delta if chunk.choices else None
-                        token = (delta.content or "") if delta else ""
-                        if token:
-                            emitted = True
-                            yield {"token": token}
-                            
-                    if emitted:
-                        attempts.append({"provider": provider, "model": target_model, "status": "success", "latency_seconds": round(time.perf_counter() - started_at, 3)})
-                        provider_breaker.record_success(provider)
-                        if not is_byok:
-                            key_manager.log_usage(key_id, provider, target_model, 10, "success") # Approx tokens for stream
-                        yield {"provider_lineage": {
-                            "requested_provider": "openrouter",
-                            "requested_model": model_id,
-                            "attempted_providers": attempts,
-                            "final_provider": provider,
-                            "final_model": target_model,
-                            "fallback_reason": "provider fallback" if len(attempts) > 1 else None,
-                            "success": True,
-                            # Which credential served the call — never the key.
-                            "byok_used": is_byok,
-                            "key_source": _key_source(grouped_keys),
-                        }}
-                        return
+                models_to_try = [target_model]
+                if provider == "openrouter" and not is_byok:
+                    try:
+                        from models import FALLBACK_MODELS
+                        for fb in FALLBACK_MODELS:
+                            if fb != target_model and fb not in models_to_try:
+                                models_to_try.append(fb)
+                    except ImportError:
+                        pass
 
-                    # A stream that opened cleanly but produced no tokens has to
-                    # be recorded like any other failure, otherwise the caller is
-                    # told every provider failed while this one shows as skipped.
-                    attempts.append({"provider": provider, "model": target_model, "status": "empty_response", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": "EmptyContent"})
-                    if not is_byok:
-                        key_manager.log_usage(key_id, provider, target_model, 0, "empty response")
-                    logger.warning(f"Streaming from {provider} produced no text for {target_model}; trying the next provider")
-                        
-                except Exception as e:
-                    last_error = e
-                    attempts.append({"provider": provider, "model": target_model, "status": "failed", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": type(e).__name__})
-                    if is_outage(e):
-                        provider_breaker.record_failure(provider)
-                    if is_byok:
-                        # Caller-owned credential: exception type only, and no
-                        # server key is logged or deactivated because of it.
-                        logger.warning(
-                            "Streaming: supplied API key rejected by %s (%s); falling back to server keys",
-                            provider, type(e).__name__,
+                succeeded = False
+                recorded_attempt = False
+                for cur_model in models_to_try:
+                    try:
+                        started_at = time.perf_counter()
+                        client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=PROVIDER_TIMEOUT_SECONDS)
+                        stream = await client.chat.completions.create(
+                            model=cur_model,
+                            messages=messages,
+                            max_tokens=max_tokens,
+                            stream=True,
                         )
-                    else:
-                        logger.warning(f"Streaming failed for {provider} key {key_id}: {e}")
-                        key_manager.log_usage(key_id, provider, target_model, 0, f"error: {str(e)[:50]}")
-                        if any(code in str(e).lower() for code in ("401", "403", "expired", "invalid")):
-                            key_manager.mark_key_inactive(key_id)
+                    
+                        emitted = False
+                        async for chunk in stream:
+                            delta = chunk.choices[0].delta if chunk.choices else None
+                            token = (delta.content or "") if delta else ""
+                            if token:
+                                emitted = True
+                                yield {"token": token}
+                                
+                        if emitted:
+                            attempts.append({"provider": provider, "model": cur_model, "status": "success", "latency_seconds": round(time.perf_counter() - started_at, 3)})
+                            provider_breaker.record_success(provider)
+                            if not is_byok:
+                                key_manager.log_usage(key_id, provider, cur_model, 10, "success") # Approx tokens for stream
+                            yield {"provider_lineage": {
+                                "requested_provider": "openrouter",
+                                "requested_model": model_id,
+                                "attempted_providers": attempts,
+                                "final_provider": provider,
+                                "final_model": cur_model,
+                                "fallback_reason": "provider fallback" if len(attempts) > 1 or cur_model != target_model else None,
+                                "success": True,
+                                # Which credential served the call — never the key.
+                                "byok_used": is_byok,
+                                "key_source": _key_source(grouped_keys),
+                            }}
+                            succeeded = True
+                            return
+
+                        # A stream that opened cleanly but produced no tokens has to
+                        # be recorded like any other failure, otherwise the caller is
+                        # told every provider failed while this one shows as skipped.
+                        attempts.append({"provider": provider, "model": cur_model, "status": "empty_response", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": "EmptyContent"})
+                        if not is_byok:
+                            key_manager.log_usage(key_id, provider, cur_model, 0, "empty response")
+                        logger.warning(f"Streaming from {provider} produced no text for {cur_model}; trying the next provider")
+                        recorded_attempt = True
+                        break
+                    except Exception as e:
+                        last_error = e
+                        err_str = str(e).lower()
+                        if any(code in err_str for code in ("401", "403", "expired", "invalid_api_key")):
+                            break
+                        if cur_model != models_to_try[-1] and any(term in err_str for term in ("429", "rate limit", "ratelimit", "404", "not found")):
+                            logger.warning(f"Streaming: {provider} model {cur_model} failed ({type(e).__name__}); trying next model in chain")
+                            continue
+                        break
+
+                if not succeeded and not recorded_attempt:
+                    attempts.append({"provider": provider, "model": target_model, "status": "failed", "latency_seconds": round(time.perf_counter() - started_at, 3), "failure_reason": type(last_error).__name__})
+                if is_outage(last_error):
+                    provider_breaker.record_failure(provider)
+                if is_byok:
+                    # Caller-owned credential: exception type only, and no
+                    # server key is logged or deactivated because of it.
+                    logger.warning(
+                        "Streaming: supplied API key rejected by %s (%s); falling back to server keys",
+                        provider, type(last_error).__name__,
+                    )
+                else:
+                    logger.warning(f"Streaming failed for {provider} key {key_id}: {last_error}")
+                    key_manager.log_usage(key_id, provider, target_model, 0, f"error: {str(last_error)[:50]}")
+                    if any(code in str(last_error).lower() for code in ("401", "403", "expired", "invalid")):
+                        key_manager.mark_key_inactive(key_id)
 
         if byok_injected and server_key_count == 0:
             logger.warning(
