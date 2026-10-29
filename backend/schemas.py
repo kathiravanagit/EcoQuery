@@ -50,7 +50,9 @@ class ChatRequest(BaseModel):
             if role not in ('user', 'assistant'):
                 raise ValueError("conversation roles must be 'user' or 'assistant'")
             content = item.get('content')
-            if not isinstance(content, str) or not content.strip():
+            if not isinstance(content, str):
+                raise ValueError('conversation content must be a non-empty string')
+            if not content.strip():
                 continue
             if len(content) > 4000:
                 raise ValueError('conversation entries must be 4000 characters or fewer')
